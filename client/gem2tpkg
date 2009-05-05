@@ -1,0 +1,426 @@
+#!/usr/bin/ruby -w
+
+# Ensure we can find tpkg.rb
+$:.unshift File.dirname(__FILE__)
+
+require 'fileutils' # FileUtils.cp, rm, etc.
+require 'tempfile'  # Tempfile
+require 'optparse'
+require 'shellwords'
+require 'tpkg'
+require 'rubygems'
+require 'facter'
+
+RUBYDEPS = ['ruby']
+# T_RUBY_BASE = "/home/t/ruby"
+T_RUBY_BASE = "#{Tpkg::DEFAULT_BASE}/#{RUBYDEPS.first}".freeze
+DEFAULT_GEM_COMMAND = "#{T_RUBY_BASE}/bin/gem"
+# Names of packages containing ruby and gems.  Dependencies on these
+# will be added to generated packages, so that if a user installs a gem
+# tpkg will pull in ruby and gems.
+
+# Haven't found a Ruby method for creating temporary directories,
+# so create a temporary file and replace it with a directory.
+def tempdir(basename, tmpdir=Dir::tmpdir)
+  tmpfile = Tempfile.new(basename, tmpdir)
+  tmpdir = tmpfile.path
+  tmpfile.close!
+  Dir.mkdir(tmpdir)
+  tmpdir
+end
+
+# Handle command line arguments
+@gem = nil
+@gemver = nil
+@pkgver = 1
+@extradeps = {}
+@nativedeps = {}
+@installopts = []
+@buildopts = []
+@gemcmd = DEFAULT_GEM_COMMAND
+opts = OptionParser.new
+opts.banner = 'Usage: gem2tpkg [options] GEMNAME'
+opts.on('--version', '-v', '=VERSION', 'Version of gem to install') do |opt|
+  @gemver = "-v #{opt}"
+end
+opts.on('--package-version', '--pv', '=PKGVER', 'Package version to use in tpkg, defaults to 1') do |opt|
+  @pkgver = opt
+end
+opts.on('--extra-deps', '=EXTRADEPS', Array, 'Extra dependencies to add to the package') do |opt|
+  # Example: --extra-deps=foo,1.0,1.9999,bar,4.5,4.5,blah,,,
+  while !opt.empty?
+    dep = opt.shift
+    # These are optional, shift will return nil if they aren't present
+    # and we'll handle that properly when creating tpkg.xml
+    depminver = opt.shift
+    depmaxver = opt.shift
+    @extradeps[dep] = {}
+    @extradeps[dep][:minimum_version] = depminver
+    @extradeps[dep][:maximum_version] = depmaxver
+  end
+end
+opts.on('--native-deps', '=NATIVEDEPS', Array, 'Native dependencies to add to the package') do |opt|
+  # Example: --native-deps=foo,1.0,1.9999,bar,4.5,4.5,blah,,,
+  while !opt.empty?
+    dep = opt.shift
+    # These are optional, shift will return nil if they aren't present
+    # and we'll handle that properly when creating tpkg.xml
+    depminver = opt.shift
+    depmaxver = opt.shift
+    @nativedeps[dep] = {}
+    @nativedeps[dep][:minimum_version] = depminver
+    @nativedeps[dep][:maximum_version] = depmaxver
+  end
+end
+opts.on('--install-options', '=INSTALLOPTS', 'Extra options to gem install') do |opt|
+  @installopts = Shellwords.shellwords(opt)
+end
+opts.on('--build-options', '=BUILDOPTS', 'Extra options to gem build') do |opt|
+  @buildopts = Shellwords.shellwords(opt)
+end
+opts.on('--gem-cmd', '=GEMCMD', 'Path to gem command') do |opt|
+  @gemcmd = opt
+end
+opts.on_tail("-h", "--help", "Show this message") do
+  puts opts
+  exit
+end
+
+leftover = opts.parse(ARGV)
+
+if leftover.length == 1
+  @gem = leftover.shift
+else
+  puts opts
+  exit
+end
+
+# Create the directory we want gem to install into
+@gemdir = tempdir('gem2tpkg')
+ENV['GEM_HOME'] = @gemdir
+ENV['GEM_PATH'] = @gemdir
+
+# Install the gem
+geminst = [@gemcmd, 'install', @gem, '--no-rdoc', '--no-ri']
+if @gemver
+  geminst << @gemver
+end
+# Pass through any options the user specified, might be necessary for
+# finding libraries, etc.
+if !@installopts.empty?
+  geminst.concat(@installopts)
+end
+if !@buildopts.empty?
+  geminst << '--'
+  geminst.concat(@buildopts)
+end
+r = system(*geminst)
+if !r
+  abort('gem install failed')
+end
+
+@already_packaged = []
+def package(gem)
+  pkgfiles = []
+  
+  return pkgfiles if @already_packaged.include?(gem)
+  
+  puts "Packaging #{gem}"
+  
+  gemsdir = nil
+  IO.popen("#{@gemcmd} contents #{gem}") do |pipe|
+    line = pipe.gets
+    line.chomp!
+    # A line of output looks like:
+    # /tmp/gem2tpkg.5833.0/gems/rake-0.8.4/install.rb
+    # We want to extract this portion to 'gemsdir':
+    # /tmp/gem2tpkg.5833.0/gems/rake-0.8.4
+    line =~ %r{(#{@gemdir}/gems/[^/]+)/}
+    gemsdir = $1
+    if gemsdir.nil? || gemsdir.empty?
+      abort "gemsdir empty or nil: #{line.inspect} for gem: #{gem}"
+    end
+    # Sink the rest of the output from gem to avoid creating a broken pipe
+    pipe.read
+  end
+  if !$?.success?
+    abort 'gem contents failed'
+  end
+  
+  # gemsdir will have something like
+  # /tmp/gem2tpkg.5833.0/gems/rake-0.8.4 and the gemspec will be
+  # something like
+  # /tmp/gem2tpkg.5833.0/specifications/rake-0.8.4.gemspec.  So we
+  # use the basename of gemsdir as the core of the gemspec
+  # filename.
+  gemspecfile = File.join(@gemdir,
+                          'specifications',
+                           File.basename(gemsdir) + '.gemspec')
+  
+  # Load the gemspec
+  gemspec = Gem::Specification.load(gemspecfile)
+  
+  # Package any dependencies
+  # Example output:
+  # Gem rails-2.3.2
+  #  rake (>= 0.8.3)
+  #  activesupport (= 2.3.2)
+  #  activerecord (= 2.3.2)
+  #  actionpack (= 2.3.2)
+  #  actionmailer (= 2.3.2)
+  #  activeresource (= 2.3.2)
+  # Now that we're loading the gemspec we could read this out of the
+  # gemspec instead, but this is already written and working so I'm
+  # leaving it alone for now.
+  deps = {}
+  IO.popen("#{@gemcmd} dependency #{gem}") do |pipe|
+    pipe.each_line do |line|
+      next if line =~ /^Gem /  # Skip header line
+      next if line =~ /^\s*$/  # Skip blank lines
+
+      # Skip development dependencies for now.  We don't need them for
+      # running production code.
+      next if line =~ /, development\)$/
+      line.chomp!
+      # Example lines:
+      # These two are for the same installed state but different
+      # versions of gem:
+      #   activesupport (= 2.3.2)
+      #   activesupport (= 2.3.2, runtime)
+      depgem, operator, depver = line.split
+      operator.sub!(/^\(/, '')
+      depver.sub!(/\)$/, '')
+      depver.sub!(/,$/, '')
+      # Save the dependency info for tpkg.xml
+      # http://rubygems.org/read/chapter/16
+      deps[depgem] = {}
+      case operator
+      when '='
+        deps[depgem][:minimum_version] = depver
+        deps[depgem][:maximum_version] = depver
+      when '!='
+        # Not quite sure what to do with this one
+        abort "Unknown version dependency: #{line}"
+      when '>='
+        deps[depgem][:minimum_version] = depver
+      when '>'
+        # If the gem seems to follow the standard gem version convention
+        # we can achieve this by incrementing the build number
+        # http://rubygems.org/read/chapter/7
+        verparts = depver.split('.')
+        if depver =~ /^[\d\.]+/ && verparts.length <=3
+          verparts.map! { |v| v.to_i }
+          # Pad with zeros if necessary
+          (verparts.length...3).each { verparts << 0 }
+          verparts[2] += 1
+          minver = "#{verparts[0]}.#{verparts[1]}.#{verparts[3]}"
+          deps[depgem][:minimum_version] = minver
+        else
+          # Fall back to this, which isn't exactly correct but
+          # hopefully better than nothing
+          warn "Can't parse depver #{depver}, falling back to approximation"
+          deps[depgem][:minimum_version] = depver
+        end
+      when '<='
+        deps[depgem][:maximum_version] = depver
+      when '<'
+        # If the gem seems to follow the standard gem version convention
+        # we can achieve this by decrementing the build number
+        # http://rubygems.org/read/chapter/7
+        verparts = depver.split('.')
+        if depver =~ /^[\d\.]+/ && verparts.length <=3
+          verparts.map! { |v| v.to_i }
+          # Pad with zeros if necessary
+          (verparts.length...3).each { verparts << 0 }
+          if verparts[2] == 0
+            if verparts[1] == 0  # 1.0.0 -> 0.9999.9999
+              verparts[0] -= 1
+              verparts[1] = 9999
+              verparts[2] = 9999
+            else                 # 1.1.0 -> 1.0.9999
+              verparts[1] -= 1
+              verparts[2] = 9999
+            end
+          else                   # 1.1.1 -> 1.1.0
+            verparts[2] -= 1
+          end
+          maxver = "#{verparts[0]}.#{verparts[1]}.#{verparts[3]}"
+          deps[depgem][:maximum_version] = maxver
+        else
+          # Fall back to this, which isn't exactly correct but
+          # hopefully better than nothing
+          warn "Can't parse depver #{depver}, falling back to approximation"
+          deps[depgem][:maximum_version] = depver
+        end
+      when '~>'
+        # ~> 2.2 is equivalent to >= 2.2 and < 3
+        deps[depgem][:minimum_version] = depver
+        majorver = depver.split('.').to_i
+        maxver = "#{majorver-1}.9999.9999"
+        deps[depgem][:maximum_version] = maxver
+      end
+      # Package the dependency
+      pkgfiles.concat(package(depgem))
+    end
+  end
+  if !$?.success?
+    abort 'gem dependency failed'
+  end
+  
+  # The directory where we make our package
+  pkgdir = tempdir('gem2tpkg')
+  pkgbasedir = File.join(pkgdir, "/root/#{T_RUBY_BASE}/lib/ruby/gems/1.8")
+  FileUtils.mkdir_p(pkgbasedir)
+  pkggemdir = File.join(pkgbasedir, 'gems')
+  FileUtils.mkdir_p(pkggemdir)
+  pkgspecdir = File.join(pkgbasedir, 'specifications')
+  FileUtils.mkdir_p(pkgspecdir)
+  
+  # Copy the gems directory over
+  system("#{Tpkg::find_tar} -C #{File.dirname(gemsdir)} -cf - #{File.basename(gemsdir)} | #{Tpkg::find_tar} -C #{pkggemdir} -xpf -")
+  
+  # If a gem flags any files as executables a wrapper script is
+  # created by gem for each executable in a bin directory at
+  # the top level of the gem directory structure.  We want to
+  # copy those wrapper scripts into the package.
+  binfiles = []
+  gemspec.executables.each do |exec|
+    binfiles << File.join(@gemdir, 'bin', exec)
+  end
+  if !binfiles.empty?
+    bindir = "#{pkgdir}/root/#{T_RUBY_BASE}/bin"
+    FileUtils.mkdir_p(bindir)
+    binfiles.each do |binfile|
+      FileUtils.cp(binfile, bindir, :preserve => true)
+    end
+  end
+  
+  # Copy over the gemspec file
+  FileUtils.cp(gemspecfile, pkgspecdir, :preserve => true)
+  
+  # Add tpkg.xml
+  os = nil
+  arch = nil
+  File.open(File.join(pkgdir, 'tpkg.xml'), 'w') do |file|
+    file.puts '<?xml version="1.0" encoding="UTF-8"?>'
+    file.puts '<!DOCTYPE tpkg SYSTEM "http://tpkg.sourceforge.net/tpkg-1.0.dtd">'
+    file.puts '<tpkg>'
+    file.puts "  <name>gem-#{gem}</name>"
+    file.puts "  <version>#{gemspec.version.to_s}</version>"
+    file.puts "  <package_version>#{@pkgver}</package_version>"
+    file.puts '  <maintainer>gem2tpkg</maintainer>'
+    # If the gemspec lists any extensions then the package has native
+    # code and needs to be flagged as specific to the OS and architecture
+    if gemspec.extensions && !gemspec.extensions.empty?
+      os = Tpkg::get_os
+      if os =~ /RedHat-(.*)/
+        os = os + ",CentOS-#{$1}"
+      elsif os =~ /CentOS-(.*)/
+        os = os + ",RedHat-#{$1}"
+      end
+      arch = Facter['hardwaremodel'].value
+      file.puts "  <operatingsystem>#{os}</operatingsystem>"
+      file.puts "  <architecture>#{arch}</architecture>"
+    end
+    if !deps.empty? ||
+       !@extradeps.empty? || !@nativedeps.empty? ||
+       !RUBYDEPS.empty?
+      file.puts '  <dependencies>'
+      deps.each do |depgem, depvers|
+        file.puts '    <dependency>'
+        file.puts "      <name>gem-#{depgem}</name>"
+        if depvers[:minimum_version]
+          file.puts "      <minimum_version>#{depvers[:minimum_version]}</minimum_version>"
+        end
+        if depvers[:maximum_version]
+          file.puts "      <maximum_version>#{depvers[:maximum_version]}</maximum_version>"
+        end
+        file.puts '    </dependency>'
+      end
+      @extradeps.each do |extradep, depvers|
+        file.puts '    <dependency>'
+        file.puts "      <name>#{extradep}</name>"
+        if depvers[:minimum_version]
+          file.puts "      <minimum_version>#{depvers[:minimum_version]}</minimum_version>"
+        end
+        if depvers[:maximum_version]
+          file.puts "      <maximum_version>#{depvers[:maximum_version]}</maximum_version>"
+        end
+        file.puts '    </dependency>'
+      end
+      @nativedeps.each do |nativedep, depvers|
+        file.puts '    <dependency>'
+        file.puts "      <name>#{nativedep}</name>"
+        if depvers[:minimum_version]
+          file.puts "      <minimum_version>#{depvers[:minimum_version]}</minimum_version>"
+        end
+        if depvers[:maximum_version]
+          file.puts "      <maximum_version>#{depvers[:maximum_version]}</maximum_version>"
+        end
+        file.puts '      <native/>'
+        file.puts '    </dependency>'
+      end
+      RUBYDEPS.each do |rubydep|
+        file.puts '    <dependency>'
+        file.puts "      <name>#{rubydep}</name>"
+        file.puts '    </dependency>'
+      end
+      file.puts '  </dependencies>'
+    end
+    file.puts '</tpkg>'
+  end
+  
+  # Make package
+  pkgfile = Tpkg::make_package(pkgdir)
+  # If the package is OS-specific then rename the file to reflect that
+  if os
+    # Examples:
+    # FreeBSD-7 -> freebsd7
+    # RedHat-5 -> redhat5
+    # CentOS-5 -> redhat5
+    fileos = Tpkg::get_os.sub('CentOS', 'RedHat').downcase.sub('-', '')
+    newpkgfile = File.join(
+                   File.dirname(pkgfile),
+                   "#{File.basename(pkgfile, '.tpkg')}-#{fileos}-#{arch}.tpkg")
+    File.rename(pkgfile, newpkgfile)
+    pkgfile = newpkgfile
+  end
+  pkgfiles << pkgfile
+  
+  # Cleanup
+  FileUtils.rm_rf(pkgdir)
+  
+  @already_packaged << gem
+  pkgfiles
+end
+
+# Count the number of gems installed
+gemcount = 0
+IO.popen("#{@gemcmd} list") do |pipe|
+  pipe.each_line do |line|
+    next if line.include?('***')  # Skip header line
+    next if line =~ /^\s*$/       # Skip blank lines
+    gemcount += 1
+  end
+end
+if gemcount == 0
+  abort "Zero gems installed according to gem list?"
+end
+
+pkgfiles = package(@gem)
+
+# Make sure the package method made as many packages as there were gems
+# installed
+if pkgfiles.length != gemcount
+  abort "gem count (#{gemcount}) vs pkg count (#{pkgfiles.length}) mismatch"
+end
+
+# Tell the user what packages were created
+puts 'The following packages were created:'
+pkgfiles.each do |pkgfile|
+  puts pkgfile
+end
+
+# Cleanup
+FileUtils.rm_rf(@gemdir)
+

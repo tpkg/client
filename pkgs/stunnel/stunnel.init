@@ -1,0 +1,49 @@
+#!/bin/sh
+
+# Init file for stunnel
+
+BASE=%BASE%
+
+# If there are no config files we can silently exit.  Saves us from
+# having to handle that situation later when we do things like
+# "for config in *.conf", as the shell will literally iterate "*.conf"
+# if the glob doesn't match anything.
+ls $BASE/etc/stunnel/*.conf > /dev/null 2>&1
+if [ $? != 0 ]
+then
+        exit
+fi
+
+case "$1" in
+'start')
+	for config in $BASE/etc/stunnel/*.conf
+	do
+		if [ -x $BASE/bin/stunnel ]; then
+			$BASE/bin/stunnel $config
+		fi
+	done
+	;;
+
+'stop')
+	for config in $BASE/etc/stunnel/*.conf
+	do
+		configbase=`basename $config .conf`
+		if [ -f $BASE/var/lib/stunnel/stunnel-$configbase.pid ]
+		then
+			kill `cat $BASE/var/lib/stunnel/stunnel-$configbase.pid`
+			rm -f $BASE/var/lib/stunnel/stunnel-$configbase.pid
+		fi
+	done
+	;;
+
+'restart')
+	$0 stop
+	$0 start
+	;;
+*)
+	echo "Usage: $0 { start | stop | restart }"
+	exit 1
+	;;
+esac
+exit 0
+

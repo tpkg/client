@@ -1,0 +1,4 @@
+#!/bin/sh
+
+wget --quiet -O - http://www.whatsmyip.us/ | grep -A 3 'Your IP is:' | tail -1 | awk -F\< '{print $1}'
+

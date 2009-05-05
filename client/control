@@ -1,0 +1,7 @@
+Package: tpkg
+Version: 1.1-1
+Maintainer: tpkg-users@lists.sourceforge.net
+Architecture: all
+Depends: ruby, facter, lsb-release, lsb-base
+Description: tpkg client
+

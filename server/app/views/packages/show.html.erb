@@ -1,0 +1,17 @@
+<%- @page_title = "Package: " + h(@package.name) %>
+<h1>Package: <%= h(@package.name) %></h1>
+<p>
+  <strong>Name:</strong>   <%= h(@package.name) %><br />
+  <strong>Version:</strong> <%= h(@package.version) %><br />
+  <strong>Package Version:</strong> <%= h(@package.package_version) %><br />
+  <strong>Maintainer:</strong> <%= h(@package.maintainer) %><br />
+  <strong>OS:</strong> <%= h(@package.os) %><br />
+  <strong>Architecture:</strong> <%= h(@package.arch) %><br />
+  <strong>Description:</strong> <%= h(@package.description) %><br />
+</p>
+<p>
+  <strong>Installed on:</strong>
+  <%- @installed_on.each do |client| -%>
+    <%= link_to client.name, {:controller=>:clients, :action=>:show, :id => client.id}  %>
+  <%- end -%>
+</p>

@@ -1,0 +1,12 @@
+<%- @page_title = "Packages" %>
+<h1>Packages</h1>
+<div id="search_box" style="text-align:right">
+  <%= render :partial => 'shared/search_box', :locals => { :objects => @packages } %>
+</div>
+<div id="results_table">
+<%- if @packages.size > 0 -%>
+  <%= render :partial => 'shared/results_table', :locals => { :objects => @packages } %>
+<%- else -%>
+  No data
+<%- end -%>
+</div>

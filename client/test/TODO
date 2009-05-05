@@ -1,0 +1,30 @@
+# Test that a package with no OS specified will install
+# Test that a package with one matching OS will install
+# Test that a package with a matching OS in a list of OSs will install
+# Test that a package with one non-matching OS will not install
+# Test that a package with a list of non-matching OSs will not install
+
+# Test that a package with no architecture specified will install
+# Test that a package with one matching architecture will install
+# Test that a package with a matching architecture in a list of architectures will install
+# Test that a package with one non-matching architecture will not install
+# Test that a package with a list of non-matching architectures will not install
+
+# Test that preinstall/postinstall/preremove/postremove are run at the right points
+
+# Test that a package with an available dependency in version range will install
+# Test that a package with an unavailable dependency won't install - dep doesn't exist
+# Test that a package with an unavailable dependency won't install - dep below min version
+# Test that a package with an unavailable dependency won't install - dep above max version
+# Test that a package with an unavailable dependency won't install - dep doesn't match on OS
+#  This tests that we properly handle a dependency that matches name and version but not other characteristics
+
+
+# Test that a package which conflicts in name with an already installed package will not install
+# Test that a package which conflicts in files with an already installed package will not install
+
+# Upgrade with no existing install works
+# Upgrade with older install works
+# Upgrade with current install fails
+# Upgrade with newer version fails
+# Upgrade with older version and rollback flag works

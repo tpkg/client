@@ -1,0 +1,7 @@
+<tr class="<%= cycle('odd', 'even') -%>">
+  <td nowrap="nowrap" width="5%">
+    <%= link_to 'View', {:action=>"show", :id => index_row.id}  %> 
+  </td>
+  <td><%= h(index_row.name) %></td>
+  <td><%= h(truncate(index_row.client_packages.collect{ |cp| cp.package.name}.flatten.join(", "), :length => 100)) %></td>
+</tr>

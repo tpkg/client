@@ -1,0 +1,36 @@
+#!/bin/sh
+
+# Init file for mysql
+
+case "$1" in
+'start')
+	if [ ! -d /home/t/var/mysql ]
+	then
+		echo "Initializing MySQL database with mysql_install_db"
+		/home/t/bin/mysql_install_db --user=mysql
+	fi
+	echo "Starting mysqld"
+	/home/t/bin/mysqld_safe --defaults-file=/home/t/etc/my.cnf > /home/t/var/log/mysqld_safe.log 2>&1 &
+	;;
+
+'stop')
+	if [ -f /home/t/var/run/mysqld/mysqld.pid ]
+	then
+		echo "Stopping mysqld"
+		kill `cat /home/t/var/run/mysqld/mysqld.pid`
+	else
+		echo "No pid file for mysqld"
+	fi
+	;;
+
+'restart')
+	$0 stop
+	$0 start
+	;;
+*)
+	echo "Usage: $0 { start | stop | restart }"
+	exit 1
+	;;
+esac
+exit 0
+

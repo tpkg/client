@@ -1,0 +1,25 @@
+<%- @page_title = "Client: " + h(@client.name) %>
+<h1>Client: <%= h(@client.name) %></h1>
+<p>
+  <strong>Installed packages:</strong>
+
+  <table cellspacing="0" class="styled">
+  <thead>
+  <tr><th>Name</th><th>Version</th><th>OS</th><th>arch</th></tr>
+  </thead>
+  <tbody>
+
+  <%- @installed_packages.each do |package| -%>
+    <tr class="<%= cycle('odd', 'even') -%>">
+      <td nowrap="nowrap" width="5%">
+        <%= link_to package.name, {:controller=>:packages, :action=>:show, :id => package.id}  %> 
+      </td>
+      <td><%= package.version %></td>
+      <td><%= package.os %></td>
+      <td><%= package.arch %></td>
+    </tr>
+  <%- end -%>
+
+  </tbody>
+</table>
+</p>

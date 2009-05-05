@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE tpkg SYSTEM "http://tpkg.sourceforge.net/tpkg-1.0.dtd">
+<tpkg>
+  <name>testpkg</name>
+  <version>1.0</version>
+  <package_version>1</package_version>
+  <maintainer>Maintainer</maintainer>
+  <operatingsystem>OS</operatingsystem>
+  <architecture>Architecture</architecture>
+  <description>Description</description>
+  <bugreporting>Bugreporting info</bugreporting>
+  <files>
+  </files>
+</tpkg>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE tpkg SYSTEM "http://tpkg.sourceforge.net/tpkg-1.0.dtd">
+<tpkg>
+  <name>NAME</name>
+  <version>VERSION</version>
+  <package_version>PKGVER</package_version>
+  <maintainer>system.architecture@yplist.flight.yellowpages.com</maintainer>
+  <operatingsystem>OS</operatingsystem>
+  <architecture>ARCH</architecture>
+  <files>
+  </files>
+</tpkg>
+

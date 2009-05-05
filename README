@@ -1,0 +1,31 @@
+tpkg - Unix System Configuration Management
+http://tpkg.sourceforge.net
+
+------------------------------------------------------------------------------
+Setup
+------------------------------------------------------------------------------
+
+See the GettingStarted page on http://tpkg.wiki.sourceforge.net/
+
+------------------------------------------------------------------------------
+Help
+------------------------------------------------------------------------------
+
+If you run into any problems or have any questions you'll find us on the
+tpkg-users mailing list:
+
+https://lists.sourceforge.net/lists/listinfo/tpkg-users
+
+------------------------------------------------------------------------------
+License
+------------------------------------------------------------------------------
+
+License: MIT (http://www.opensource.org/licenses/mit-license.php)
+
+------------------------------------------------------------------------------
+Credits
+------------------------------------------------------------------------------
+
+copyright 2009, AT&T Interactive
+Development by Jason Heiss and Darren Dao
+

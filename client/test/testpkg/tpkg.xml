@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE tpkg SYSTEM "http://tpkg.sourceforge.net/tpkg-1.0.dtd">
+<tpkg>
+  <name>testpkg</name>
+  <version>1.0</version>
+  <package_version>1</package_version>
+  <maintainer>Maintainer</maintainer>
+  <operatingsystem>OS</operatingsystem>
+  <architecture>Architecture</architecture>
+  <description>Description</description>
+  <bugreporting>Bugreporting info</bugreporting>
+  <files>
+    <file_defaults>
+      <posix>
+        <owner>root</owner>
+        <group>root</group>
+        <perms>0444</perms>      
+      </posix>
+    </file_defaults>
+    <file>
+      <path>encfile</path>
+      <encrypt/>
+      <posix>
+        <perms>0400</perms>
+      </posix>
+    </file>
+    <file>
+      <path>precryptfile</path>
+      <encrypt precrypt="true"/>
+      <posix>
+        <perms>0400</perms>
+      </posix>
+    </file>
+    <file>
+      <path>acltest</path>
+      <posix_acl>TODO</posix_acl>
+      <windows_acl>TODO</windows_acl>
+    </file>
+  </files>
+</tpkg>

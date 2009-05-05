@@ -1,0 +1,46 @@
+#!/sbin/sh
+
+PKG=perl
+VER=5.10.0
+PKGVER=1
+OSMAJOR=`facter | grep lsbmajdistrelease | cut -d' ' -f3`
+ARCH=`facter hardwaremodel`
+
+rm -rf $PKG-$VER || exit 1
+tar zxvf $PKG-$VER.tar.gz || exit 1
+cd $PKG-$VER || exit 1
+if [ $ARCH = 'i686' ]
+then
+	# Only turn this on if building on a 32 bit box
+	use64bitint='-Duse64bitint '
+fi
+sh Configure \
+	-de \
+	-Dprefix=/home/t/perl-$VER \
+	$use64bitint \
+	|| exit 1
+make || exit 1
+pkgdir=`mktemp -d -t tpkg.XXXXXX` || exit 1
+cat ../../tpkg.xml | \
+	sed "s/NAME/$PKG/" | \
+	sed "s/VERSION/$VER/" | \
+	sed "s/PKGVER/$PKGVER/" | \
+	sed "s/OS/RedHat-$OSMAJOR,CentOS-$OSMAJOR/" | \
+	sed "s/ARCH/$ARCH/" | \
+	grep -v files > $pkgdir/tpkg.xml
+# Install
+make install DESTDIR=$pkgdir/root || exit 1
+# Remove /home/t/bin/perl, we'll have some mechanism for folks to decide
+# which perl they want to be the default.
+#rm $pkgdir/root/home/t/bin/perl || exit 1
+# Fix perms
+sudo chown -R 0:0 $pkgdir/root
+# Make package
+sudo tpkg --make $pkgdir || exit 1
+# Rename the package to reflect OS and arch
+sudo mv /tmp/$PKG-$VER-$PKGVER.tpkg /tmp/$PKG-$VER-$PKGVER-redhat$OSMAJOR-$ARCH.tpkg
+# Cleanup
+sudo rm -rf $pkgdir
+cd ..
+rm -rf $PKG-$VER
+
