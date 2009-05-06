@@ -1,11 +1,10 @@
-require 'rubygems'
-require 'thread_pool'
-
 $debug = true
 
 class Deployer
   def self.new
     begin
+      require 'rubygems'
+      require 'thread_pool'
       require 'net/ssh'
     rescue LoadError
       raise LoadError, "must have net/ssh gem installed"

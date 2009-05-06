@@ -11,13 +11,13 @@ require 'tpkg'
 require 'rubygems'
 require 'facter'
 
+# Names of packages containing ruby and gems.  Dependencies on these
+# will be added to generated packages, so that if a user installs a gem
+# tpkg will pull in ruby and gems.
 RUBYDEPS = ['ruby']
 # T_RUBY_BASE = "/home/t/ruby"
 T_RUBY_BASE = "#{Tpkg::DEFAULT_BASE}/#{RUBYDEPS.first}".freeze
 DEFAULT_GEM_COMMAND = "#{T_RUBY_BASE}/bin/gem"
-# Names of packages containing ruby and gems.  Dependencies on these
-# will be added to generated packages, so that if a user installs a gem
-# tpkg will pull in ruby and gems.
 
 # Haven't found a Ruby method for creating temporary directories,
 # so create a temporary file and replace it with a directory.
@@ -128,28 +128,20 @@ def package(gem)
   puts "Packaging #{gem}"
   
   gemsdir = nil
-  IO.popen("#{@gemcmd} contents #{gem}") do |pipe|
-    line = pipe.gets
-    line.chomp!
-    # A line of output looks like:
-    # /tmp/gem2tpkg.5833.0/gems/rake-0.8.4/install.rb
-    # We want to extract this portion to 'gemsdir':
-    # /tmp/gem2tpkg.5833.0/gems/rake-0.8.4
-    line =~ %r{(#{@gemdir}/gems/[^/]+)/}
-    gemsdir = $1
-    if gemsdir.nil? || gemsdir.empty?
-      abort "gemsdir empty or nil: #{line.inspect} for gem: #{gem}"
-    end
-    # Sink the rest of the output from gem to avoid creating a broken pipe
-    pipe.read
-  end
-  if !$?.success?
-    abort 'gem contents failed'
+  globdirs = Dir.glob(File.join(@gemdir, 'gems', "#{gem}-*"))
+  if globdirs.length == 1
+    gemsdir = globdirs[0]
+  else
+    # I don't expect this to happen in the real world, if it does we'll
+    # have to figure out a better mechanism of isolating the correct
+    # directory.  I guess we could load all of the gemspecs in the
+    # specifications directory until we find one with the correct gem
+    # name in it.
+    abort File.join(@gemdir, 'gems', "#{gem}-*") + ' is abiguous'
   end
   
-  # gemsdir will have something like
-  # /tmp/gem2tpkg.5833.0/gems/rake-0.8.4 and the gemspec will be
-  # something like
+  # gemsdir will be something like /tmp/gem2tpkg.5833.0/gems/rake-0.8.4
+  # and the gemspec will be something like
   # /tmp/gem2tpkg.5833.0/specifications/rake-0.8.4.gemspec.  So we
   # use the basename of gemsdir as the core of the gemspec
   # filename.

@@ -888,8 +888,6 @@ class Tpkg
     @lock_directory = File.join(@var_directory, 'lock')
     @lock_pid_file = File.join(@lock_directory, 'pid')
     @locks = 0
-    
-    refresh_metadata
   end
   
   def source_to_local_path(source)
@@ -1219,6 +1217,9 @@ class Tpkg
   # Returns an array of packages which meet the given requirement
   def available_packages_that_meet_requirement(req=nil)
     pkgs = []
+    if @metadata.empty?
+      refresh_metadata
+    end
     if req
       @metadata.each do |pkg|
         if Tpkg::package_meets_requirement?(pkg, req)
@@ -1955,7 +1956,7 @@ class Tpkg
         else
           uri = URI.parse(request)  # This just serves as a sanity check
           # Using these File methods on a URI seems to work but is probably fragile
-          source = File.dirname(request)
+          source = "#{File.dirname(request)}/" # dirname chops of / at the end, we want to include it
           pkgfile = File.basename(request)
           localpath = download(source, pkgfile)
           metadata = Tpkg::metadata_from_package(localpath)

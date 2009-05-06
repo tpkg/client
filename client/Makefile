@@ -1,6 +1,6 @@
 # When updating the version number you currently need to update
 # tpkg.spec, control and pkginfo as well
-VER=1.1
+VER=1.2
 
 all:
 
@@ -31,9 +31,11 @@ rpm: tpkg.spec
 	cp -p thread_pool.rb $(BUILDROOT)/usr/lib/ruby/site_ruby/1.8/tpkg
 	chmod 444 $(BUILDROOT)/usr/lib/ruby/site_ruby/1.8/tpkg/thread_pool.rb
 	mkdir -p $(BUILDROOT)/etc
-	cp -p tpkg.conf $(BUILDROOT)/etc
+	cp -p tpkg.conf $(BUILDROOT)/etc/tpkg.conf
+	chmod 644 $(BUILDROOT)/etc/tpkg.conf
 	mkdir -p $(BUILDROOT)/etc/cron.d
 	cp tpkg_cron $(BUILDROOT)/etc/cron.d/tpkg
+	chmod 444 $(BUILDROOT)/etc/cron.d/tpkg
 	#
 	# Now build the package
 	#
@@ -59,7 +61,8 @@ debian: control
 	cp -p thread_pool.rb $(BUILDROOT)/usr/lib/ruby/site_ruby/1.8/tpkg
 	chmod 444 $(BUILDROOT)/usr/lib/ruby/site_ruby/1.8/tpkg/thread_pool.rb
 	mkdir -p $(BUILDROOT)/etc
-	cp -p tpkg.conf $(BUILDROOT)/etc
+	cp -p tpkg.conf $(BUILDROOT)/etc/tpkg.conf
+	chmod 644 $(BUILDROOT)/etc/tpkg.conf
 	sudo chown -R 0:0 $(BUILDROOT)
 	dpkg --build $(BUILDROOT) tpkg-$(VER).deb
 	rm -rf $(BUILDROOT)
@@ -90,7 +93,8 @@ solaris: pkginfo depend
 	cp -p thread_pool.rb $(BUILDROOT)/opt/csw/lib/ruby/site_ruby/1.8/tpkg
 	chmod 444 $(BUILDROOT)/opt/csw/lib/ruby/site_ruby/1.8/tpkg/thread_pool.rb
 	mkdir -p $(BUILDROOT)/etc
-	cp -p tpkg.conf $(BUILDROOT)/etc
+	cp -p tpkg.conf $(BUILDROOT)/etc/tpkg.conf
+	chmod 644 $(BUILDROOT)/etc/tpkg.conf
 	#
 	# Now build the package
 	#
