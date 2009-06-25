@@ -1,6 +1,6 @@
 Name: tpkg
 Summary: tpkg client
-Version: 1.2
+Version: VER
 Release: 1
 Group: Applications/System
 License: MIT

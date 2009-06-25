@@ -1,7 +1,7 @@
 PKG="OSStpkg"
 NAME="tpkg client"
 ARCH="sparc,i386"
-VERSION="1.2"
+VERSION="%VER%"
 CATEGORY="application"
 CLASSES="none"
 PSTAMP="none"
