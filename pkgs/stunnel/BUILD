@@ -2,7 +2,7 @@
 
 PKG=stunnel
 VER=4.26
-PKGVER=1
+PKGVER=2
 OSMAJOR=`facter | grep lsbmajdistrelease | cut -d' ' -f3`
 ARCH=`facter hardwaremodel`
 
@@ -19,7 +19,9 @@ cat ../../tpkg.xml | \
 	sed "s/OS/RedHat-$OSMAJOR,CentOS-$OSMAJOR/" | \
 	sed "s/ARCH/$ARCH/" | \
 	sed '/<files>/a\
-<file><path>etc/init.d/stunnel</path><init/></file>' > $pkgdir/tpkg.xml
+<file><path>etc/init.d/stunnel</path><init/></file>' | \
+	sed '/<files>/a\
+<file><path>var/lib/stunnel</path><posix><group>nobody</group><perms>1775</perms></posix></file>' > $pkgdir/tpkg.xml
 cp ../postinstall $pkgdir/postinstall || exit 1
 chmod 755 $pkgdir/postinstall || exit 1
 mkdir $pkgdir/reloc || exit 1
@@ -33,18 +35,16 @@ touch $pkgdir/reloc/etc/stunnel/stunnel.pem || exit 1
 # Make the /var/lib directory, otherwise make install creates it with
 # wacky perms when trying to make /var/lib/stunnel
 mkdir -p $pkgdir/reloc/var/lib || exit 1
-# Fix perms
-sudo chown -R 0:0 $pkgdir/reloc || exit 1
-# Install, needs root privs to set proper ownership
-sudo make install prefix=$pkgdir/reloc || exit 1
+# Install
+make install prefix=$pkgdir/reloc || exit 1
 # Clean up our fake
-sudo rm $pkgdir/reloc/etc/stunnel/stunnel.pem || exit 1
+rm $pkgdir/reloc/etc/stunnel/stunnel.pem || exit 1
 # Make package
-sudo tpkg --make $pkgdir || exit 1
+tpkg --make $pkgdir || exit 1
 # Rename the package to reflect OS and arch
-sudo mv /tmp/$PKG-$VER-$PKGVER.tpkg /tmp/$PKG-$VER-$PKGVER-redhat$OSMAJOR-$ARCH.tpkg
+mv /tmp/$PKG-$VER-$PKGVER.tpkg /tmp/$PKG-$VER-$PKGVER-redhat$OSMAJOR-$ARCH.tpkg
 # Cleanup
-sudo rm -rf $pkgdir
+rm -rf $pkgdir
 cd ..
 rm -rf $PKG-$VER
 
