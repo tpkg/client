@@ -1,0 +1,7 @@
+%BASE%/var/log/monit {
+	sharedscripts
+	postrotate
+		kill -HUP `cat %BASE%/var/run/monit.pid`
+	endscript
+}
+
