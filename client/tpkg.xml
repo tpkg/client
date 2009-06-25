@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE tpkg SYSTEM "http://tpkg.sourceforge.net/tpkg-1.0.dtd">
+<tpkg>
+  <name>tpkg</name>
+  <version>VER</version>
+  <maintainer>system.architecture@yplist.flight.yellowpages.com</maintainer>
+  <description>tpkg library</description>
+  <bugreporting>http://jira.yellowpages.com/browse/INF/component/10467</bugreporting>
+  <dependencies>
+    <dependency>
+      <name>ruby-ypc</name>
+    </dependency>
+    <dependency>
+      <name>gem-facter</name>
+    </dependency>
+  </dependencies>
+</tpkg>
