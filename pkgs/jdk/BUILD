@@ -1,0 +1,39 @@
+#!/sbin/sh
+
+PKG=jdk
+VER=1.6
+PKGVER=3
+OSMAJOR=`facter | grep lsbmajdistrelease | cut -d' ' -f3`
+ARCH=`facter hardwaremodel`
+
+rm -rf $PKG-$VER || exit 1
+#tar zxvf $PKG-$VER.tar.gz || exit 1
+#cd $PKG-$VER || exit 1
+#make || exit 1
+src="jdk1.6.0_13"
+pkgdir=`mktemp -d -t tpkg.XXXXXX` || exit 1
+cat ../tpkg.xml | \
+	sed "s/NAME/$PKG/" | \
+	sed "s/VERSION/$VER/" | \
+	sed "s/PKGVER/$PKGVER/" | \
+	sed "s/OS/RedHat-$OSMAJOR,CentOS-$OSMAJOR/" | \
+	sed "s/ARCH/$ARCH/"  > $pkgdir/tpkg.xml
+
+cp postinstall $pkgdir/postinstall || exit 1
+chmod 755 $pkgdir/postinstall || exit 1
+
+mkdir -p $pkgdir/reloc || exit 1
+cp -r $src $pkgdir/reloc
+
+mkdir -p $pkgdir/reloc/etc/profile.d || exit 1
+cp java.sh $pkgdir/reloc/etc/profile.d/ || exit 1
+
+sed -i "s,%INSTALLED_DIR%,$src," $pkgdir/reloc/etc/profile.d/java.sh 
+
+# Make package
+tpkg --make $pkgdir || exit 1
+# Rename the package to reflect OS and arch
+mv /tmp/$PKG-$VER-$PKGVER.tpkg /tmp/$PKG-$VER-$PKGVER-redhat$OSMAJOR-$ARCH.tpkg
+# Cleanup
+rm -rf $pkgdir
+

@@ -1,0 +1,5 @@
+#!/bin/sh
+
+sed "s,%BASE%,$TPKG_HOME," $TPKG_HOME/etc/profile.d/java.sh > $TPKG_HOME/etc/profile.d/java.sh.new
+test -s $TPKG_HOME/etc/profile.d/java.sh.new || exit 1
+mv $TPKG_HOME/etc/profile.d/java.sh.new $TPKG_HOME/etc/profile.d/java.sh || exit 1
