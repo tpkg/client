@@ -15,12 +15,10 @@ cat ../tpkg.xml | \
 	grep -v files > $pkgdir/tpkg.xml
 mkdir -p $pkgdir/reloc/bin || exit 1
 cp whatsmynat $pkgdir/reloc/bin || exit 1
-# Fix perms
-sudo chown -R 0:0 $pkgdir/reloc || exit 1
 # Make package
-sudo tpkg --make $pkgdir || exit 1
+tpkg --make $pkgdir || exit 1
 # Cleanup
-sudo rm -rf $pkgdir
+rm -rf $pkgdir
 cd ..
 rm -rf $PKG-$VER
 

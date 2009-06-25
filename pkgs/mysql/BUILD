@@ -2,7 +2,7 @@
 
 PKG=mysql
 VER=5.1.33
-PKGVER=1
+PKGVER=2
 OSMAJOR=`facter | grep lsbmajdistrelease | cut -d' ' -f3`
 ARCH=`facter hardwaremodel`
 
@@ -30,7 +30,9 @@ cat ../../tpkg.xml | \
 	sed "s/OS/RedHat-$OSMAJOR,CentOS-$OSMAJOR/" | \
 	sed "s/ARCH/$ARCH/" | \
 	sed '/<files>/a\
-<file><path>/home/t/etc/init.d/mysql</path><init/></file>' > $pkgdir/tpkg.xml
+<file><path>/home/t/etc/init.d/mysql</path><init/></file>' |
+	sed '/<files>/a\
+<file><path>/home/t/var/run/mysqld</path><posix><owner>mysql</owner><group>mysql</group></posix></file>' > $pkgdir/tpkg.xml
 mkdir -p $pkgdir/root/home/t || exit 1
 # Add config file
 mkdir -p $pkgdir/root/home/t/etc || exit 1
@@ -50,15 +52,12 @@ make install prefix=$pkgdir/root/home/t || exit 1
 # Clean out stuff we don't want
 rm -rf $pkgdir/root/home/t/mysql-test
 rm -rf $pkgdir/root/home/t/sql-bench
-# Fix perms
-sudo chown -R 0:0 $pkgdir/root
-sudo chown -R mysql:mysql $pkgdir/root/home/t/var/run/mysqld
 # Make package
-sudo tpkg --make $pkgdir || exit 1
+tpkg --make $pkgdir || exit 1
 # Rename the package to reflect OS and arch
-sudo mv /tmp/$PKG-$VER-$PKGVER.tpkg /tmp/$PKG-$VER-$PKGVER-redhat$OSMAJOR-$ARCH.tpkg
+mv /tmp/$PKG-$VER-$PKGVER.tpkg /tmp/$PKG-$VER-$PKGVER-redhat$OSMAJOR-$ARCH.tpkg
 # Cleanup
-sudo rm -rf $pkgdir
+rm -rf $pkgdir
 cd ..
 rm -rf $PKG-$VER
 
