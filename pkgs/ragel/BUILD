@@ -36,14 +36,12 @@ sed -e "s/NAME/$PKG/" \
 
 # Install
 make install DESTDIR=$pkgdir/reloc
-# Fix perms
-sudo chown -R 0:0 $pkgdir/reloc
 # Make package
-sudo tpkg --make $pkgdir
+tpkg --make $pkgdir
 # Rename the package to reflect OS and arch
-sudo mv /tmp/$PKG-$VER-$PKGVER.tpkg \
+mv /tmp/$PKG-$VER-$PKGVER.tpkg \
   /tmp/$PKG-$VER-$PKGVER-redhat$OSMAJOR-$ARCH.tpkg
 # Cleanup
-sudo rm -rf $pkgdir
+rm -rf $pkgdir
 cd ..
 rm -rf $PKG-$VER
