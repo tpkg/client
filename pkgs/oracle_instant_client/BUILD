@@ -63,14 +63,12 @@ do
 			fi
 			mv instantclient_*/* $pkgdir/reloc/$PKG-$ver || exit 1
 			rmdir instantclient_* || exit 1
-			# Fix perms
-			sudo chown -R 0:0 $pkgdir/reloc || exit 1
 			# Make package
-			sudo tpkg --make $pkgdir || exit 1
+			tpkg --make $pkgdir || exit 1
 			# Rename the package to reflect OS and arch
-			sudo mv /tmp/$PKG-$component-$ver-$PKGVER.tpkg /tmp/$PKG-$component-$ver-$PKGVER-redhat-$arch.tpkg
+			mv /tmp/$PKG-$component-$ver-$PKGVER.tpkg /tmp/$PKG-$component-$ver-$PKGVER-redhat-$arch.tpkg
 			# Cleanup
-			sudo rm -rf $pkgdir
+			rm -rf $pkgdir
 		done
 	done
 done

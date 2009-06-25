@@ -78,8 +78,6 @@ do
 		# Move over installed files
 		mkdir -p $pkgdir/root/home/t || exit 1
 		sudo mv /home/t/$PKG-$ver $pkgdir/root/home/t || exit 1
-		# Fix perms
-		sudo chown -R 0:0 --no-dereference $pkgdir/root || exit 1
 		# Make package
 		sudo tpkg --make $pkgdir || exit 1
 		# Rename the package to reflect OS and arch
