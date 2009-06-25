@@ -5,7 +5,7 @@
 
 PKG=logrotate
 VER=3.7.8
-PKGVER=1
+PKGVER=2
 OSMAJOR=`facter | grep lsbmajdistrelease | cut -d' ' -f3`
 ARCH=`facter hardwaremodel`
 
@@ -35,14 +35,12 @@ mkdir -p $pkgdir/reloc/etc/cron.d || exit 1
 cp ../logrotate.cron $pkgdir/reloc/etc/cron.d/logrotate || exit 1
 # Install
 make install PREFIX=$pkgdir/reloc BASEDIR= || exit 1
-# Fix perms
-sudo chown -R 0:0 $pkgdir/reloc
 # Make package
-sudo tpkg --make $pkgdir || exit 1
+tpkg --make $pkgdir || exit 1
 # Rename the package to reflect OS and arch
-sudo mv /tmp/$PKG-$VER-$PKGVER.tpkg /tmp/$PKG-$VER-$PKGVER-redhat$OSMAJOR-$ARCH.tpkg
+mv /tmp/$PKG-$VER-$PKGVER.tpkg /tmp/$PKG-$VER-$PKGVER-redhat$OSMAJOR-$ARCH.tpkg
 # Cleanup
-sudo rm -rf $pkgdir
+rm -rf $pkgdir
 cd ..
 rm -rf $PKG-$VER
 
