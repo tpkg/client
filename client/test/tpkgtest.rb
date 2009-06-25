@@ -6,6 +6,8 @@ $:.unshift('..')
 require 'tpkg'
 require 'tempdir'
 
+Tpkg::set_debug(true)
+
 module TpkgTests
   # Passphrase used for encrypting/decrypting packages
   PASSPHRASE = 'password'
@@ -54,7 +56,7 @@ module TpkgTests
     pkgdir = tempdir
     
     # Copy package contents into working directory
-    system("#{Tpkg::find_tar} -C #{source_directory} --exclude .svn -cf - . | #{Tpkg::find_tar} -C #{pkgdir} -xf -")
+    system("#{Tpkg::find_tar} -C #{source_directory} --exclude .svn -cf - . | #{Tpkg::find_tar} -C #{pkgdir} -xpf -")
     
     # Prep tpkg.xml
     File.open(File.join(pkgdir, 'tpkg.xml.new'), 'w') do |tpkgdst|
@@ -66,6 +68,25 @@ module TpkgTests
           elsif remove.include?(field)
             line = ''
           end
+        end
+        
+        # Insert dependencies right before the files section
+        if line =~ /^\s*<files>/ && !dependencies.empty?
+          tpkgdst.puts('  <dependencies>')
+          dependencies.each do |name, opts|
+            tpkgdst.puts('    <dependency>')
+            tpkgdst.puts("      <name>#{name}</name>")
+            ['minimum_version', 'maximum_version', 'minimum_package_version', 'maximum_package_version'].each do |opt|
+              if opts[opt]
+                tpkgdst.puts("      <#{opt}>#{opts[opt]}</#{opt}>")
+              end
+            end
+            if opts['native']
+              tpkgdst.puts('      <native/>')
+            end
+            tpkgdst.puts('    </dependency>')
+          end
+          tpkgdst.puts('  </dependencies>')
         end
         
         # Insert additional file entries at the end of the files section
@@ -90,7 +111,14 @@ module TpkgTests
               end
             end
             if opts['init']
-              tpkgdst.puts('      <init/>')
+              tpkgdst.puts('      <init>')
+              if opts['init']['start']
+                tpkgdst.puts("        <start>#{opts['init']['start']}</start>")
+              end
+              if opts['init']['levels']
+                tpkgdst.puts("        <levels>#{opts['init']['levels']}</levels>")
+              end
+              tpkgdst.puts('      </init>')
             end
             if opts['crontab']
               if opts['crontab']['user']
@@ -101,25 +129,6 @@ module TpkgTests
             end
             tpkgdst.puts('    </file>')
           end
-        end
-        
-        # Insert dependencies right before the end of the file
-        if line =~ /^\s*<\/tpkg>/ && !dependencies.empty?
-          tpkgdst.puts('  <dependencies>')
-          dependencies.each do |name, opts|
-            tpkgdst.puts('    <dependency>')
-            tpkgdst.puts("      <name>#{name}</name>")
-            ['minimum_version', 'maximum_version', 'minimum_package_version', 'maximum_package_version'].each do |opt|
-              if opts[opt]
-                tpkgdst.puts("      <#{opt}>#{opts[opt]}</#{opt}>")
-              end
-            end
-            if opts['native']
-              tpkgdst.puts('      <native/>')
-            end
-            tpkgdst.puts('    </dependency>')
-          end
-          tpkgdst.puts('  </dependencies>')
         end
         
         tpkgdst.write(line)

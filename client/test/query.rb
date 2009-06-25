@@ -28,9 +28,13 @@ class TpkgQueryTests < Test::Unit::TestCase
     tpkg.install(['a'], PASSPHRASE)
     metadata = tpkg.metadata_for_installed_packages
     assert_equal(1, metadata.length)
-    assert_equal('a', metadata.first.elements['/tpkg/name'].text)
+    assert_equal('a', metadata.first[:name])
     FileUtils.rm_f(apkg)
     FileUtils.rm_rf(testbase)
+  end
+
+  def test_installed_packages
+    # FIXME
   end
   
   def test_installed_packages_that_meet_requirement
@@ -79,7 +83,7 @@ class TpkgQueryTests < Test::Unit::TestCase
     files.each do |pkgfile, fip|
       assert_equal(0, fip[:root].length)  # Neither package has non-relocatable files
       assert_equal(2, fip[:reloc].length)  # Each package has two relocatable files (a directory and a file)
-      pkgname = fip[:metadata].elements['/tpkg/name'].text
+      pkgname = fip[:metadata][:name]
       assert_equal(File.join('directory', ''), fip[:reloc].first)
       assert_equal(File.join('directory', pkgname), fip[:reloc].last)
       assert_equal(File.join(testbase, 'directory', ''), fip[:normalized].first)

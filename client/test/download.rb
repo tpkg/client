@@ -37,8 +37,9 @@ class TpkgDownloadTests < Test::Unit::TestCase
     tpkg = Tpkg.new(:base => testbase, :sources => [source])
     # Download and verify
     assert_nothing_raised { tpkg.download(source, File.basename(@pkgfile)) }
-    localpath = File.join(tpkg.source_to_local_path(source), File.basename(@pkgfile))
+    localpath = File.join(tpkg.source_to_local_directory(source), File.basename(@pkgfile))
     assert(File.exist?(localpath))
+    assert_equal(0644, File.stat(localpath).mode & 07777)
     assert(Tpkg::verify_package_checksum(localpath))
     
     # Mess with the package so that it doesn't verify, then confirm that

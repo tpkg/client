@@ -67,6 +67,77 @@ class TpkgUnpackTests < Test::Unit::TestCase
     assert(!File.exist?(File.join(testbase, 'home', 'tpkg', 'encfile')))
     FileUtils.rm_rf(testbase)
     
+    # Test permissions with no default permissions specified in tpkg.xml
+    # The stock test package has default permissions specified, so start
+    # with the -nofiles template which doesn't have default permissions.
+    srcdir = Tempdir.new("srcdir")
+    FileUtils.cp(File.join('testpkg', 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+    FileUtils.mkdir_p(File.join(srcdir, 'reloc', 'etc'))
+    # Set non-standard permissions on the directory so that we can
+    # ensure that the default permissions are applied by tpkg
+    File.chmod(0775, File.join(srcdir, 'reloc', 'etc'))
+    File.open(File.join(srcdir, 'reloc', 'etc', '666file'), 'w') do |file|
+      file.puts "Hello"
+    end
+    File.open(File.join(srcdir, 'reloc', 'etc', '400file'), 'w') do |file|
+      file.puts "Hello"
+    end
+    File.open(File.join(srcdir, 'reloc', 'etc', 'nopermsfile'), 'w') do |file|
+      file.puts "Hello"
+    end
+    # Set some crazy perms on this file so that we can be sure they
+    # are preserved (there are no default permissions for files)
+    File.chmod(0666, File.join(srcdir, 'reloc', 'etc', 'nopermsfile'))
+    pkg = make_package(:change => { 'name' => 'a' }, :output_directory => @tempoutdir, :source_directory => srcdir, :files => {'etc/666file' => {'perms' => '0666'}, 'etc/400file' => {'perms' => '0400'}}, :remove => ['posix_acl', 'windows_acl'])
+    FileUtils.rm_rf(srcdir)
+    testbase = Tempdir.new("testbase")
+    tpkg = Tpkg.new(:file_system_root => testbase, :base => File.join('home', 'tpkg'), :sources => [pkg])
+    # Standard umask settings are likely to be the same as the default
+    # permissions, which would mask failure here.  Set an extreme umask
+    # so that we know tpkg is enforcing the desired permissions.
+    oldumask = File.umask
+    File.umask(0)
+    assert_nothing_raised { tpkg.unpack(pkg, nil) }
+    File.umask(oldumask)
+    # This file should have the 0666 perms we specified above
+    assert_equal(0666, File.stat(File.join(testbase, 'home', 'tpkg', 'etc', '666file')).mode & 07777)
+    # This file should have the default 0400 perms we specified above
+    assert_equal(0400, File.stat(File.join(testbase, 'home', 'tpkg', 'etc', '400file')).mode & 07777)
+    # This file should have the 0666 perms we set on the file itself
+    assert_equal(0666, File.stat(File.join(testbase, 'home', 'tpkg', 'etc', 'nopermsfile')).mode & 07777)
+    # This directory should have the default 0755 tpkg directory perms
+    assert_equal(0755, File.stat(File.join(testbase, 'home', 'tpkg', 'etc')).mode & 07777)
+    FileUtils.rm_f(pkg)
+    FileUtils.rm_rf(testbase)
+
+
+    # Test perms for default directory setting
+    srcdir = Tempdir.new("srcdir")
+    FileUtils.cp(File.join('testpkg', 'tpkg-dir-default.xml'), File.join(srcdir, 'tpkg.xml'))
+    FileUtils.mkdir_p(File.join(srcdir, 'reloc'))
+    FileUtils.mkdir_p(File.join(srcdir, 'reloc', 'dir1'))
+    FileUtils.mkdir_p(File.join(srcdir, 'reloc', 'dir1', 'subdir1'))
+    pkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'dir_default' }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    FileUtils.rm_rf(srcdir)
+   
+    testroot = Tempdir.new("testroot")
+    testbase = File.join(testroot, 'home', 'tpkg')
+    FileUtils.mkdir_p(testbase)
+    tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [pkg])
+    # Standard umask settings are likely to be the same as the default
+    # permissions, which would mask failure here.  Set an extreme umask
+    # so that we know tpkg is enforcing the desired permissions.
+    oldumask = File.umask
+    File.umask(0)
+    assert_nothing_raised { tpkg.unpack(pkg, nil) }
+    File.umask(oldumask)
+    # This dir should have the 0555 perms we specified in the tpkg-dir-default.xml file
+    assert_equal(0555, File.stat(File.join(testbase, 'dir1')).mode & 07777)
+    assert_equal(0555, File.stat(File.join(testbase, 'dir1', 'subdir1')).mode & 07777)
+    FileUtils.rm_f(pkg)
+    FileUtils.rm_rf(testbase)
+    FileUtils.rm_rf(testroot)
+    
     # Test that preinstall/postinstall are run at the right points
     #   Make up a package with scripts that create files so we can check timestamps
     srcdir = Tempdir.new("srcdir")
@@ -111,15 +182,17 @@ class TpkgUnpackTests < Test::Unit::TestCase
     File.open(File.join(srcdir, 'reloc', 'myinit'), 'w') do |file|
       file.puts('init script')
     end
-    pkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'initpkg' }, :source_directory => srcdir, :files => { 'myinit' => { 'init' => true } }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
-    pkg2 = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'initpkg2' }, :source_directory => srcdir, :files => { 'myinit' => { 'init' => true } }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    pkg  = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'initpkg'  }, :source_directory => srcdir, :files => { 'myinit' => { 'init' => {} } }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    pkg2 = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'initpkg2' }, :source_directory => srcdir, :files => { 'myinit' => { 'init' => {} } }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    pkg3 = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'initpkg3' }, :source_directory => srcdir, :files => { 'myinit' => { 'init' => {} } }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
     FileUtils.rm_rf(srcdir)
     testroot = Tempdir.new("testroot")
     testbase = File.join(testroot, 'home', 'tpkg')
     FileUtils.mkdir_p(testbase)
-    tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [pkg,pkg2])
-    metadata = Tpkg::metadata_from_package(pkg)
-    metadata2 = Tpkg::metadata_from_package(pkg2)
+    tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [pkg,pkg2,pkg3])
+    metadata  = Tpkg::metadata_xml_to_hash(Tpkg::metadata_from_package(pkg))
+    metadata2 = Tpkg::metadata_xml_to_hash(Tpkg::metadata_from_package(pkg2))
+    metadata3 = Tpkg::metadata_xml_to_hash(Tpkg::metadata_from_package(pkg3))
     begin
       tpkg.install([pkg], PASSPHRASE)
       tpkg.init_links(metadata).each do |link, init_script|
@@ -127,18 +200,27 @@ class TpkgUnpackTests < Test::Unit::TestCase
         assert_equal(init_script, File.readlink(link))
       end
       # Test the handling of packages with conflicting init scripts.
-      # The link should end up named with a '1' at the end.
+      # We should end up with a link named with a '1' at the end and a
+      # link named with a '2' at the end.
       tpkg.install([pkg2], PASSPHRASE)
+      tpkg.install([pkg3], PASSPHRASE)
       tpkg.init_links(metadata2).each do |link, init_script|
         assert(File.symlink?(link + '1'))
         assert_equal(init_script, File.readlink(link + '1'))
+        assert(File.symlink?(link + '2'))
+        assert_equal(init_script, File.readlink(link + '2'))
       end
     rescue RuntimeError => e
-      warn "No init script support on this platform, init script handling will not be tested (#{e.message})"
+      if e.message =~ /No init script support/
+        warn "No init script support on this platform, init script handling will not be tested (#{e.message})"
+      else
+        raise
+      end
     end
     FileUtils.rm_rf(testroot)
     FileUtils.rm_f(pkg)
     FileUtils.rm_f(pkg2)
+    FileUtils.rm_f(pkg3)
     
     # Test crontab handling
     srcdir = Tempdir.new("srcdir")
@@ -150,13 +232,15 @@ class TpkgUnpackTests < Test::Unit::TestCase
     end
     pkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'crontabpkg' }, :source_directory => srcdir, :files => { 'mycrontab' => { 'crontab' => {'user' => 'root'} } }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
     pkg2 = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'crontabpkg2' }, :source_directory => srcdir, :files => { 'mycrontab' => { 'crontab' => {'user' => 'root'} } }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    pkg3 = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'crontabpkg3' }, :source_directory => srcdir, :files => { 'mycrontab' => { 'crontab' => {'user' => 'root'} } }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
     FileUtils.rm_rf(srcdir)
     testroot = Tempdir.new("testroot")
     testbase = File.join(testroot, 'home', 'tpkg')
     FileUtils.mkdir_p(testbase)
-    tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [pkg,pkg2])
-    metadata = Tpkg::metadata_from_package(pkg)
-    metadata2 = Tpkg::metadata_from_package(pkg2)
+    tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [pkg,pkg2,pkg3])
+    metadata  = Tpkg::metadata_xml_to_hash(Tpkg::metadata_from_package(pkg))
+    metadata2 = Tpkg::metadata_xml_to_hash(Tpkg::metadata_from_package(pkg2))
+    metadata3 = Tpkg::metadata_xml_to_hash(Tpkg::metadata_from_package(pkg3))
     begin
       tpkg.install([pkg], PASSPHRASE)
       tpkg.crontab_destinations(metadata).each do |crontab, destination|
@@ -170,30 +254,72 @@ class TpkgUnpackTests < Test::Unit::TestCase
       end
       # Test the handling of packages with conflicting crontabs.
       # Systems where we put the crontab into a user file should end up
-      # with two copies of the crontab contents in that file.  Systems
+      # with three copies of the crontab contents in that file.  Systems
       # where we link the crontab into a directory should end up with a
-      # link ending in '1'.
+      # link ending in '1' and a link ending in '2'.
       tpkg.install([pkg2], PASSPHRASE)
+      tpkg.install([pkg3], PASSPHRASE)
       tpkg.crontab_destinations(metadata2).each do |crontab, destination|
         if destination[:file]
           assert(File.file?(destination[:file]))
           contents = IO.read(destination[:file])
-          # Strip out one copy of the crontab contents and verify that it
-          # still contains the contents, as installing the second package
-          # should add another copy of the contents to the file.
+	  # Strip out two copies of the crontab contents and verify that
+	  # it still contains the contents, as installing the additional
+	  # packages should add two copies of the contents to the file.
+          contents.sub!(crontab_contents, '')
           contents.sub!(crontab_contents, '')
           assert(contents.include?(crontab_contents))
         elsif destination[:link]
           assert(File.symlink?(destination[:link] + '1'))
           assert_equal(crontab, File.readlink(destination[:link] + '1'))
+          assert(File.symlink?(destination[:link] + '2'))
+          assert_equal(crontab, File.readlink(destination[:link] + '2'))
         end
       end
     rescue RuntimeError => e
-      warn "No crontab support on this platform, crontab handling will not be tested (#{e.message})"
+      if e.message =~ /No crontab support/
+        warn "No crontab support on this platform, crontab handling will not be tested (#{e.message})"
+      else
+        raise
+      end
     end
     FileUtils.rm_rf(testroot)
     FileUtils.rm_f(pkg)
     FileUtils.rm_f(pkg2)
+    FileUtils.rm_f(pkg3)
+
+    # Test that existing files/directories' perm and ownership are preserved
+    # unless specified by user
+    testbase = Tempdir.new("testbase")
+    FileUtils.mkdir_p(File.join(testbase, 'home', 'tpkg'))
+    FileUtils.mkdir_p(File.join(testbase, 'etc'))
+    tpkg = Tpkg.new(:file_system_root => testbase, :base => File.join('home', 'tpkg'), :sources => [@pkgfile])
+   
+    # set up 2 existing files for the test
+    File.open(File.join(testbase, 'home', 'tpkg', 'file'), 'w') do |file|
+      file.puts "Hello"
+    end
+    #system("chmod 707 #{File.join(testbase, 'home', 'tpkg', 'file')}")
+    File.chmod(0707, File.join(testbase, 'home', 'tpkg', 'file'))
+
+    File.open(File.join(testbase, 'etc', 'rootfile'), 'w') do |file|
+      file.puts "Hello"
+    end
+    File.chmod(0707, File.join(testbase, 'etc', 'rootfile'))
+#    system("chmod 707 #{File.join(testbase, 'etc', 'rootfile')}")
+   
+    assert_nothing_raised { tpkg.unpack(@pkgfile, PASSPHRASE) }
+
+    # This file should have the default 0444 perms
+    # but the file already exists. So it should keep its old perms, which is 707
+    assert(File.exist?(File.join(testbase, 'home', 'tpkg', 'file')))
+    assert_equal(0707, File.stat(File.join(testbase, 'home', 'tpkg', 'file')).mode & 07777)
+
+    # Even if this file exists, we specifically set the perm. So the perm should be set to what
+    # we want
+    assert(File.exist?(File.join(testbase, 'etc', 'rootfile')))
+    assert_equal(0666, File.stat(File.join(testbase, 'etc', 'rootfile')).mode & 07777)
+    FileUtils.rm_rf(testbase)
   end
   
   def teardown

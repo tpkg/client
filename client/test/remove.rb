@@ -115,8 +115,8 @@ class TpkgRemoveTests < Test::Unit::TestCase
     File.open(File.join(srcdir, 'reloc', 'myinit'), 'w') do |file|
       file.puts('init script')
     end
-    pkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'initpkg' }, :source_directory => srcdir, :files => { 'myinit' => { 'init' => true } }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
-    pkg2 = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'initpkg2' }, :source_directory => srcdir, :files => { 'myinit' => { 'init' => true } }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    pkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'initpkg' }, :source_directory => srcdir, :files => { 'myinit' => { 'init' => {} } }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    pkg2 = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'initpkg2' }, :source_directory => srcdir, :files => { 'myinit' => { 'init' => {} } }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
     FileUtils.rm_rf(srcdir)
     testroot = Tempdir.new("testroot")
     testbase = File.join(testroot, 'home', 'tpkg')
@@ -125,8 +125,8 @@ class TpkgRemoveTests < Test::Unit::TestCase
     testbase2 = File.join(testroot, 'home', 'tpkg2')
     FileUtils.mkdir_p(testbase2)
     tpkg2 = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg2'), :sources => [pkg,pkg2])
-    metadata = Tpkg::metadata_from_package(pkg)
-    metadata2 = Tpkg::metadata_from_package(pkg2)
+    metadata = Tpkg::metadata_xml_to_hash(Tpkg::metadata_from_package(pkg))
+    metadata2 = Tpkg::metadata_xml_to_hash(Tpkg::metadata_from_package(pkg2))
     begin
       tpkg.install([pkg], PASSPHRASE)
       tpkg2.install([pkg2], PASSPHRASE)
@@ -171,8 +171,8 @@ class TpkgRemoveTests < Test::Unit::TestCase
     testbase = File.join(testroot, 'home', 'tpkg2')
     FileUtils.mkdir_p(testbase2)
     tpkg2 = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg2'), :sources => [pkg2])
-    metadata = Tpkg::metadata_from_package(pkg)
-    metadata2 = Tpkg::metadata_from_package(pkg2)
+    metadata = Tpkg::metadata_xml_to_hash(Tpkg::metadata_from_package(pkg))
+    metadata2 = Tpkg::metadata_xml_to_hash(Tpkg::metadata_from_package(pkg2))
     begin
       tpkg.install([pkg], PASSPHRASE)
       tpkg2.install([pkg2], PASSPHRASE)

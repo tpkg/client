@@ -19,7 +19,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
     @tempoutdir = Tempdir.new("tempoutdir")  # temp dir that will automatically get deleted at end of test run
                                              # can be used for storing packages
     @pkgfiles = []
-    # a depends on b, and c >= 1.1
+    # a depends on b, and c >= 1.1, <= 1.2
     @pkgfiles << make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a' }, :remove => ['operatingsystem', 'architecture'], :dependencies => {'b' => {}, 'c' => {'minimum_version' => '1.1', 'maximum_version' => '1.2'}})
     # generic b for all OSs
     # These two b packages will end up with the same filename, so we
@@ -48,7 +48,9 @@ class TpkgDependencyTests < Test::Unit::TestCase
     #
     
     pkgfile = make_package(:output_directory => @tempoutdir, :remove => ['operatingsystem', 'architecture'])
-    pkg = { :metadata => Tpkg::metadata_from_package(pkgfile), :source => pkgfile }
+    metadata_xml = Tpkg::metadata_from_package(pkgfile)
+    metadata = Tpkg::metadata_xml_to_hash(metadata_xml)
+    pkg = { :metadata => metadata, :source => pkgfile }
     req = { :name => 'testpkg' }
     
     # Below minimum version w/o package version
@@ -116,61 +118,81 @@ class TpkgDependencyTests < Test::Unit::TestCase
     
     # Package with no OS specified
     pkgfile = make_package(:output_directory => @tempoutdir, :remove => ['operatingsystem'], :change => {'architecture' => Facter['hardwaremodel'].value})
-    pkg = { :metadata => Tpkg::metadata_from_package(pkgfile), :source => pkgfile }
+    metadata_xml = Tpkg::metadata_from_package(pkgfile)
+    metadata = Tpkg::metadata_xml_to_hash(metadata_xml)
+    pkg = { :metadata => metadata, :source => pkgfile }
     assert(Tpkg::package_meets_requirement?(pkg, req))
     FileUtils.rm_f(pkgfile)
     
     # Package with one matching OS
     pkgfile = make_package(:output_directory => @tempoutdir, :change => {'operatingsystem' => Tpkg::get_os, 'architecture' => Facter['hardwaremodel'].value})
-    pkg = { :metadata => Tpkg::metadata_from_package(pkgfile), :source => pkgfile }
+    metadata_xml = Tpkg::metadata_from_package(pkgfile)
+    metadata = Tpkg::metadata_xml_to_hash(metadata_xml)
+    pkg = { :metadata => metadata, :source => pkgfile }
     assert(Tpkg::package_meets_requirement?(pkg, req))
     FileUtils.rm_f(pkgfile)
     
     # Package with a matching OS in a list of OSs
     pkgfile = make_package(:output_directory => @tempoutdir, :change => {'operatingsystem' => "RedHat,CentOS,#{Tpkg::get_os},FreeBSD,Solaris", 'architecture' => Facter['hardwaremodel'].value})
-    pkg = { :metadata => Tpkg::metadata_from_package(pkgfile), :source => pkgfile }
+    metadata_xml = Tpkg::metadata_from_package(pkgfile)
+    metadata = Tpkg::metadata_xml_to_hash(metadata_xml)
+    pkg = { :metadata => metadata, :source => pkgfile }
     assert(Tpkg::package_meets_requirement?(pkg, req))
     FileUtils.rm_f(pkgfile)
     
     # Package with one non-matching OS
     pkgfile = make_package(:output_directory => @tempoutdir, :change => {'operatingsystem' => 'bogus_os', 'architecture' => Facter['hardwaremodel'].value})
-    pkg = { :metadata => Tpkg::metadata_from_package(pkgfile), :source => pkgfile }
+    metadata_xml = Tpkg::metadata_from_package(pkgfile)
+    metadata = Tpkg::metadata_xml_to_hash(metadata_xml)
+    pkg = { :metadata => metadata, :source => pkgfile }
     assert(!Tpkg::package_meets_requirement?(pkg, req))
     FileUtils.rm_f(pkgfile)
     
     # Package with a list of non-matching OSs
     pkgfile = make_package(:output_directory => @tempoutdir, :change => {'operatingsystem' => 'bogus_os1,bogus_os2', 'architecture' => Facter['hardwaremodel'].value})
-    pkg = { :metadata => Tpkg::metadata_from_package(pkgfile), :source => pkgfile }
+    metadata_xml = Tpkg::metadata_from_package(pkgfile)
+    metadata = Tpkg::metadata_xml_to_hash(metadata_xml)
+    pkg = { :metadata => metadata, :source => pkgfile }
     assert(!Tpkg::package_meets_requirement?(pkg, req))
     FileUtils.rm_f(pkgfile)
     
     # Package with no architecture specified
     pkgfile = make_package(:output_directory => @tempoutdir, :remove => ['architecture'], :change => {'operatingsystem' => Tpkg::get_os })
-    pkg = { :metadata => Tpkg::metadata_from_package(pkgfile), :source => pkgfile }
+    metadata_xml = Tpkg::metadata_from_package(pkgfile)
+    metadata = Tpkg::metadata_xml_to_hash(metadata_xml)
+    pkg = { :metadata => metadata, :source => pkgfile }
     assert(Tpkg::package_meets_requirement?(pkg, req))
     FileUtils.rm_f(pkgfile)
     
     # Package with one matching architecture
     pkgfile = make_package(:output_directory => @tempoutdir, :change => {'operatingsystem' => Tpkg::get_os, 'architecture' => Facter['hardwaremodel'].value})
-    pkg = { :metadata => Tpkg::metadata_from_package(pkgfile), :source => pkgfile }
+    metadata_xml = Tpkg::metadata_from_package(pkgfile)
+    metadata = Tpkg::metadata_xml_to_hash(metadata_xml)
+    pkg = { :metadata => metadata, :source => pkgfile }
     assert(Tpkg::package_meets_requirement?(pkg, req))
     FileUtils.rm_f(pkgfile)
     
     # Package with a matching architecture in a list of architectures
     pkgfile = make_package(:output_directory => @tempoutdir, :change => {'operatingsystem' => Tpkg::get_os, 'architecture' => "i386,x86_64,#{Facter['hardwaremodel'].value},sparc,powerpc"})
-    pkg = { :metadata => Tpkg::metadata_from_package(pkgfile), :source => pkgfile }
+    metadata_xml = Tpkg::metadata_from_package(pkgfile)
+    metadata = Tpkg::metadata_xml_to_hash(metadata_xml)
+    pkg = { :metadata => metadata, :source => pkgfile }
     assert(Tpkg::package_meets_requirement?(pkg, req))
     FileUtils.rm_f(pkgfile)
     
     # Package with one non-matching architecture
     pkgfile = make_package(:output_directory => @tempoutdir, :change => {'operatingsystem' => Tpkg::get_os, 'architecture' => 'bogus_arch'})
-    pkg = { :metadata => Tpkg::metadata_from_package(pkgfile), :source => pkgfile }
+    metadata_xml = Tpkg::metadata_from_package(pkgfile)
+    metadata = Tpkg::metadata_xml_to_hash(metadata_xml)
+    pkg = { :metadata => metadata, :source => pkgfile }
     assert(!Tpkg::package_meets_requirement?(pkg, req))
     FileUtils.rm_f(pkgfile)
     
     # Package with a list of non-matching architectures
     pkgfile = make_package(:output_directory => @tempoutdir, :change => {'operatingsystem' => Tpkg::get_os, 'architecture' => 'bogus_arch1,bogus_arch2'})
-    pkg = { :metadata => Tpkg::metadata_from_package(pkgfile), :source => pkgfile }
+    metadata_xml = Tpkg::metadata_from_package(pkgfile)
+    metadata = Tpkg::metadata_xml_to_hash(metadata_xml)
+    pkg = { :metadata => metadata, :source => pkgfile }
     assert(!Tpkg::package_meets_requirement?(pkg, req))
     FileUtils.rm_f(pkgfile)
   end
@@ -197,7 +219,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
     pkgs = tpkg.available_packages_that_meet_requirement(req)
     assert_equal(2, pkgs.length)
     pkgs.each do |pkg|
-      assert(pkg[:metadata].elements['/tpkg/version'].text.to_f >= 1.2)
+      assert(pkg[:metadata][:version].to_f >= 1.2)
     end
     
     req[:minimum_version] = '1.1'
@@ -205,43 +227,16 @@ class TpkgDependencyTests < Test::Unit::TestCase
     pkgs = tpkg.available_packages_that_meet_requirement(req)
     assert_equal(2, pkgs.length)
     pkgs.each do |pkg|
-      assert(pkg[:metadata].elements['/tpkg/version'].text.to_f >= 1.1)
-      assert(pkg[:metadata].elements['/tpkg/version'].text.to_f <= 1.2)
+      assert(pkg[:metadata][:version].to_f >= 1.1)
+      assert(pkg[:metadata][:version].to_f <= 1.2)
     end
+    
+    # Test a package name which has no available packages
+    req[:name] = 'otherpkg'
+    pkgs = tpkg.available_packages_that_meet_requirement(req)
+    assert(pkgs.empty?)
     
     pkgfiles.each { |pkgfile| FileUtils.rm_f(pkgfile) }
-    FileUtils.rm_rf(testbase)
-  end
-  
-  def test_extract_reqs_from_metadata
-    pkgfile = make_package(:output_directory => @tempoutdir, :dependencies => {'testpkg2' => {'minimum_version' => '1.0', 'maximum_version' => '3.0', 'minimum_package_version' => '1.5', 'maximum_package_version' => '2.5'}, 'testpkg3' => {}})
-    metadata = Tpkg::metadata_from_package(pkgfile)
-    reqs = Tpkg::extract_reqs_from_metadata(metadata)
-    assert_equal(2, reqs.length)
-    reqs.each do |req|
-      if req[:name] == 'testpkg2'
-        assert_equal('1.0', req[:minimum_version])
-        assert_equal('3.0', req[:maximum_version])
-        assert_equal('1.5', req[:minimum_package_version])
-        assert_equal('2.5', req[:maximum_package_version])
-        assert_equal(5, req.length)  # :name and 4 version requirements
-      else
-        assert_equal('testpkg3', req[:name])
-        assert_equal(1, req.length)  # :name only
-      end
-    end
-    FileUtils.rm_f(pkgfile)
-  end
-  
-  def test_solve_dependencies
-    testbase = Tempdir.new("testbase")
-    tpkg = Tpkg.new(:base => testbase, :sources => @pkgfiles)
-    
-    solutions = tpkg.solve_dependencies([{:name => 'a'}], {})
-    
-    # Our set of test packages has 4 valid solutions
-    assert_equal(4, solutions.length)
-    
     FileUtils.rm_rf(testbase)
   end
   
@@ -250,7 +245,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
     # package set in a new, clean base
     testbase = Tempdir.new("testbase")
     tpkg = Tpkg.new(:base => testbase, :sources => @pkgfiles)
-    solution_packages = tpkg.best_solution([{:name => 'a'}], {})
+    solution_packages = tpkg.best_solution([{:name => 'a'}], {}, ['a'])
     # We should end up with a-1.0, b-1.0 (the specific one, not the generic
     # one), c-1.2 and d-1.2
     assert_equal(4, solution_packages.length)
@@ -262,25 +257,163 @@ class TpkgDependencyTests < Test::Unit::TestCase
     testbase = Tempdir.new("testbase")
     #  First install an older version of a
     older_apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '.9' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
-    tpkg = Tpkg.new(:base => testbase, :sources => [older_apkg])
+    tpkg = Tpkg.new(:base => testbase, :sources => [older_apkg] + @pkgfiles)
     tpkg.install(['a=.9'], PASSPHRASE)
-    # Now request a with our set of test packages and verify that we get
-    # back the currently installed 'a' pkg rather than the newer one that
-    # is available from our test packages
-    tpkg = Tpkg.new(:base => testbase, :sources => @pkgfiles)
+    # Now request 'a' and verify that we get back the currently installed
+    # 'a' pkg rather than the newer one that is available from our test
+    # packages
     requirements = []
     packages = {}
     tpkg.requirements_for_currently_installed_packages(requirements, packages)
     requirements << {:name => 'a'}
-    solution_packages = tpkg.best_solution(requirements, packages)
+    solution_packages = tpkg.best_solution(requirements, packages, ['a'])
     assert_equal(1, solution_packages.length)
     assert_equal(:currently_installed, solution_packages.first[:source])
-    assert_equal('a', solution_packages.first[:metadata].elements['/tpkg/name'].text)
-    assert_equal('.9', solution_packages.first[:metadata].elements['/tpkg/version'].text)
+    assert_equal('a', solution_packages.first[:metadata][:name])
+    assert_equal('.9', solution_packages.first[:metadata][:version])
     FileUtils.rm_f(older_apkg)
+    FileUtils.rm_rf(testbase)
+
+    # Test that we don't prefer installed packages if :prefer is false
+    testbase = Tempdir.new("testbase")
+    #  First install an older version of d
+    older_dpkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'd', 'version' => '.9' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    tpkg = Tpkg.new(:base => testbase, :sources => [older_dpkg] + @pkgfiles)
+    tpkg.install(['d=.9'], PASSPHRASE)
+    # Now request an update of 'd' and verify that we get back the newer
+    # available 'd' pkg rather than the currently installed package.
+    requirements = []
+    packages = {}
+    tpkg.requirements_for_currently_installed_packages(requirements, packages)
+    # Remove preference for currently installed package
+    packages['d'].each do |pkg|
+      if pkg[:source] == :currently_installed
+        pkg[:prefer] = false
+      end
+    end
+    solution_packages = tpkg.best_solution(requirements, packages, ['d'])
+    assert_equal(1, solution_packages.length)
+    assert(solution_packages.first[:source].include?('d-1.3-1.tpkg'))
+    FileUtils.rm_f(older_dpkg)
+    FileUtils.rm_rf(testbase)
+
+    # Test that we don't prefer installed packages if :prefer is false
+    # This is a more complex test than the previous, as the 'a' package
+    # in our test @pkgfiles has dependencies, whereas the initial older
+    # version we install does not.  The new dependencies could throw off
+    # the scoring process.
+    testbase = Tempdir.new("testbase")
+    #  First install an older version of a
+    older_apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '.9' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    tpkg = Tpkg.new(:base => testbase, :sources => [older_apkg] + @pkgfiles)
+    tpkg.install(['a=.9'], PASSPHRASE)
+    # Now request an update of 'a' and verify that we get back the newer
+    # available 'a' pkg rather than the currently installed package.
+    requirements = []
+    packages = {}
+    tpkg.requirements_for_currently_installed_packages(requirements, packages)
+    # Remove preference for currently installed package
+    packages['a'].each do |pkg|
+      if pkg[:source] == :currently_installed
+        pkg[:prefer] = false
+      end
+    end
+    solution_packages = tpkg.best_solution(requirements, packages, ['a'])
+    # The solution should pull in the newer 'a' and its dependencies
+    assert_equal(4, solution_packages.length)
+    selectedapkg = solution_packages.find{|pkg| pkg[:metadata][:name] == 'a'}
+    assert(selectedapkg[:source].include?('a-1.0-1.tpkg'))
+    FileUtils.rm_f(older_apkg)
+    FileUtils.rm_rf(testbase)
+    
+    # Test with no valid solution, ensure it fails
+    testbase = Tempdir.new("testbase")
+    tpkg = Tpkg.new(:base => testbase, :sources => @pkgfiles)
+    solution_packages = tpkg.best_solution([{:name => 'a'}, {:name => 'c', :minimum_version => '1.3'}], {}, ['a', 'c'])
+    assert_nil(solution_packages)
     FileUtils.rm_rf(testbase)
   end
   
+  # best_solution is a thin wrapper of this method, most of the testing
+  # is in test_best_solution
+  def test_resolve_dependencies
+    testbase = Tempdir.new("testbase")
+    tpkg = Tpkg.new(:base => testbase, :sources => @pkgfiles)
+    
+    result = tpkg.resolve_dependencies([{:name => 'a'}], {}, ['a'])
+    assert(result.has_key?(:solution))
+    solution = result[:solution]
+    
+    # We should end up with a-1.0, b-1.0 (the specific one, not the generic
+    # one), c-1.2 and d-1.2
+    puts solution.inspect
+    assert_equal(4, solution.length)
+    good = ['a-1.0-1.tpkg', 'b-1.0-1.tpkg', 'c-1.2-1.tpkg', 'd-1.2-1.tpkg']
+    solution.each { |pkg| assert(good.any? { |g| pkg[:source].include?(g) }) }
+    
+    FileUtils.rm_rf(testbase)
+  end
+  
+  # This method is only used by resolve_dependencies, so the testing
+  # here is minimal.
+  def test_check_solution
+    testbase = Tempdir.new("testbase")
+    tpkg = Tpkg.new(:base => testbase, :sources => @pkgfiles)
+    
+    solution = nil
+    requirements = [{:name => 'c', :minimum_version => '1.3'}, {:name => 'd', :minimum_version => '1.3'}]
+    packages = {}
+    requirements.each do |req|
+      packages[req[:name]] = tpkg.available_packages_that_meet_requirement(req)
+    end
+    core_packages = ['c']
+    number_of_possible_solutions_checked = 0
+    
+    result = nil
+    # Check a valid solution
+    solution = {:pkgs => packages.values.flatten}
+    assert_nothing_raised { result = tpkg.check_solution(solution, requirements, packages, core_packages, number_of_possible_solutions_checked) }
+    assert(result.has_key?(:solution))
+    assert_equal(packages.values.flatten, result[:solution])
+    
+    # Check an invalid solution
+    xpkgfile = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'x' }, :dependencies => {'y' => {}}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    metadata_xml = Tpkg::metadata_from_package(xpkgfile)
+    metadata = Tpkg::metadata_xml_to_hash(metadata_xml)
+    xpkg = {:metadata => metadata}
+    solution[:pkgs] << xpkg
+    assert_nothing_raised { result = tpkg.check_solution(solution, requirements, packages, core_packages, number_of_possible_solutions_checked) }
+    assert(!result.has_key?(:solution))
+    assert(result.has_key?(:number_of_possible_solutions_checked))
+    assert(result[:number_of_possible_solutions_checked] > 0)
+    FileUtils.rm_f(xpkgfile)
+    
+    FileUtils.rm_rf(testbase)
+  end
+  
+  def test_requirements_for_currently_installed_package
+    pkgfile = make_package(:output_directory => @tempoutdir, :remove => ['operatingsystem', 'architecture'])
+    pkgfile2 = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'testpkg2' }, :remove => ['package_version', 'operatingsystem', 'architecture'])
+    testbase = Tempdir.new("testbase")
+    tpkg = Tpkg.new(:base => testbase, :sources => [pkgfile, pkgfile2])
+    tpkg.install('testpkg')
+    tpkg.install('testpkg2')
+    requirements = nil
+    assert_nothing_raised { requirements = tpkg.requirements_for_currently_installed_package('testpkg') }
+    assert_equal(1, requirements.length)
+    assert_equal('testpkg', requirements.first[:name])
+    assert_equal('1.0', requirements.first[:minimum_version])
+    assert_equal('1', requirements.first[:minimum_package_version])
+    assert_nothing_raised { requirements = tpkg.requirements_for_currently_installed_package('testpkg2') }
+    assert_equal(1, requirements.length)
+    assert_equal('testpkg2', requirements.first[:name])
+    assert_equal('1.0', requirements.first[:minimum_version])
+    assert_nil(requirements.first[:minimum_package_version])
+    FileUtils.rm_f(pkgfile)
+    FileUtils.rm_f(pkgfile2)
+    FileUtils.rm_rf(testbase)
+  end
+
   def test_requirements_for_currently_installed_packages
     testbase = Tempdir.new("testbase")
     apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '2.0' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
@@ -328,6 +461,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
     requirements = []
     packages = {}
     
+    # Test various package spec requests
     tpkg.parse_requests('a', requirements, packages)
     assert_equal(1, requirements.length)
     assert_equal(1, requirements.first.length)
@@ -358,6 +492,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
     requirements.clear
     packages.clear
     
+    # Test with a filename rather than a package spec
     apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '2.0' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
     tpkg.parse_requests(apkg, requirements, packages)
     assert_equal(1, requirements.length)
@@ -368,6 +503,35 @@ class TpkgDependencyTests < Test::Unit::TestCase
     packages.clear
     FileUtils.rm_f(apkg)
     
+    # parse_requests does some additional checks for requests by
+    # filename or URI, test those
+    
+    # First just check that it properly checks a package with dependencies
+    apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '2.0' }, :dependencies => {'b' => {}}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    tpkg.parse_requests(apkg, requirements, packages)
+    assert_equal(1, requirements.length)
+    assert_equal(1, requirements.first.length)
+    assert_equal('a', requirements.first[:name])
+    assert_equal(1, packages['a'].length)
+    requirements.clear
+    packages.clear
+    FileUtils.rm_f(apkg)
+    
+    # Verify that it rejects a package that can't be installed on this
+    # machine
+    apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '2.0', 'operatingsystem' => 'bogusos' }, :dependencies => {'b' => {}}, :remove => ['posix_acl', 'windows_acl'])
+    assert_raise(RuntimeError) { tpkg.parse_requests(apkg, requirements, packages) }
+    requirements.clear
+    packages.clear
+    FileUtils.rm_f(apkg)    
+    
+    # Verify that it rejects a package with an unresolvable dependency
+    apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '2.0' }, :dependencies => {'x' => {}}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    assert_raise(RuntimeError) { tpkg.parse_requests(apkg, requirements, packages) }
+    requirements.clear
+    packages.clear
+    FileUtils.rm_f(apkg)    
+
     FileUtils.rm_rf(testbase)
   end
   

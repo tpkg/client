@@ -17,6 +17,7 @@ class TpkgUpgradeTests < Test::Unit::TestCase
   
   def test_upgrade
     pkgfiles = []
+    a3pkgfile = nil
     ['a', 'b'].each do |pkgname|
       # Make sure the files in the a packages don't conflict with
       # the b packages
@@ -35,6 +36,9 @@ class TpkgUpgradeTests < Test::Unit::TestCase
       ['1.0', '2.0'].each do |pkgver|
         pkgfiles << make_package(:change => {'name' => pkgname, 'version' => pkgver}, :source_directory => srcdir, :dependencies => deps, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
       end
+      if pkgname == 'a'
+        a3pkgfile = make_package(:change => {'name' => pkgname, 'version' => '3.0'}, :source_directory => srcdir, :dependencies => deps, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      end
       FileUtils.rm_rf(srcdir)
     end
     
@@ -51,17 +55,17 @@ class TpkgUpgradeTests < Test::Unit::TestCase
     apkg = nil
     bpkg = nil
     metadata.each do |m|
-      if m.elements['/tpkg/name'].text == 'a'
+      if m[:name] == 'a'
         apkg = m
-      elsif m.elements['/tpkg/name'].text == 'b'
+      elsif m[:name] == 'b'
         bpkg = m
       end
     end
     assert_not_nil(apkg)
-    assert_equal('2.0', apkg.elements['/tpkg/version'].text)
+    assert_equal('2.0', apkg[:version])
     assert_not_nil(bpkg)
-    assert_equal('1.0', bpkg.elements['/tpkg/version'].text)
-
+    assert_equal('1.0', bpkg[:version])
+    
     assert_nothing_raised { tpkg.upgrade }
     # Should have two packages installed:  a-2.0 and b-2.0
     metadata = tpkg.metadata_for_installed_packages
@@ -69,18 +73,38 @@ class TpkgUpgradeTests < Test::Unit::TestCase
     apkg = nil
     bpkg = nil
     metadata.each do |m|
-      if m.elements['/tpkg/name'].text == 'a'
+      if m[:name] == 'a'
         apkg = m
-      elsif m.elements['/tpkg/name'].text == 'b'
+      elsif m[:name] == 'b'
         bpkg = m
       end
     end
     assert_not_nil(apkg)
-    assert_equal('2.0', apkg.elements['/tpkg/version'].text)
+    assert_equal('2.0', apkg[:version])
     assert_not_nil(bpkg)
-    assert_equal('2.0', bpkg.elements['/tpkg/version'].text)
+    assert_equal('2.0', bpkg[:version])
+
+    # Test an upgrade using a filename rather than a package spec ('a')
+    assert_nothing_raised { tpkg.upgrade(a3pkgfile) }
+    # Should have two packages installed:  a-3.0 and b-2.0
+    metadata = tpkg.metadata_for_installed_packages
+    assert_equal(2, metadata.length)
+    apkg = nil
+    bpkg = nil
+    metadata.each do |m|
+      if m[:name] == 'a'
+        apkg = m
+      elsif m[:name] == 'b'
+        bpkg = m
+      end
+    end
+    assert_not_nil(apkg)
+    assert_equal('3.0', apkg[:version])
+    assert_not_nil(bpkg)
+    assert_equal('2.0', bpkg[:version])
     
     pkgfiles.each { |pkgfile| FileUtils.rm_f(pkgfile) }
+    FileUtils.rm_f(a3pkgfile)
     FileUtils.rm_rf(testroot)
   end
 end

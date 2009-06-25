@@ -36,19 +36,17 @@ class TpkgMiscTests < Test::Unit::TestCase
     assert_raise(RuntimeError) { Tpkg::package_toplevel_directory(boguspkg.path) }
   end
   
-  def test_source_to_local_path
+  def test_source_to_local_directory
     testbase = Tempdir.new("testbase")
     tpkg = Tpkg.new(:base => testbase)
     
     srca = 'http://example.com/pkgs'
-    srca_as_lp = tpkg.source_to_local_path(srca)
-    assert(File.directory?(srca_as_lp))
+    srca_as_ld = tpkg.source_to_local_directory(srca)
     
     srcb = 'http://www.example.com/pkgs'
-    srcb_as_lp = tpkg.source_to_local_path(srcb)
-    assert(File.directory?(srcb_as_lp))
+    srcb_as_ld = tpkg.source_to_local_directory(srcb)
     
-    assert_not_equal(srca_as_lp, srcb_as_lp)
+    assert_not_equal(srca_as_ld, srcb_as_ld)
     
     FileUtils.rm_rf(testbase)
   end
@@ -150,6 +148,10 @@ class TpkgMiscTests < Test::Unit::TestCase
     FileUtils.rm_rf(testbase)
   end
   def test_prompt_for_conflicting_files
+    # Not quite sure how to test this method
+  end
+
+  def test_prompt_for_install
     # Not quite sure how to test this method
   end
   
