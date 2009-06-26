@@ -1,11 +1,11 @@
 require 'rexml/document'
 
-class PackagesController < ApplicationController
+class ClientUpdateController < ApplicationController
   skip_before_filter :verify_authenticity_token
 
   # used by the clients to report back the list
   # of installed packages (in xml format)
-  def client_update_xml
+  def create
     client_name = params[:client]
     
     # parse the xml POST data and generate a list of packages installed
@@ -54,8 +54,8 @@ class PackagesController < ApplicationController
       package = Hash.new
       package["name"] = ele.elements["name"].text
       package["version"] = ele.elements["version"].text
-      package["os"] = ele.elements["os"].text if ele.elements["os"]
-      package["arch"] = ele.elements["arch"].text if ele.elements["arch"]
+      package["os"] = ele.elements["operatingsystem"].text if ele.elements["operatingsystem"]
+      package["arch"] = ele.elements["architecture"].text if ele.elements["architecture"]
       package["maintainer"] = ele.elements["maintainer"].text 
       package["description"] = ele.elements["description"].text if ele.elements["description"]
       package["package_version"] = ele.elements["package_version"].text if ele.elements["package_version"]

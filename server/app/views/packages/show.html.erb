@@ -11,7 +11,9 @@
 </p>
 <p>
   <strong>Installed on:</strong>
-  <%- @installed_on.each do |client| -%>
-    <%= link_to client.name, {:controller=>:clients, :action=>:show, :id => client.id}  %>
-  <%- end -%>
+  <ul>
+    <%- @installed_on.each do |client| -%>
+      <li><%= link_to client.name, {:controller=>:clients, :action=>:show, :id => client.id}  %></li>
+    <%- end -%>
+  </ul>
 </p>

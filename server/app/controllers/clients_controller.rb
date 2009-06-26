@@ -38,10 +38,32 @@ class ClientsController < ApplicationController
   end
 
   def show
+    sort =  params[:sort]
+    # If a sort was not defined we'll make one default
+    if sort.nil?
+      sort = 'name'
+    end
+    sort_by = sort.split("_")[0]
+    sort_direction = sort.split("_")[1]
+
+    system("echo #{sort} >> /tmp/ddaosort")
+
     @client = Client.find(params[:id])
     @installed_packages = @client.client_packages.collect{ |cp| cp.package}.flatten
+
+    # sort the result
+    @installed_packages.sort! do  |a,b|
+      a.send(sort_by) != nil ? akey = a.send(sort_by) : akey = ""
+      b.send(sort_by) != nil ? bkey = b.send(sort_by) : bkey = ""
+      if sort_direction == "reverse"
+        bkey <=> akey
+      else
+        akey <=> bkey
+      end
+    end
+
     respond_to do |format|
-      format.html 
+      format.html
       format.xml  { render :xml => @client.to_xml(:include => :client_packages, :dasherize => false) }
     end
   end

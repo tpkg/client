@@ -84,6 +84,7 @@ class PackagesController < ApplicationController
   def show
     @package = Package.find(params[:id])
     @installed_on = @package.client_packages.collect{ |cp| cp.client}.flatten
+    @installed_on.sort!{ |a,b| a.name <=> b.name}
     respond_to do |format|
       format.html 
       format.xml  { render :xml => @package.to_xml(:include => :client_packages, :dasherize => false) }

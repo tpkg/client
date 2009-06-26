@@ -1,5 +1,6 @@
 <%- @page_title = "Packages" %>
 <h1>Packages</h1>
+<%= link_to "Upload a package", :controller => "uploads", :action => "new" %>
 <div id="search_box" style="text-align:right">
   <%= render :partial => 'shared/search_box', :locals => { :objects => @packages } %>
 </div>

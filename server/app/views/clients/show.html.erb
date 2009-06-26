@@ -5,7 +5,12 @@
 
   <table cellspacing="0" class="styled">
   <thead>
-  <tr><th>Name</th><th>Version</th><th>OS</th><th>arch</th></tr>
+  <tr>
+  <th <%= sort_td_class_helper "name" %> > <%= sort_link_helper "Name", "name" %></th>
+  <th>Version</th>
+  <th <%= sort_td_class_helper "os" %> > <%= sort_link_helper "OS", "os" %></th>
+  <th <%= sort_td_class_helper "arch" %> > <%= sort_link_helper "arch", "arch" %></th>
+  </tr>
   </thead>
   <tbody>
 

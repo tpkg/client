@@ -9,7 +9,7 @@
 #
 # It's strongly recommended to check this file into your version control system.
 
-ActiveRecord::Schema.define(:version => 20090220190738) do
+ActiveRecord::Schema.define(:version => 20090507004536) do
 
   create_table "client_packages", :force => true do |t|
     t.integer "client_id",  :null => false
@@ -28,6 +28,14 @@ ActiveRecord::Schema.define(:version => 20090220190738) do
     t.string "package_version"
     t.string "maintainer",      :null => false
     t.text   "description"
+  end
+
+  create_table "uploads", :force => true do |t|
+    t.datetime "created_at"
+    t.datetime "updated_at"
+    t.string   "upload_file_name"
+    t.string   "upload_content_type"
+    t.integer  "upload_file_size"
   end
 
 end

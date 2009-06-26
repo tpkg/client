@@ -1,0 +1,106 @@
+<br/>
+<br/>
+<br/>
+Package Uploader
+<br/>
+<br/>
+<!--
+<h1>Uploading pkg</h1>
+<p><%= link_to 'Return to index', uploads_path %></p>
+
+<p>This section is the traditional upload form. Normally it would be hidden in favor of the swfupload button below.</p>
+
+<%= error_messages_for :upload %>
+
+<% form_for @upload, :html => { :multipart => true } do |f| -%>
+  <p><%= f.file_field :uploaded_data %></p>
+  <%= submit_tag 'Upload image' %> or <%= link_to 'Cancel', uploads_path %>
+<% end %>
+
+<br />
+<hr />
+
+<p>SWFUpload button allows uploading more than one image at a time. This section adapted from index.php in the swfupload application demo. In a final application the Graceful Degradation plugin would show or hide the traditional or swfupload divisions based on whether the swfupload program successfully initialized.</p>
+-->
+
+<script type='text/javascript'>
+  var swfu;
+
+  window.onload = function () {
+    swfu = new SWFUpload({
+      // Create the custom swfupload_uploads_path in the routes.rb file
+      upload_url : '<%= swfupload_uploads_path -%>',
+      // flash_url : '/assets/swfupload_f9.swf',
+
+//      file_size_limit : '3 MB',
+      file_types : '*.*',
+      file_types_description : 'JPG Images',
+      file_upload_limit : '0',
+
+      file_queue_error_handler : fileQueueError,
+      file_dialog_complete_handler : fileDialogComplete,
+      upload_progress_handler : uploadProgress,
+      upload_error_handler : uploadError,
+      upload_success_handler : uploadSuccess,
+      upload_complete_handler : uploadComplete,
+
+      custom_settings : { 
+        upload_target : 'divFileProgressContainer'
+      },
+
+			// Button Settings
+			button_image_url : "/images/spyglass.png",
+			button_placeholder_id : "spanButtonPlaceholder",
+			button_width: 180,
+			button_height: 18,
+			button_text : '<span class="button">Select file to upload',
+			button_text_style : '.button { font-family: Helvetica, Arial, sans-serif; font-size: 12pt; } .buttonSmall { font-size: 10pt; }',
+			button_text_top_padding: 0,
+			button_text_left_padding: 18,
+			button_window_mode: SWFUpload.WINDOW_MODE.TRANSPARENT,
+			button_cursor: SWFUpload.CURSOR.HAND,
+
+			// Flash Settings
+			flash_url : "/assets/swfupload.swf",
+
+			custom_settings : {
+				upload_target : "divFileProgressContainer"
+			},
+
+      debug: false
+
+    });
+  };
+</script>
+
+<div style="margin: 0px 10px;">
+	<div>
+		<form>
+  		<div style="display: inline; border: solid 1px #7FAAFF; background-color: #C5D9FF; padding: 2px;">
+  			<span id="spanButtonPlaceholder"></span>
+  		</div>
+		</form>
+	</div>
+	<div id="divFileProgressContainer" style="height: 75px;"></div>
+<!--
+	<div id="thumbnails"></div>
+-->
+</div>
+
+<!--
+<iframe src ="http://tpkg1.wc1.yellowpages.com/tpkg/" width="100%" height="300">
+  <p>Your browser does not support iframes.</p>
+</iframe>
+-->
+
+Non-flash file uploader
+<% form_for(@upload, :html => { :multipart => true }) do |f| %>
+
+  <p>
+    <%= f.label :File %><br />
+    <%= f.file_field :upload %>
+  </p>
+  <p>
+    <%= f.submit 'Create' %>
+  </p>
+<% end %>
