@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE tpkg SYSTEM "http://tpkg.sourceforge.net/tpkg-1.0.dtd">
+<tpkg>
+  <name>tpkg-server</name>
+  <version>1.2</version>
+  <maintainer>tpkg-users@lists.sourceforge.net</maintainer>
+  <description>tpkg package management and reporting server</description>
+  <bugreporting>https://sourceforge.net/tracker/?group_id=245750</bugreporting>
+  
+  <!--
+       I've had lots of problems with supposedly minor gem version
+       changes breaking things, so I take a very pessimistic view with
+       gem version requirements (specifying an exact version).  Other
+       dependencies get more leniency.
+    -->
+  <dependencies>
+    <dependency>
+      <name>mysql</name>
+      <minimum_version>5.1.0</minimum_version>
+      <maximum_version>5.1.9999</maximum_version>
+    </dependency>
+    <dependency>
+      <name>logrotate</name>
+      <minimum_version>3.5</minimum_version>
+      <maximum_version>3.9999</maximum_version>
+    </dependency>
+    <dependency>
+      <name>stunnel</name>
+      <minimum_version>4.0</minimum_version>
+      <maximum_version>4.9999</maximum_version>
+    </dependency>
+    <dependency>
+      <name>nginx</name>
+      <minimum_version>0.6</minimum_version>
+      <maximum_version>0.6.9999</maximum_version>
+    </dependency>
+    <dependency>
+      <name>gem-unicorn</name>
+      <minimum_version>0.7.0</minimum_version>
+      <maximum_version>0.7.0</maximum_version>
+    </dependency>
+    <!-- unicorn depends on rack but doesn't express that dependency in 0.7 -->
+    <!-- Eric says he added the dependency in 0.8, so we can remove this once 0.8 is released -->
+    <dependency>
+      <name>gem-rack</name>
+      <minimum_version>1.0.0</minimum_version>
+      <maximum_version>1.0.0</maximum_version>
+    </dependency>
+    <dependency>
+      <name>gem-rails</name>
+      <minimum_version>2.2.2</minimum_version>
+      <maximum_version>2.2.2</maximum_version>
+    </dependency>
+    <dependency>
+      <name>gem-mysql</name>
+      <minimum_version>2.7</minimum_version>
+      <maximum_version>2.7</maximum_version>
+    </dependency>
+    <dependency>
+      <name>gem-mislav-will_paginate</name>
+      <minimum_version>2.3.8</minimum_version>
+      <maximum_version>2.3.8</maximum_version>
+    </dependency>
+  </dependencies>
+  
+  <files>
+    <file>
+      <path>/home/t/tpkg/config/ssl-key.pem</path>
+      <encrypt precrypt="true"/>
+      <posix>
+        <perms>0400</perms>
+      </posix>
+    </file>
+    <file>
+      <path>/home/t/tpkg/config/mysql-credentials</path>
+      <encrypt precrypt="true"/>
+      <posix>
+        <perms>0400</perms>
+      </posix>
+    </file>
+    <file>
+      <path>/home/t/tpkg/config/database.yml</path>
+      <encrypt precrypt="true"/>
+      <posix>
+        <owner>t</owner>
+        <perms>0400</perms>
+      </posix>
+    </file>
+    <file>
+      <path>/home/t/etc/init.d/tpkg-db</path>
+      <init/>
+      <posix>
+        <perms>0555</perms>
+      </posix>
+    </file>
+    <file>
+      <path>/home/t/etc/init.d/tpkg-app</path>
+      <init/>
+      <posix>
+        <perms>0555</perms>
+      </posix>
+    </file>
+    <file>
+      <path>/home/t/etc/init.d/tpkg-web</path>
+      <init/>
+      <posix>
+        <perms>0555</perms>
+      </posix>
+    </file>
+    <file>
+      <path>/home/t/tpkg/log</path>
+      <posix>
+        <owner>t</owner>
+      </posix>
+    </file>
+    <file>
+      <path>/home/t/tpkg/tmp/pids</path>
+      <posix>
+        <owner>t</owner>
+      </posix>
+    </file>
+  </files>
+</tpkg>
+

@@ -1,0 +1,44 @@
+#!/bin/sh
+
+case "$1" in
+'start')
+	# Create all_databases.sql if needed
+	# Logrotate won't rotate a file that doesn't exist
+	mkdir -p /home/t/tpkg/db/backups
+	if [ ! -f /home/t/tpkg/db/backups/all_databases.sql ]
+	then
+	  touch /home/t/tpkg/db/backups/all_databases.sql
+	fi
+
+	# Pick appropriate my.cnf
+	name=`hostname`
+	env=`nv --exactget name=$name --fields node_groups | grep tpkg_ | cut -d' ' -f2 | cut -d_ -f2`
+	dbrole=`nv --exactget name=$name --fields node_groups | grep tpkg-db-.*_$env | egrep 'master|slave' | cut -d' ' -f2 | cut -d_ -f1 | cut -d- -f3`
+	datacenter=`echo $name | cut -d. -f2`
+	if [ -f /home/t/tpkg/config/my.cnf-${env}_${datacenter}_${dbrole} ]
+	then
+		if ! diff /home/t/etc/my.cnf /home/t/tpkg/config/my.cnf-${env}_${datacenter}_${dbrole} > /dev/null 2>&1
+		then
+			cp -p /home/t/tpkg/config/my.cnf-${env}_${datacenter}_${dbrole} /home/t/etc/my.cnf
+			# Bounce mysqld so it picks up the config change
+			/home/t/etc/init.d/mysql restart
+		fi
+	else
+		echo "mysqld config for env $env, datacenter $datacenter, role $dbrole not found" >&2
+		exit 1
+	fi
+	;;
+'stop')
+	echo "Leaving mysqld running"
+	;;
+'restart')
+	$0 stop
+	$0 start
+	;;
+*)
+	echo "Usage: $0 { start | stop | restart }"
+	exit 1
+	;;
+esac
+exit 0
+
