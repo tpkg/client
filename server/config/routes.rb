@@ -1,6 +1,8 @@
 ActionController::Routing::Routes.draw do |map|
   map.resources :packages,                             :collection => { :field_names => :get, :search => :get }, :member => { :version_history => :get }
   map.resources :clients,                             :collection => { :field_names => :get, :search => :get }, :member => { :version_history => :get }
+  map.resources :uploads, :collection => { :swfupload => :post }
+  map.resources :client_update
 
   # The priority is based upon order of creation: first created -> highest priority.
 
