@@ -6,8 +6,8 @@ set -u
 set -o pipefail # bash v3 dependency
 
 PKG=nginx
-VER=0.6.35
-PKGVER=3
+VER=0.6.37
+PKGVER=1
 prefix=/home/t
 perl_version=5.10.0
 perl_prefix=/home/t/perl-$perl_version
@@ -23,6 +23,7 @@ for i in zlib-devel pcre-devel openssl-devel
 do
 	rpm --quiet -q $i || sudo yum install $i
 done
+tpkg -q perl=$perl_version || sudo tpkg -i perl=$perl_version
 
 o=
 o="$o --prefix=$prefix"
@@ -62,6 +63,8 @@ cat > $pkgdir/tpkg.xml <<EOF
       <name>perl</name>
       <minimum_version>$perl_version</minimum_version>
     </dependency>
+    <dependency><name>pcre</name><native /></dependency>
+    <dependency><name>openssl</name><native /></dependency>
   </dependencies>
 </tpkg>
 EOF
@@ -78,7 +81,7 @@ for i in etc/nginx var/{lock,log,run,tmp}/nginx
 do
 	# make sure parent dirs are owned by root, so I'm not using install(1)
 	sudo mkdir -p $pkgdir/root$prefix/$i
-	sudo chown t:t $pkgdir/root$prefix/$i
+	sudo chown t: $pkgdir/root$prefix/$i
 done
 
 # Make package
