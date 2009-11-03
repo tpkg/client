@@ -8,7 +8,6 @@ require 'tempfile'  # Tempfile
 require 'optparse'
 require 'shellwords'
 require 'tpkg'
-require 'rubygems'
 require 'facter'
 
 # Names of packages containing ruby and gems.  Dependencies on these
@@ -18,6 +17,13 @@ RUBYDEPS = ['ruby']
 # T_RUBY_BASE = "/home/t/ruby"
 T_RUBY_BASE = "#{Tpkg::DEFAULT_BASE}/#{RUBYDEPS.first}".freeze
 DEFAULT_GEM_COMMAND = "#{T_RUBY_BASE}/bin/gem"
+
+# Figure out rubygems library from ruby.
+# There might be several versions so get the latest one. We're assuming that
+# the version directories are named appropriately under lib/ruby/site_ruby.
+versions = Dir.glob(File.join("#{T_RUBY_BASE}", "lib", "ruby", "site_ruby", "*"))
+versions.sort!
+DEFAULT_RUBYGEMS_PATH = versions[-1]
 
 # Haven't found a Ruby method for creating temporary directories,
 # so create a temporary file and replace it with a directory.
@@ -30,7 +36,7 @@ def tempdir(basename, tmpdir=Dir::tmpdir)
 end
 
 # Handle command line arguments
-@gem = nil
+@gems = nil
 @gemver = nil
 @pkgver = 1
 @extradeps = {}
@@ -38,8 +44,10 @@ end
 @installopts = []
 @buildopts = []
 @gemcmd = DEFAULT_GEM_COMMAND
+@rubygemspath = nil
+
 opts = OptionParser.new
-opts.banner = 'Usage: gem2tpkg [options] GEMNAME'
+opts.banner = 'Usage: gem2tpkg [options] GEMNAME1 GEMNAME2 ...'
 opts.on('--version', '-v', '=VERSION', 'Version of gem to install') do |opt|
   @gemver = "-v #{opt}"
 end
@@ -81,19 +89,28 @@ end
 opts.on('--gem-cmd', '=GEMCMD', 'Path to gem command') do |opt|
   @gemcmd = opt
 end
+opts.on('--rubygems-path', '=PATH', 'Path to rubygems library') do |opt|
+  @rubygemspath = opt
+end
 opts.on_tail("-h", "--help", "Show this message") do
   puts opts
   exit
 end
 
+# we now allow user to specifies multiple gems at the end of the command line arguments
 leftover = opts.parse(ARGV)
+@gems = leftover
+#if leftover.length == 1
+#  @gem = leftover.shift
+#else
+#  puts opts
+#  exit
+#end
 
-if leftover.length == 1
-  @gem = leftover.shift
-else
-  puts opts
-  exit
-end
+# require the correct rubygems based on what the user specifies
+@rubygemspath ||= DEFAULT_RUBYGEMS_PATH
+$:.unshift @rubygemspath unless @rubygemspath.nil?
+require 'rubygems'
 
 # Create the directory we want gem to install into
 @gemdir = tempdir('gem2tpkg')
@@ -101,7 +118,8 @@ ENV['GEM_HOME'] = @gemdir
 ENV['GEM_PATH'] = @gemdir
 
 # Install the gem
-geminst = [@gemcmd, 'install', @gem, '--no-rdoc', '--no-ri']
+#geminst = [@gemcmd, 'install', @gems.join(" "), '--no-rdoc', '--no-ri']
+geminst = [@gemcmd, 'install', '--no-rdoc', '--no-ri'] | @gems
 if @gemver
   geminst << @gemver
 end
@@ -114,6 +132,7 @@ if !@buildopts.empty?
   geminst << '--'
   geminst.concat(@buildopts)
 end
+
 r = system(*geminst)
 if !r
   abort('gem install failed')
@@ -128,7 +147,8 @@ def package(gem)
   puts "Packaging #{gem}"
   
   gemsdir = nil
-  globdirs = Dir.glob(File.join(@gemdir, 'gems', "#{gem}-*"))
+  #globdirs = Dir.glob(File.join(@gemdir, 'gems', "#{gem}-*"))
+  globdirs = Dir.glob(File.join(@gemdir, 'gems', "#{gem}-[0-9]*"))
   if globdirs.length == 1
     gemsdir = globdirs[0]
   else
@@ -139,7 +159,7 @@ def package(gem)
     # name in it.
     abort File.join(@gemdir, 'gems', "#{gem}-*") + ' is abiguous'
   end
-  
+
   # gemsdir will be something like /tmp/gem2tpkg.5833.0/gems/rake-0.8.4
   # and the gemspec will be something like
   # /tmp/gem2tpkg.5833.0/specifications/rake-0.8.4.gemspec.  So we
@@ -165,7 +185,12 @@ def package(gem)
   # gemspec instead, but this is already written and working so I'm
   # leaving it alone for now.
   deps = {}
-  IO.popen("#{@gemcmd} dependency #{gem}") do |pipe|
+  # gem dependency does something equivalent to /^gemname/ by default,
+  # i.e. matches against anything that starts with the specified name.
+  # We want to exactly match the gem in question.  Turns out that if you
+  # pass something that looks like a regex then gem dependency will use
+  # that instead.  See rubygems/commands/dependency_command.rb
+  IO.popen("#{@gemcmd} dependency /^#{Regexp.escape(gem)}$/") do |pipe|
     pipe.each_line do |line|
       next if line =~ /^Gem /  # Skip header line
       next if line =~ /^\s*$/  # Skip blank lines
@@ -247,8 +272,8 @@ def package(gem)
       when '~>'
         # ~> 2.2 is equivalent to >= 2.2 and < 3
         deps[depgem][:minimum_version] = depver
-        majorver = depver.split('.').to_i
-        maxver = "#{majorver-1}.9999.9999"
+        majorver = depver.split('.').first.to_i
+        maxver = "#{majorver}.9999.9999"
         deps[depgem][:maximum_version] = maxver
       end
       # Package the dependency
@@ -381,7 +406,7 @@ def package(gem)
   
   # Cleanup
   FileUtils.rm_rf(pkgdir)
-  
+ 
   @already_packaged << gem
   pkgfiles
 end
@@ -399,8 +424,10 @@ if gemcount == 0
   abort "Zero gems installed according to gem list?"
 end
 
-pkgfiles = package(@gem)
-
+pkgfiles = []
+@gems.each do | gem |
+  pkgfiles |=  package(gem)
+end
 # Make sure the package method made as many packages as there were gems
 # installed
 if pkgfiles.length != gemcount

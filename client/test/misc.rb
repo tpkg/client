@@ -155,6 +155,39 @@ class TpkgMiscTests < Test::Unit::TestCase
     # Not quite sure how to test this method
   end
   
+  def test_run_external
+    extname = 'testext'
+    extdata = "This is a test of an external hook\nwith multiple lines\nof data"
+    testroot = Tempdir.new("testroot")
+    relative_base = File.join('home', 'tpkg')
+    testbase = File.join(testroot, relative_base)
+    FileUtils.mkdir_p(testbase)
+    # Make an external script which writes the arguments and data it receives
+    # to a temporary file, so that we can verify the external script received
+    # them properly.
+    exttmpfile = Tempfile.new('tpkgtest_external')
+    externalsdir = File.join(testbase, 'var', 'tpkg', 'externals')
+    FileUtils.mkdir_p(externalsdir)
+    extscript = File.join(externalsdir, extname)
+    File.open(extscript, 'w') do |file|
+      file.puts('#!/bin/sh')
+      # Package filename
+      file.puts("echo $1 >> #{exttmpfile.path}")
+      # Operation (install/remove)
+      file.puts("echo $2 >> #{exttmpfile.path}")
+      # TPKG_HOME environment variable
+      file.puts("echo $TPKG_HOME >> #{exttmpfile.path}")
+      # Data
+      file.puts("cat >> #{exttmpfile.path}")
+    end
+    File.chmod(0755, extscript)
+    # And run the test
+    tpkg = Tpkg.new(:file_system_root => testroot, :base => relative_base)
+    assert_nothing_raised { tpkg.run_external('pkgfile', :install, extname, extdata) }
+    assert_equal("pkgfile\ninstall\n#{testbase}\n#{extdata}", IO.read(exttmpfile.path))
+    FileUtils.rm_rf(testroot)
+  end
+  
   def teardown
     FileUtils.rm_f(@pkgfile)
   end

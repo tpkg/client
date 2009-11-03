@@ -50,6 +50,15 @@ class TpkgRemoveTests < Test::Unit::TestCase
     assert(!File.exist?(File.join(testbase, 'directory', 'b')))
     assert(!File.exist?(File.join(testbase, 'directory')))
     assert(File.exist?(File.join(testbase)))
+
+    # Test that we can use package filename for remove
+    tpkg.install(['a', 'b'], PASSPHRASE)
+    filenames = pkgfiles.collect{ |pkgfile| File.basename(pkgfile)}
+    assert_nothing_raised { tpkg.remove(filenames) }
+    assert(!File.exist?(File.join(testbase, 'directory', 'a')))
+    assert(!File.exist?(File.join(testbase, 'directory', 'b')))
+    assert(!File.exist?(File.join(testbase, 'directory')))
+    assert(File.exist?(File.join(testbase)))
     
     # Remove a file manually.  tpkg.remove should warn that the file
     # is missing but not abort.
@@ -65,6 +74,12 @@ class TpkgRemoveTests < Test::Unit::TestCase
       file.puts 'junk'
     end
     assert_nothing_raised { tpkg.remove(['a']) }
+    
+    # Test removing all packages by passing no arguments to remove
+    tpkg.install(['a', 'b'], PASSPHRASE)
+    assert_nothing_raised { tpkg.remove }
+    assert(!File.exist?(File.join(testbase, 'directory', 'a')))
+    assert(!File.exist?(File.join(testbase, 'directory', 'b')))
     
     # Clean up
     pkgfiles.each { |pkgfile| FileUtils.rm_f(pkgfile) }
@@ -219,6 +234,187 @@ class TpkgRemoveTests < Test::Unit::TestCase
     FileUtils.rm_rf(testroot)
     FileUtils.rm_f(pkg)
     FileUtils.rm_f(pkg2)
+    
+    # Test external handling
+    srcdir = Tempdir.new("srcdir")
+    FileUtils.cp(File.join('testpkg', 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+    extname = 'testext'
+    extdata = "This is a test of an external hook\nwith multiple lines\nof data"
+    pkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'externalpkg' }, :externals => { extname => { 'data' => extdata } }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    FileUtils.rm_rf(srcdir)
+    testroot = Tempdir.new("testroot")
+    testbase = File.join(testroot, 'home', 'tpkg')
+    FileUtils.mkdir_p(testbase)
+    externalsdir = File.join(testbase, 'var', 'tpkg', 'externals')
+    FileUtils.mkdir_p(externalsdir)
+    # Create an external script which puts the data into a file named after
+    # the package, and removes any files named after the package on removal.
+    externaltestdir = Tempdir.new('externaltest')
+    extscript = File.join(externalsdir, extname)
+    File.open(extscript, 'w') do |file|
+      file.puts <<EOF
+#!/bin/sh
+set -e
+
+pkgfile=$1
+operation=$2
+
+requestfile=#{externaltestdir}/$pkgfile
+
+case "$operation" in
+'install')
+	mkdir -p `dirname "$requestfile"`
+	tmpfile=`mktemp "$requestfile.XXXXXX"` || exit 1
+	# Dump in the data passed to us on stdin
+	cat >> $tmpfile
+	;;
+'remove')
+	rm -f "$requestfile".*
+	;;
+*)
+	echo "$0: Invalid arguments"
+	exit 1
+	;;
+esac
+EOF
+    end
+    File.chmod(0755, extscript)
+    # And run the test
+    tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [pkg])
+    tpkg.install([pkg], PASSPHRASE)
+    assert(Dir.entries(externaltestdir).length > 2)
+    assert_nothing_raised { tpkg.remove(['externalpkg']) }
+    # . and ..
+    assert_equal(2, Dir.entries(externaltestdir).length)
+    FileUtils.rm_rf(testroot)
+    FileUtils.rm_f(pkg)
+    
+    # Test handling of external with datafile
+    # The datafile is only read at install, not at remove, so this really
+    # doesn't test a unique code path.  Rather it just serves to verify that
+    # nothing breaks on removal in the face of a datafile being defined.
+    srcdir = Tempdir.new("srcdir")
+    FileUtils.cp(File.join('testpkg', 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+    extname = 'testext'
+    # Create the datafile
+    extdata = "This is a test of an external hook\nwith multiple lines\nof data from a datafile"
+    File.open(File.join(srcdir, 'datafile'), 'w') do |file|
+      file.print(extdata)
+    end
+    File.chmod(0755, File.join(srcdir, 'datafile'))
+    pkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'externalpkg' }, :externals => { extname => { 'datafile' => './datafile' } }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    FileUtils.rm_rf(srcdir)
+    testroot = Tempdir.new("testroot")
+    testbase = File.join(testroot, 'home', 'tpkg')
+    FileUtils.mkdir_p(testbase)
+    externalsdir = File.join(testbase, 'var', 'tpkg', 'externals')
+    FileUtils.mkdir_p(externalsdir)
+    # Create an external script which puts the data into a file named after
+    # the package, and removes any files named after the package on removal.
+    externaltestdir = Tempdir.new('externaltest')
+    extscript = File.join(externalsdir, extname)
+    File.open(extscript, 'w') do |file|
+      file.puts <<EOF
+#!/bin/sh
+set -e
+
+pkgfile=$1
+operation=$2
+
+requestfile=#{externaltestdir}/$pkgfile
+
+case "$operation" in
+'install')
+	mkdir -p `dirname "$requestfile"`
+	tmpfile=`mktemp "$requestfile.XXXXXX"` || exit 1
+	# Dump in the data passed to us on stdin
+	cat >> $tmpfile
+	;;
+'remove')
+	rm -f "$requestfile".*
+	;;
+*)
+	echo "$0: Invalid arguments"
+	exit 1
+	;;
+esac
+EOF
+    end
+    File.chmod(0755, extscript)
+    # And run the test
+    tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [pkg])
+    tpkg.install([pkg], PASSPHRASE)
+    assert(Dir.entries(externaltestdir).length > 2)
+    assert_nothing_raised { tpkg.remove(['externalpkg']) }
+    # . and ..
+    assert_equal(2, Dir.entries(externaltestdir).length)
+    FileUtils.rm_rf(testroot)
+    FileUtils.rm_f(pkg)
+
+    # Test handling of external with datascript
+    # The datascript is only run at install, not at remove, so this really
+    # doesn't test a unique code path.  Rather it just serves to verify that
+    # nothing breaks on removal in the face of a datascript being defined.
+    srcdir = Tempdir.new("srcdir")
+    FileUtils.cp(File.join('testpkg', 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+    extname = 'testext'
+    # Create the datascript
+    extdata = "This is a test of an external hook\nwith multiple lines\nof data from a datascript"
+    File.open(File.join(srcdir, 'datascript'), 'w') do |file|
+      file.puts('#!/bin/sh')
+      # echo may or may not add a trailing \n depending on which echo we end
+      # up, so use printf, which doesn't add things.
+      file.puts("printf \"#{extdata}\"")
+    end
+    File.chmod(0755, File.join(srcdir, 'datascript'))
+    pkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'externalpkg' }, :externals => { extname => { 'datascript' => './datascript' } }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    FileUtils.rm_rf(srcdir)
+    testroot = Tempdir.new("testroot")
+    testbase = File.join(testroot, 'home', 'tpkg')
+    FileUtils.mkdir_p(testbase)
+    externalsdir = File.join(testbase, 'var', 'tpkg', 'externals')
+    FileUtils.mkdir_p(externalsdir)
+    # Create an external script which puts the data into a file named after
+    # the package, and removes any files named after the package on removal.
+    externaltestdir = Tempdir.new('externaltest')
+    extscript = File.join(externalsdir, extname)
+    File.open(extscript, 'w') do |file|
+      file.puts <<EOF
+#!/bin/sh
+set -e
+
+pkgfile=$1
+operation=$2
+
+requestfile=#{externaltestdir}/$pkgfile
+
+case "$operation" in
+'install')
+	mkdir -p `dirname "$requestfile"`
+	tmpfile=`mktemp "$requestfile.XXXXXX"` || exit 1
+	# Dump in the data passed to us on stdin
+	cat >> $tmpfile
+	;;
+'remove')
+	rm -f "$requestfile".*
+	;;
+*)
+	echo "$0: Invalid arguments"
+	exit 1
+	;;
+esac
+EOF
+    end
+    File.chmod(0755, extscript)
+    # And run the test
+    tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [pkg])
+    tpkg.install([pkg], PASSPHRASE)
+    assert(Dir.entries(externaltestdir).length > 2)
+    assert_nothing_raised { tpkg.remove(['externalpkg']) }
+    # . and ..
+    assert_equal(2, Dir.entries(externaltestdir).length)
+    FileUtils.rm_rf(testroot)
+    FileUtils.rm_f(pkg)
   end
 end
 

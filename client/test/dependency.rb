@@ -109,6 +109,42 @@ class TpkgDependencyTests < Test::Unit::TestCase
     assert(!Tpkg::package_meets_requirement?(pkg, req))
 
     FileUtils.rm_f(pkgfile)
+
+    # More complicated test for PS-375
+    pkgfile = make_package(:output_directory => @tempoutdir, :change => {'version' => '2.3', 'package_version' => '2' }, :remove => ['operatingsystem', 'architecture'])
+    metadata_xml = Tpkg::metadata_from_package(pkgfile)
+    metadata = Tpkg::metadata_xml_to_hash(metadata_xml)
+    pkg = { :metadata => metadata, :source => pkgfile }
+    req = { :name => 'testpkg' }
+    # version number is not equal to min or max version. So we don't care if min/max package version satisfied or not
+    req[:minimum_version] = '0.5'
+    req[:maximum_version] = '3.0'
+    req[:minimum_package_version] = '3'
+    req[:maximum_package_version] = '3'
+    assert(Tpkg::package_meets_requirement?(pkg, req))
+    req[:minimum_package_version] = '1'
+    req[:maximum_package_version] = '1'
+    assert(Tpkg::package_meets_requirement?(pkg, req))
+    # version is same as maximum_version, so we have to look at maximum_package_version
+    req[:minimum_version] = '0.5'
+    req[:maximum_version] = '2.3'
+    req[:minimum_package_version] = '1'
+    req[:maximum_package_version] = '1'
+    assert(!Tpkg::package_meets_requirement?(pkg, req))
+    req[:minimum_package_version] = '3'
+    req[:maximum_package_version] = '3'
+    assert(Tpkg::package_meets_requirement?(pkg, req))
+    # version is same as minimum_version, so we have to look at minimum_package_version
+    req[:minimum_version] = '2.3'
+    req[:maximum_version] = '3.0'
+    req[:minimum_package_version] = '3'
+    req[:maximum_package_version] = '5'
+    assert(!Tpkg::package_meets_requirement?(pkg, req))
+    req[:minimum_package_version] = '2'
+    req[:maximum_package_version] = '3'
+    assert(Tpkg::package_meets_requirement?(pkg, req))
+
+    FileUtils.rm_f(pkgfile)
     
     #
     # Test architecture and operatingsystem handling
@@ -492,23 +528,40 @@ class TpkgDependencyTests < Test::Unit::TestCase
     requirements.clear
     packages.clear
     
-    # Test with a filename rather than a package spec
+    # Test with a given filename rather than a package spec
     apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '2.0' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
     tpkg.parse_requests(apkg, requirements, packages)
     assert_equal(1, requirements.length)
-    assert_equal(1, requirements.first.length)
+    assert_equal(1, requirements.first.length)   # should this be 5?
     assert_equal('a', requirements.first[:name])
     assert_equal(1, packages['a'].length)
     requirements.clear
     packages.clear
     FileUtils.rm_f(apkg)
-    
-    # parse_requests does some additional checks for requests by
+
+    # Test with a filename of a package that has been installed rather than a package spec
+    apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '2.0' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    tpkg.install([apkg], PASSPHRASE)
+    FileUtils.rm_f(apkg)
+    tpkg.parse_requests(File.basename(apkg), requirements, packages)
+    assert_equal(1, requirements.length)
+    assert_equal(5, requirements.first.length)  # name, min ver, max ver, min package version, max package version
+    assert_equal('a', requirements.first[:name])
+    assert_equal('2.0', requirements.first[:minimum_version])
+    assert_equal('2.0', requirements.first[:maximum_version])
+    assert_equal('1', requirements.first[:minimum_package_version])
+    assert_equal('1', requirements.first[:maximum_package_version])
+    assert_equal(1, packages['a'].length)
+    requirements.clear
+    packages.clear
+ 
+    # check_requests does some additional checks for requests by
     # filename or URI, test those
     
     # First just check that it properly checks a package with dependencies
     apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '2.0' }, :dependencies => {'b' => {}}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
     tpkg.parse_requests(apkg, requirements, packages)
+    assert_nothing_raised { tpkg.check_requests(packages) }
     assert_equal(1, requirements.length)
     assert_equal(1, requirements.first.length)
     assert_equal('a', requirements.first[:name])
@@ -520,14 +573,16 @@ class TpkgDependencyTests < Test::Unit::TestCase
     # Verify that it rejects a package that can't be installed on this
     # machine
     apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '2.0', 'operatingsystem' => 'bogusos' }, :dependencies => {'b' => {}}, :remove => ['posix_acl', 'windows_acl'])
-    assert_raise(RuntimeError) { tpkg.parse_requests(apkg, requirements, packages) }
+    tpkg.parse_requests(apkg, requirements, packages) 
+    assert_raise(RuntimeError) { tpkg.check_requests(packages) }
     requirements.clear
     packages.clear
     FileUtils.rm_f(apkg)    
     
     # Verify that it rejects a package with an unresolvable dependency
     apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '2.0' }, :dependencies => {'x' => {}}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
-    assert_raise(RuntimeError) { tpkg.parse_requests(apkg, requirements, packages) }
+    tpkg.parse_requests(apkg, requirements, packages) 
+    assert_raise(RuntimeError) { tpkg.check_requests(packages) }
     requirements.clear
     packages.clear
     FileUtils.rm_f(apkg)    

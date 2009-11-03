@@ -6,3 +6,10 @@ echo "0 0 * * * /opt/csw/bin/pkg-get -U > /dev/null 2>&1; /opt/csw/bin/pkg-get -
 crontab /tmp/root_crontab
 rm /tmp/root_crontab
 
+echo "# BEGIN TPKG HOOK
+for i in /etc/profile.d/*.sh ; do
+    if [ -r \"\$i\" ]; then
+        . \$i
+    fi
+done
+# END TPKG HOOK" >> /etc/profile

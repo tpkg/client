@@ -8,3 +8,17 @@ then
 	rm /tmp/root_crontab
 fi
 
+# Find where the TPKG hook is at
+start_line=`grep -n "BEGIN TPKG" /etc/profile | awk -F: '{print $1}'`
+end_line=`grep -n "END TPKG" /etc/profile | awk -F: '{print $1}'`
+
+# check that we actually got valid start and end line
+if [ $start_line ] && [ $end_line ] && [ $start_line -lt $end_line ]
+then
+  tmpfile=`mktemp -t etc.profile.XXXXXX`
+  # yank out those lines
+  sed -e "$start_line,$end_line d" /etc/profile > $tmpfile
+  if [ -s $tmpfile ]; then
+    mv $tmpfile /etc/profile
+  fi
+fi

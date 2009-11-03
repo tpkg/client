@@ -7,7 +7,7 @@ $debug = true
 
 require 'thread_pool'
 require 'net/ssh'
-require 'highline/import'
+#require 'highline/import'
 
 class Deployer
 #  def self.new
@@ -28,8 +28,10 @@ class Deployer
     @abort_on_failure = false
     @use_ssh_key = false
     @user = Etc.getlogin
+    @password = nil
     unless options.nil?
       @user = options["deploy-as"] unless options["deploy-as"].nil?
+      @password = options["deploy-password"] unless options["deploy-password"].nil?
       @max_worker = options["max-worker"]
       @abort_on_failure = options["abort-on-failure"]
       @use_ssh_key = options["use-ssh-key"]
@@ -37,20 +39,38 @@ class Deployer
   end
 
   def prompt
-    if @user.nil?
-      print "Username: "
-      @user = $stdin.gets.chomp
-    end
+    user = prompt_username
+    password = prompt_password
+    return user, password
+  end
 
-    password = ask("SSH Password (leave blank if using ssh key): ") { |q| q.echo = "*"}
-    return @user, password
+  def prompt_username
+    print "Username: "
+    user = $stdin.gets.chomp
+    return user
+  end     
+         
+  def prompt_password
+    password = ask("SSH Password (leave blank if using ssh key): ", true) 
+    return password 
+  end
+
+  def ask(str,mask=false)
+    begin
+      system 'stty -echo;' if mask
+      print str
+      input = STDIN.gets.chomp
+    ensure
+      system 'stty echo; echo ""'
+    end  
+    return input
   end
 
   $sudo_pw = nil
   def get_sudo_pw
     @mutex.synchronize {
       if $sudo_pw.nil?
-        $sudo_pw = ask("Sudo password: ") { |q| q.echo = "*"}
+        $sudo_pw = ask("Sudo password: ", true)
       else
         return $sudo_pw
       end    
@@ -64,7 +84,7 @@ class Deployer
       #  $stdout.write package
       #  $stdout.flush
       #  $passphrases[package] = $stdin.gets.chomp
-        $passphrases[package] = ask(package) { |q| q.echo = "*"}
+        $passphrases[package] = ask(package, true)
       else
         return $passphrases[package]
       end   
@@ -142,6 +162,7 @@ class Deployer
       rescue Exception => e
         exit_status = 1
         puts e.inspect
+        puts e.backtrace
         puts "Can't connect to server"
       end
 
@@ -156,11 +177,14 @@ class Deployer
   def deploy(deploy_params, servers)
     params = deploy_params.join(" ")  
     cmd = "tpkg #{params} -n"
-
-    password = ""
     user = @user
-    unless @use_ssh_key
-      user, password = prompt
+
+    if @user.nil?  && !@use_ssh_key
+      @user = prompt_username
+    end
+
+    if @password.nil? && !@use_ssh_key
+      @password = prompt_password
     end
 
     tp = ThreadPool.new(@max_worker)
@@ -174,12 +198,14 @@ class Deployer
 
     deploy_to.each do | server |
       tp.process do
-        status = ssh_execute(server, user, password, cmd).call
+        status = ssh_execute(server, @user, @password, cmd).call
         statuses[server] = status
       end
     end
     tp.shutdown
     puts "Exit statuses: "
     puts statuses.inspect
+    
+    return statuses
   end
 end

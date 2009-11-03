@@ -5,7 +5,7 @@ class Version
   include Comparable
   
   def initialize(version)
-    @version = version
+    @version = version.to_s
   end
   
   def to_s

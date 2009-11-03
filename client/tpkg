@@ -20,12 +20,14 @@ require 'tpkg'
 @quiet = false
 @sudo = true
 @lockforce = false
+@force = false
 @deploy = false
 @deploy_params = ARGV   # hold parameters for how to invoke tpkg on the machines we're deploying to
 @deploy_options = {}    # options for how to run the deployer
 @servers = nil
-@worker_count = 4
+@worker_count = 10
 @rerun_with_sudo = false
+@tpkg_options = {}
 
 def rerun_with_sudo_if_necessary
   if Process.euid != 0 && @sudo
@@ -39,7 +41,7 @@ opts.banner = 'Usage: tpkg [options]'
 opts.on('--servers', '-s', '=SERVERS', Array, 'Servers to apply the actions to.') do |opt|
   @servers = opt
   @deploy = true
-  @deploy_params = @deploy_params - ['--servers', '-s', @servers.join(",")]
+  @deploy_params = @deploy_params - ['--servers', '-s', @servers.join(","), "--servers=#{@servers.join(',')}"]
 end
 opts.on('--make', '-m', '=DIRECTORY', 'Make a package out of the contents of the directory') do |opt|
   @action = :make
@@ -54,20 +56,28 @@ opts.on('--install', '-i', '=PACKAGES', 'Install one or more packages', Array) d
   @action = :install
   @action_value = opt
 end
-opts.on('--upgrade', '-u', '=[PACKAGES]', 'Upgrade one or more packages', Array) do |opt|
+opts.on('--upgrade', '-u', '=PACKAGES', 'Upgrade one or more packages', Array) do |opt|
   @rerun_with_sudo = true
   @action = :upgrade
-  # Since the argument is optional OptionParser will pass true or '' in
-  # opt if the option was specified without an argument.  We only want
-  # to capture the argument if the user actually passed something.
-  if opt != true && opt != ''
-    @action_value = opt
-  end
+  @action_value = opt
+end
+opts.on('--downgrade', '=PACKAGES', 'Downgrade one or more packages', Array) do |opt|
+  @rerun_with_sudo = true
+  @action = :downgrade
+  @action_value = opt
+end
+opts.on('--ua', 'Upgrade all packages') do |opt|
+  @rerun_with_sudo = true
+  @action = :upgrade
 end
 opts.on('--remove', '-r', '=PACKAGES', 'Remove one or more packages', Array) do |opt|
   @rerun_with_sudo = true
   @action = :remove
   @action_value = opt
+end
+opts.on('--ra', 'Remove all packages') do |opt|
+  @rerun_with_sudo = true
+  @action = :remove
 end
 opts.on('--verify', '-V', '=NAME', 'Verify packages') do |opt|
   @rerun_with_sudo = true
@@ -75,18 +85,23 @@ opts.on('--verify', '-V', '=NAME', 'Verify packages') do |opt|
   @action_value = opt
 end
 opts.on('--start', '=NAME', 'Start the init script for the specified package', Array) do |opt|
-#  rerun_with_sudo_if_necessary
+  @rerun_with_sudo = true
   @action = :start_init
   @action_value = opt
 end
 opts.on('--stop', '=NAME', 'Stop the init script for the specified package', Array) do |opt|
-#  rerun_with_sudo_if_necessary
+  @rerun_with_sudo = true
   @action = :stop_init
   @action_value = opt
 end
 opts.on('--restart', '=NAME', 'Restart the init script for the specified package', Array) do |opt|
-#  rerun_with_sudo_if_necessary
+  @rerun_with_sudo = true
   @action = :restart_init
+  @action_value = opt
+end
+opts.on('--reload', '=NAME', 'Reload the init script for the specified package', Array) do |opt|
+  @rerun_with_sudo = true
+  @action = :reload_init
   @action_value = opt
 end
 opts.on('--query', '-q', '=NAME', 'List installed packages') do |opt|
@@ -96,7 +111,7 @@ end
 opts.on('--qa', 'List all installed packages') do |opt|
   @action = :query_installed
 end
-opts.on('--qi', '=NAME', 'Info for installed packages') do |opt|
+opts.on('--qi', '=NAME', 'Info for packages') do |opt|
   @action = :query_info
   @action_value = opt
 end
@@ -108,14 +123,12 @@ opts.on('--qf', '=NAME', 'List the package that owns a file') do |opt|
   @action = :query_who_owns_file
   @action_value = opt
 end
-opts.on('--qv', '=[NAME]', 'List available packages') do |opt|
+opts.on('--qv', '=NAME', 'List available packages') do |opt|
   @action = :query_available
-  # Since the argument is optional OptionParser will pass true or '' in
-  # opt if the option was specified without an argument.  We only want
-  # to capture the argument if the user actually passed something.
-  if opt != true && opt != ''
-    @action_value = opt
-  end
+  @action_value = opt
+end
+opts.on('--qva', 'List all available packages') do |opt|
+  @action = :query_available
 end
 opts.on('--qr', '=NAME', 'List installed packages that require package') do |opt|
   @action = :query_requires
@@ -126,8 +139,15 @@ opts.on('--qd', '=NAME', 'List the packages that package depends on') do |opt|
   @action_value = opt
 end
 opts.on('--dw', '=Integer', 'Number of workers for deploying. Only meaningful when using the -s option') do |opt|
-  @worker_count = opt
-  @deploy_params = @deploy_params - ['--dw', @worker_count]
+  @worker_count = opt.to_i
+  @deploy_params = @deploy_params - ['--dw', @worker_count, "--dw=#{opt}"]
+end
+opts.on('--qX', '=FILENAME', 'Display tpkg.xml of the given package') do |opt|
+  @action = :query_tpkgxml
+  @action_value = opt
+end
+opts.on('--source', '=NAME', 'Sources where packages are located', Array) do |opt|
+  @tpkg_options["sources"] = opt
 end
 opts.on('-n', '--no-prompt', 'No confirmation prompts regarding file conflicts or package removals') do |opt|
   @prompt = opt
@@ -141,6 +161,9 @@ opts.on('--no-sudo', 'No calls to sudo for operations that might need root privi
 end
 opts.on('--lock-force', 'Force the removal of an existing lockfile.  Normally lockfile is removed if over 2 hours old.') do |opt|
   @lockforce = opt
+end
+opts.on('--force', 'Force the execution of a given task.') do |opt|
+  @force = opt
 end
 opts.on('--use-ssh-key', 'Use ssh key for deploying instead of prompting for ssh password') do |opt|
   @deploy_options["use-ssh-key"] = opt
@@ -182,9 +205,9 @@ end
 # Figure out base directory, sources and other configuration
 #
 
-def instantiate_tpkg
+def instantiate_tpkg(options = {})
   base = Tpkg::DEFAULT_BASE
-  sources = []
+  sources = options["sources"] || []
   report_server = nil
   
   ['/etc/tpkg.conf', "#{ENV['HOME']}/.tpkg.conf"].each do |configfile|
@@ -218,13 +241,19 @@ def instantiate_tpkg
     warn "Using base '#{base}' base from $TPKG_HOME"
   end
   
-  tpkg = Tpkg.new(:base => base, :sources => sources, :report_server => report_server, :lockforce => @lockforce)
+  tpkg = Tpkg.new(:base => base, :sources => sources, :report_server => report_server, :lockforce => @lockforce, :force => @force)
 end
 
 passphrase_callback = lambda do | package |
-  ask("Passphrase for #{package}: ") { |q| q.echo = "*"}
-#  print "Passphrase for #{package}: "
-#  $stdin.gets.chomp
+#  ask("Passphrase for #{package}: ", true)
+  begin
+    system 'stty -echo;' 
+    print "Passphrase for #{package}: "
+    input = STDIN.gets.chomp
+  ensure
+    system 'stty echo; echo ""'
+  end
+  input
 end
 
 #
@@ -232,7 +261,7 @@ end
 #
 if @deploy
 #  puts "Creating deployer with #{@worker_count} number of worker"
-  @deploy_options["worker-count"] = @worker_count
+  @deploy_options["max-worker"] = @worker_count
   @deploy_options["abort-on-fail"] = false
   Tpkg::deploy(@deploy_params, @deploy_options,  @servers) 
   exit
@@ -245,13 +274,17 @@ when :make
 when :extract
   Tpkg::extract_metadata(@action_value)
 when :install
-  tpkg = instantiate_tpkg
+  tpkg = instantiate_tpkg(@tpkg_options)
   tpkg.install(@action_value, passphrase_callback)
 when :upgrade
-  tpkg = instantiate_tpkg
+  tpkg = instantiate_tpkg(@tpkg_options)
   tpkg.upgrade(@action_value, passphrase_callback)
+when :downgrade
+  downgrade = true
+  tpkg = instantiate_tpkg(@tpkg_options)
+  tpkg.upgrade(@action_value, passphrase_callback, downgrade)
 when :remove
-  tpkg = instantiate_tpkg
+  tpkg = instantiate_tpkg(@tpkg_options)
   tpkg.remove(@action_value)
 when :verify
   result = nil
@@ -260,7 +293,7 @@ when :verify
     Tpkg::verify_package_checksum(@action_value)
   # Verify an installed pkg
   else
-    tpkg = instantiate_tpkg
+    tpkg = instantiate_tpkg(@tpkg_options)
     results = tpkg.verify_file_metadata(@action_value)
     if results.length == 0
       puts "No package found"
@@ -277,16 +310,19 @@ when :verify
     puts "Package verification failed" unless success 
   end
 when :start_init
-  tpkg = instantiate_tpkg
+  tpkg = instantiate_tpkg(@tpkg_options)
   tpkg.execute_init(@action_value, "start")
 when :stop_init
-  tpkg = instantiate_tpkg
+  tpkg = instantiate_tpkg(@tpkg_options)
   tpkg.execute_init(@action_value, "stop")
 when :restart_init
-  tpkg = instantiate_tpkg
+  tpkg = instantiate_tpkg(@tpkg_options)
   tpkg.execute_init(@action_value, "restart")
+when :reload_init
+  tpkg = instantiate_tpkg(@tpkg_options)
+  tpkg.execute_init(@action_value, "reload")
 when :query_installed
-  tpkg = instantiate_tpkg
+  tpkg = instantiate_tpkg(@tpkg_options)
   req = nil
   if @action_value
     req = Tpkg::parse_request(@action_value)
@@ -302,7 +338,7 @@ when :query_installed
     end
   else
     if !@quiet
-      matches.each do |pkg|
+      matches.sort(&Tpkg::SORT_PACKAGES).each do |pkg|
         puts pkg[:metadata][:filename]
       end
     end
@@ -312,10 +348,21 @@ when :query_info
   if File.exist?(@action_value)
     metadatas = [Tpkg::metadata_xml_to_hash(Tpkg::metadata_from_package(@action_value))]
   else
-    tpkg = instantiate_tpkg
-    metadatas = tpkg.installed_packages_that_meet_requirement(Tpkg::parse_request(@action_value)).collect { |pkg| pkg[:metadata] }
+    tpkg = instantiate_tpkg(@tpkg_options)
+    metadatas = []
+    requirements = []
+    packages = {}
+    tpkg.parse_requests([@action_value], requirements, packages)
+    packages.each do | name, pkgs |
+      pkgs.each do | pkg |
+        metadatas << pkg[:metadata]
+      end
+    end
   end
+  already_displayed = {}
   metadatas.each do |metadata|
+    next if already_displayed[metadata[:filename]]
+    already_displayed[metadata[:filename]] = true
     [:name, :version, :package_version, :operatingsystem, :architecture, :maintainer, :description, :bugreporting].each do |field|
       if metadata[field]
         puts "#{field}: #{metadata[field]}"
@@ -323,7 +370,7 @@ when :query_info
     end
   end
 when :query_list_files
-  tpkg = instantiate_tpkg
+  tpkg = instantiate_tpkg(@tpkg_options)
   pkgfiles = nil
   if File.exist?(@action_value)
     fip = Tpkg::files_in_package(@action_value)
@@ -331,7 +378,16 @@ when :query_list_files
     puts "#{pkgfile}:"
     fip[:normalized].each { |file| puts file }
   else
-    pkgfiles = tpkg.installed_packages_that_meet_requirement(Tpkg::parse_request(@action_value)).collect { |pkg| pkg[:metadata][:filename] }
+    pkgfiles = []
+    metadatas = []
+    requirements = []
+    packages = {}
+    tpkg.parse_requests([@action_value], requirements, packages)
+    packages.each do | name, pkgs |
+      pkgs.each do | pkg |
+        pkgfiles << pkg[:metadata][:filename]
+      end
+    end
     files = tpkg.files_for_installed_packages(pkgfiles)
     files.each do |pkgfile, fip|
       puts "#{pkgfile}:"
@@ -339,7 +395,7 @@ when :query_list_files
     end
   end
 when :query_who_owns_file
-  tpkg = instantiate_tpkg
+  tpkg = instantiate_tpkg(@tpkg_options)
   tpkg.files_for_installed_packages.each do |pkgfile, fip|
     fip[:normalized].each do |file|
       if file == @action_value
@@ -348,7 +404,7 @@ when :query_who_owns_file
     end
   end
 when :query_available
-  tpkg = instantiate_tpkg
+  tpkg = instantiate_tpkg(@tpkg_options)
   req = nil
   if @action_value
     req = Tpkg::parse_request(@action_value)
@@ -359,14 +415,36 @@ when :query_available
     puts "#{pkg[:metadata][:filename]} (#{pkg[:source]})"
   end
 when :query_requires
-  tpkg = instantiate_tpkg
+  tpkg = instantiate_tpkg(@tpkg_options)
+
+  # parse the request
+  requirements = [] 
+  packages = {}
+  tpkg.parse_requests([@action_value], requirements, packages)
+
+  # get dependencies of all installed packages
+  dependencies = {}
   tpkg.metadata_for_installed_packages.each do |metadata|
-    if metadata[:dependencies].any? { |req| req[:name] == @action_value}
-      puts metadata[:filename]
+    dependencies[metadata[:filename]] = metadata[:dependencies]
+  end
+
+  # check to see if the any required dependencies match with what the
+  # user specified in the request
+  packages.each do |name, pkgs|
+    pkgs.each do |pkg|
+      next if pkg[:source] != :currently_installed
+      puts "The following package(s) require #{pkg[:metadata][:filename]}:"
+      dependencies.each do | requiree, deps |
+        deps.each do | dep | 
+          if Tpkg::package_meets_requirement?(pkg, dep)
+            puts "  #{requiree}"
+          end
+        end
+      end
     end
   end
 when :query_depends
-  tpkg = instantiate_tpkg
+  tpkg = instantiate_tpkg(@tpkg_options)
   requirements = []
   packages = {}
   tpkg.parse_requests([@action_value], requirements, packages)
@@ -376,7 +454,7 @@ when :query_depends
       # parse_requests returns both installed and available packages.
       # The same package may show up in both, skip any duplicates.
       next if already_displayed[pkg[:filename]]
-      already_displayed[pkg[:filename]] = true
+      already_displayed[pkg[:metadata][:filename]] = true
       puts pkg[:metadata][:filename] + ':'
       if pkg[:metadata][:dependencies]
         pkg[:metadata][:dependencies].each do |req|
@@ -389,5 +467,11 @@ when :query_depends
       end
     end
   end
+when :query_tpkgxml
+  tpkg = instantiate_tpkg(@tpkg_options)
+  if !File.exist?(@action_value)
+    puts "File #{@action_value} doesn't exist."
+  else
+    puts tpkg.extract_tpkgxml(@action_value)
+  end
 end
-

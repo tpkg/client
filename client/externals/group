@@ -1,0 +1,5 @@
+#!/bin/sh
+
+# This is a no-op in our environment as we always add all available groups to
+# all systems
+

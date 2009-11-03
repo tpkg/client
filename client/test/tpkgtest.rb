@@ -41,6 +41,14 @@ module TpkgTests
     if options[:dependencies]
       dependencies = options[:dependencies]
     end
+    conflicts = {}
+    if options[:conflicts]
+      conflicts = options[:conflicts]
+    end
+    externals = {}
+    if options[:externals]
+      externals = options[:externals]
+    end
     source_directory = 'testpkg'
     if options[:source_directory]
       source_directory = options[:source_directory]
@@ -87,6 +95,43 @@ module TpkgTests
             tpkgdst.puts('    </dependency>')
           end
           tpkgdst.puts('  </dependencies>')
+        end
+
+        # Insert conflicts right before the files section
+        if line =~ /^\s*<files>/ && !conflicts.empty?
+          tpkgdst.puts('  <conflicts>')
+          conflicts.each do |name, opts|
+            tpkgdst.puts('    <conflict>')
+            tpkgdst.puts("      <name>#{name}</name>")
+            ['minimum_version', 'maximum_version', 'minimum_package_version', 'maximum_package_version'].each do |opt|
+              if opts[opt]
+                tpkgdst.puts("      <#{opt}>#{opts[opt]}</#{opt}>")
+              end
+            end
+            if opts['native']
+              tpkgdst.puts('      <native/>')
+            end
+            tpkgdst.puts('    </conflict>')
+          end
+          tpkgdst.puts('  </conflicts>')
+        end
+        
+        # Insert externals right before the files section
+        if line =~ /^\s*<files>/ && !externals.empty?
+          tpkgdst.puts('  <externals>')
+          externals.each do |name, opts|
+            tpkgdst.puts('    <external>')
+            tpkgdst.puts("      <name>#{name}</name>")
+            if opts['data']
+              tpkgdst.puts("      <data>#{opts['data']}</data>")
+            elsif opts['datafile']
+              tpkgdst.puts("      <datafile>#{opts['datafile']}</datafile>")
+            elsif opts['datascript']
+              tpkgdst.puts("      <datascript>#{opts['datascript']}</datascript>")
+            end
+            tpkgdst.puts('    </external>')
+          end
+          tpkgdst.puts('  </externals>')
         end
         
         # Insert additional file entries at the end of the files section

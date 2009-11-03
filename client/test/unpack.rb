@@ -179,12 +179,16 @@ class TpkgUnpackTests < Test::Unit::TestCase
     srcdir = Tempdir.new("srcdir")
     FileUtils.cp(File.join('testpkg', 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
     FileUtils.mkdir_p(File.join(srcdir, 'reloc'))
-    File.open(File.join(srcdir, 'reloc', 'myinit'), 'w') do |file|
-      file.puts('init script')
+    # These packages have different init scripts of the same name
+    (1..3).each do  | i |
+      FileUtils.mkdir(File.join(srcdir, 'reloc', i.to_s))
+      File.open(File.join(srcdir, 'reloc', i.to_s, "myinit"), 'w') do |file|
+        file.puts('init script')
+      end
     end
-    pkg  = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'initpkg'  }, :source_directory => srcdir, :files => { 'myinit' => { 'init' => {} } }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
-    pkg2 = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'initpkg2' }, :source_directory => srcdir, :files => { 'myinit' => { 'init' => {} } }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
-    pkg3 = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'initpkg3' }, :source_directory => srcdir, :files => { 'myinit' => { 'init' => {} } }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    pkg  = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'initpkg'  }, :source_directory => srcdir, :files => { File.join('1','myinit') => { 'init' => {} } }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    pkg2 = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'initpkg2' }, :source_directory => srcdir, :files => { File.join('2','myinit') => { 'init' => {} } }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    pkg3 = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'initpkg3' }, :source_directory => srcdir, :files => { File.join('3','myinit') => { 'init' => {} } }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
     FileUtils.rm_rf(srcdir)
     testroot = Tempdir.new("testroot")
     testbase = File.join(testroot, 'home', 'tpkg')
@@ -207,9 +211,12 @@ class TpkgUnpackTests < Test::Unit::TestCase
       tpkg.init_links(metadata2).each do |link, init_script|
         assert(File.symlink?(link + '1'))
         assert_equal(init_script, File.readlink(link + '1'))
+      end
+      tpkg.init_links(metadata3).each do |link, init_script|
         assert(File.symlink?(link + '2'))
         assert_equal(init_script, File.readlink(link + '2'))
       end
+
     rescue RuntimeError => e
       if e.message =~ /No init script support/
         warn "No init script support on this platform, init script handling will not be tested (#{e.message})"
@@ -287,7 +294,110 @@ class TpkgUnpackTests < Test::Unit::TestCase
     FileUtils.rm_f(pkg)
     FileUtils.rm_f(pkg2)
     FileUtils.rm_f(pkg3)
-
+    
+    # Test external handling
+    srcdir = Tempdir.new("srcdir")
+    FileUtils.cp(File.join('testpkg', 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+    extname = 'testext'
+    extdata = "This is a test of an external hook\nwith multiple lines\nof data"
+    pkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'externalpkg' }, :externals => { extname => { 'data' => extdata } }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    FileUtils.rm_rf(srcdir)
+    testroot = Tempdir.new("testroot")
+    testbase = File.join(testroot, 'home', 'tpkg')
+    FileUtils.mkdir_p(testbase)
+    # Make an external script which writes the data it receives to a temporary
+    # file, so that we can verify the external script received the data
+    # properly.
+    exttmpfile = Tempfile.new('tpkgtest_external')
+    externalsdir = File.join(testbase, 'var', 'tpkg', 'externals')
+    FileUtils.mkdir_p(externalsdir)
+    extscript = File.join(externalsdir, extname)
+    File.open(extscript, 'w') do |file|
+      file.puts('#!/bin/sh')
+      file.puts("cat > #{exttmpfile.path}")
+    end
+    File.chmod(0755, extscript)
+    # And run the test
+    tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [pkg])
+    metadata  = Tpkg::metadata_xml_to_hash(Tpkg::metadata_from_package(pkg))
+    assert_nothing_raised { tpkg.unpack(pkg, PASSPHRASE) }
+    assert_equal(extdata, IO.read(exttmpfile.path))
+    FileUtils.rm_rf(testroot)
+    FileUtils.rm_f(pkg)
+    
+    # Test handling of external with datafile
+    srcdir = Tempdir.new("srcdir")
+    FileUtils.cp(File.join('testpkg', 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+    extname = 'testext'
+    # Create the datafile
+    extdata = "This is a test of an external hook\nwith multiple lines\nof data from a datafile"
+    File.open(File.join(srcdir, 'datafile'), 'w') do |file|
+      file.print(extdata)
+    end
+    File.chmod(0755, File.join(srcdir, 'datafile'))
+    pkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'externalpkg' }, :externals => { extname => { 'datafile' => './datafile' } }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    FileUtils.rm_rf(srcdir)
+    testroot = Tempdir.new("testroot")
+    testbase = File.join(testroot, 'home', 'tpkg')
+    FileUtils.mkdir_p(testbase)
+    # Make an external script which writes the data it receives to a temporary
+    # file, so that we can verify the external script received the data
+    # properly.
+    exttmpfile = Tempfile.new('tpkgtest_external')
+    externalsdir = File.join(testbase, 'var', 'tpkg', 'externals')
+    FileUtils.mkdir_p(externalsdir)
+    extscript = File.join(externalsdir, extname)
+    File.open(extscript, 'w') do |file|
+      file.puts('#!/bin/sh')
+      file.puts("cat > #{exttmpfile.path}")
+    end
+    File.chmod(0755, extscript)
+    # And run the test
+    tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [pkg])
+    metadata  = Tpkg::metadata_xml_to_hash(Tpkg::metadata_from_package(pkg))
+    assert_nothing_raised { tpkg.unpack(pkg, PASSPHRASE) }
+    assert_equal(extdata, IO.read(exttmpfile.path))
+    FileUtils.rm_rf(testroot)
+    FileUtils.rm_f(pkg)
+    
+    # Test handling of external with datascript
+    srcdir = Tempdir.new("srcdir")
+    FileUtils.cp(File.join('testpkg', 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+    extname = 'testext'
+    # Create the datascript
+    extdata = "This is a test of an external hook\nwith multiple lines\nof data from a datascript"
+    File.open(File.join(srcdir, 'datascript'), 'w') do |file|
+      file.puts('#!/bin/sh')
+      # echo may or may not add a trailing \n depending on which echo we end
+      # up, so use printf, which doesn't add things.
+      file.puts("printf \"#{extdata}\"")
+    end
+    File.chmod(0755, File.join(srcdir, 'datascript'))
+    pkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'externalpkg' }, :externals => { extname => { 'datascript' => './datascript' } }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    FileUtils.rm_rf(srcdir)
+    testroot = Tempdir.new("testroot")
+    testbase = File.join(testroot, 'home', 'tpkg')
+    FileUtils.mkdir_p(testbase)
+    # Make an external script which writes the data it receives to a temporary
+    # file, so that we can verify the external script received the data
+    # properly.
+    exttmpfile = Tempfile.new('tpkgtest_external')
+    externalsdir = File.join(testbase, 'var', 'tpkg', 'externals')
+    FileUtils.mkdir_p(externalsdir)
+    extscript = File.join(externalsdir, extname)
+    File.open(extscript, 'w') do |file|
+      file.puts('#!/bin/sh')
+      file.puts("cat > #{exttmpfile.path}")
+    end
+    File.chmod(0755, extscript)
+    # And run the test
+    tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [pkg])
+    metadata  = Tpkg::metadata_xml_to_hash(Tpkg::metadata_from_package(pkg))
+    assert_nothing_raised { tpkg.unpack(pkg, PASSPHRASE) }
+    assert_equal(extdata, IO.read(exttmpfile.path))
+    FileUtils.rm_rf(testroot)
+    FileUtils.rm_f(pkg)
+    
     # Test that existing files/directories' perm and ownership are preserved
     # unless specified by user
     testbase = Tempdir.new("testbase")

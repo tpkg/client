@@ -18,5 +18,7 @@ tpkg client
 /usr/lib/ruby/site_ruby/1.8/tpkg.rb
 /etc/profile.d/tpkg_profile.sh
 /etc/cron.d/tpkg
+/home/t/var/tpkg/externals
 %config /etc/tpkg.conf
+/etc/tpkg
 

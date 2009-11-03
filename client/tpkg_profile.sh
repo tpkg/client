@@ -18,6 +18,9 @@ then
   fi
 fi
 
+PATH=$tpkgbase/bin:$PATH
+export PATH
+
 for i in $tpkgbase/etc/profile.d/*.sh ; do
     if [ -r "$i" ]; then
         . $i

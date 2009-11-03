@@ -1,4 +1,4 @@
-<!ELEMENT tpkg (name, version, package_version?, maintainer+, operatingsystem*, architecture*, dependencies?, description?, bugreporting?, files?)>
+<!ELEMENT tpkg (name, version, package_version?, maintainer+, operatingsystem*, architecture*, description?, bugreporting?, dependencies?, externals?, files?)>
 
 <!ELEMENT name (#PCDATA)>
 <!ELEMENT version (#PCDATA)>
@@ -16,6 +16,12 @@
 <!ELEMENT minimum_package_version (#PCDATA)>
 <!ELEMENT maximum_package_version (#PCDATA)>
 <!ELEMENT native EMPTY>
+
+<!ELEMENT externals (external*)>
+<!ELEMENT external (name, (data|datafile|datascript))>
+<!ELEMENT data (#PCDATA)>
+<!ELEMENT datafile (#PCDATA)>
+<!ELEMENT datascript (#PCDATA)>
 
 <!ELEMENT files (file_defaults?, file*)>
 <!ELEMENT file_defaults (posix?)>

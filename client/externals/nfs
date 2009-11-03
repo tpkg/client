@@ -1,0 +1,30 @@
+#!/bin/sh
+
+set -e
+
+pkgfile=$1
+operation=$2
+
+requestfile=/var/etch/requests/etc/auto.auto/$pkgfile
+
+case "$operation" in
+'install')
+	mkdir -p `dirname "$requestfile"`
+	tmpfile=`mktemp "$requestfile.XXXXXX"`
+	echo "<request>" > $tmpfile
+	# Dump in the data passed to us on stdin
+	cat >> $tmpfile
+	echo "</request>" >> $tmpfile
+	chmod 644 "$tmpfile"
+	;;
+'remove')
+	rm -f "$requestfile".*
+	;;
+*)
+	echo "$0: Invalid arguments"
+	exit 1
+	;;
+esac
+
+/usr/sbin/etch /etc/auto.auto
+
