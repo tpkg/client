@@ -1,0 +1,27 @@
+#!/bin/sh
+
+## Installation steps for OSX ##
+
+cp -p tpkg /usr/bin
+chmod 555 /usr/bin/tpkg
+cp -p gem2tpkg /usr/bin
+chmod 555 /usr/bin/gem2tpkg
+mkdir -p /etc/profile.d
+cp -p tpkg_profile.sh /etc/profile.d
+chmod 755 /etc/profile.d/tpkg_profile.sh
+mkdir -p /usr/lib/ruby/site_ruby/1.8/tpkg
+cp -p tpkg.rb /usr/lib/ruby/site_ruby/1.8
+chmod 444 /usr/lib/ruby/site_ruby/1.8/tpkg.rb
+cp -p versiontype.rb /usr/lib/ruby/site_ruby/1.8/tpkg
+chmod 444 /usr/lib/ruby/site_ruby/1.8/tpkg/versiontype.rb
+cp -p deployer.rb /usr/lib/ruby/site_ruby/1.8/tpkg
+chmod 444 /usr/lib/ruby/site_ruby/1.8/tpkg/deployer.rb
+cp -p thread_pool.rb /usr/lib/ruby/site_ruby/1.8/tpkg
+chmod 444 /usr/lib/ruby/site_ruby/1.8/tpkg/thread_pool.rb
+cp -p -r thirdparty /usr/lib/ruby/site_ruby/1.8/tpkg
+mkdir -p /etc
+cp -p tpkg.conf /etc/tpkg.conf
+chmod 644 /etc/tpkg.conf
+mkdir -p /etc/cron.d
+cp tpkg_cron /etc/cron.d/tpkg
+chmod 444 /etc/cron.d/tpkg
