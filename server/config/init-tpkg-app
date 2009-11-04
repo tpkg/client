@@ -33,6 +33,8 @@ case "$1" in
 	;;
 'restart')
 	$0 stop
+	# unicorn 0.8.1 has a bug and needs some time after stop to release sockets
+	sleep 2
 	$0 start
 	;;
 *)

@@ -2,7 +2,7 @@
 <!DOCTYPE tpkg SYSTEM "http://tpkg.sourceforge.net/tpkg-1.0.dtd">
 <tpkg>
   <name>tpkg-server</name>
-  <version>1.2</version>
+  <version>1.13</version>
   <maintainer>tpkg-users@lists.sourceforge.net</maintainer>
   <description>tpkg package management and reporting server</description>
   <bugreporting>https://sourceforge.net/tracker/?group_id=245750</bugreporting>
@@ -18,6 +18,11 @@
       <name>mysql</name>
       <minimum_version>5.1.0</minimum_version>
       <maximum_version>5.1.9999</maximum_version>
+    </dependency>
+    <dependency>
+      <name>tpkg</name>
+      <minimum_version>1.13</minimum_version>
+      <maximum_version>1.13</maximum_version>
     </dependency>
     <dependency>
       <name>logrotate</name>
@@ -60,6 +65,11 @@
       <name>gem-mislav-will_paginate</name>
       <minimum_version>2.3.8</minimum_version>
       <maximum_version>2.3.8</maximum_version>
+    </dependency>
+    <dependency>
+      <name>gem-facter</name>
+      <minimum_version>1.5.5</minimum_version>
+      <maximum_version>1.5.5</maximum_version>
     </dependency>
   </dependencies>
   
@@ -105,6 +115,13 @@
       <init/>
       <posix>
         <perms>0555</perms>
+      </posix>
+    </file>
+    <file>
+      <path>/home/t/etc/cron.d/tpkg_server</path>
+      <crontab/>
+      <posix>
+        <perms>0444</perms>
       </posix>
     </file>
     <file>

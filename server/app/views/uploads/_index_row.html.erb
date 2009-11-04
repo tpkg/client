@@ -1,0 +1,5 @@
+<tr class="<%= cycle('odd', 'even') -%>">
+  <td><%= link_to h(index_row.upload_file_name), {:controller => "packages", :action=>"download", :filename => index_row.upload_file_name}  %></td>
+  <td><%= h(index_row.uploader) %></td>
+  <td><%= h(index_row.created_at) %></td>
+</tr>

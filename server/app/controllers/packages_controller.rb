@@ -5,14 +5,14 @@ class PackagesController < ApplicationController
 
   # lists out all packages
   def index
-    #client_name = params[:client]
-    #client = Client.find_by_name(client_name)
-    #@packages = Package.find(:all)  
+    show_all = true
     @mainmodel = Package 
 
     sort = case params[:sort]
            when 'name'              then 'packages.name'
            when 'name_reverse'      then 'packages.name DESC'
+           when 'filename'              then 'packages.filename'
+           when 'filename_reverse'      then 'packages.filename DESC'
            when 'maintainer'        then 'packages.maintainer'
            when 'maintainer_reverse'        then 'packages.maintainer DESC'
            when 'os'        then 'packages.os'
@@ -61,17 +61,27 @@ class PackagesController < ApplicationController
       end
     end
 
+    if show_all
+      join_type = "left join"
+    else
+      join_type = "inner join"
+    end
+
     if conditions_query.empty?
       @packages = Package.paginate(:all,
                                  #:include => includes,
+                                 :group => "packages.id",
                                  :order => sort,
+                                 :joins => "#{join_type} client_packages as cp on packages.id = cp.package_id",
                                  :page => params[:page])
     else
       conditions_string = conditions_query.join(' AND ')
       @packages = Package.paginate(:all,
                                  #:include => includes,
                                  :conditions => [ conditions_string, *conditions_values ],
+                                 :group => "packages.id",
                                  :order => sort,
+                                 :joins => "#{join_type} client_packages as cp on packages.id = cp.package_id",
                                  :page => params[:page])
     end
 
@@ -85,16 +95,30 @@ class PackagesController < ApplicationController
     @package = Package.find(params[:id])
     @installed_on = @package.client_packages.collect{ |cp| cp.client}.flatten
     @installed_on.sort!{ |a,b| a.name <=> b.name}
+
+    # Get additional info regarding the package file
+    @uploads = []
+    if @package.filename
+      @uploads = Upload.find_all_by_upload_file_name(@package.filename, :order => "updated_at DESC")
+    end
+
     respond_to do |format|
       format.html 
       format.xml  { render :xml => @package.to_xml(:include => :client_packages, :dasherize => false) }
     end
+
   end
 
-  # lists clients and the packages installed on each client
-  def list_client_packages
+  def download
+    filename = params[:filename]
+    if File.exists?(File.join(Upload::UPLOAD_PATH, filename))
+      redirect_to :controller => :tpkg, :action => filename
+    else
+      render :text => "File #{filename} doesn't exist on repo"
+    end
   end
 
+  protected
   def add
     name = params[:id]
     package = Package.new
@@ -106,7 +130,6 @@ class PackagesController < ApplicationController
     Package.delete_all
   end  
 
-  protected
   # assuming that the packages list is sent from POST param with the following
   # format 
   # {p1[name]=>"package name", p1[version]=>"1.2", p2[name]=>"package name", p2[version]="3.1.3"}

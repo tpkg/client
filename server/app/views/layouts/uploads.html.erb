@@ -7,14 +7,13 @@
 
 <%= javascript_include_tag :defaults %>
 
+<%= stylesheet_link_tag 'swfupload' %>
 <%= stylesheet_link_tag 'design' %>
 <%= stylesheet_link_tag 'forms' %>
 <%= stylesheet_link_tag 'hacks' %>
 
 <%= javascript_include_tag 'swfupload' %>
 <%= javascript_include_tag 'handlers' %>
-<%= stylesheet_link_tag 'scaffold' %>
-<%= stylesheet_link_tag 'swfupload' %>
 
 </head>
 <body>
@@ -26,7 +25,9 @@
 |
 <%= link_to "Package Repo", "http://#{request.host}/tpkg/" %>
 |
-<%= link_to "Installed Packages", :controller => 'packages', :action => 'index' %>
+<%= link_to "Package Listing", :controller => 'packages', :action => 'index' %>
+|
+<%= link_to "Package Upload History", :controller => 'uploads', :action => 'index' %>
 |
 <%= link_to "Clients", :controller => 'clients', :action => 'index' %>
 |

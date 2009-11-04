@@ -19,13 +19,25 @@ class ClientsController < ApplicationController
       end
     end
 
+    sort = case params[:sort]
+           when 'name'              then 'clients.name'
+           when 'name_reverse'      then 'clients.name DESC'
+           end
+    # If a sort was not defined we'll make one default
+    if sort.nil?
+      params[:sort] = 'name'
+      sort = 'clients.name'
+    end
+
     if conditions_query.empty?
       @clients = Client.paginate(:all,
+                                 :order => sort,
                                  #:include => includes,
                                  :page => params[:page])
     else
       conditions_string = conditions_query.join(' AND ')
       @clients = Client.paginate(:all,
+                                 :order => sort,
                                  #:include => includes,
                                  :conditions => [ conditions_string, *conditions_values ],
                                  :page => params[:page])
@@ -46,8 +58,7 @@ class ClientsController < ApplicationController
     sort_by = sort.split("_")[0]
     sort_direction = sort.split("_")[1]
 
-    system("echo #{sort} >> /tmp/ddaosort")
-
+    # Get list of packages that are installed on this client
     @client = Client.find(params[:id])
     @installed_packages = @client.client_packages.collect{ |cp| cp.package}.flatten
 
@@ -61,6 +72,9 @@ class ClientsController < ApplicationController
         akey <=> bkey
       end
     end
+
+    # get list of installation history for this client
+    @installation_history = ClientPackageHistory.find(:all, :conditions => ["client_id = ?", params[:id]], :order => "created_at")
 
     respond_to do |format|
       format.html

@@ -28,3 +28,11 @@
   </tbody>
 </table>
 </p>
+<p>
+  <strong>Installation History:</strong>
+  <br/>
+  <%- @installation_history.each do |item| -%>
+    <%= "#{item.created_at}: #{item.package.name}-#{item.package.version}-#{item.package.package_version} -- #{item.action}" %> 
+    <br/>
+  <%- end -%> 
+</p>

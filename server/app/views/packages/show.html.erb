@@ -1,19 +1,26 @@
 <%- @page_title = "Package: " + h(@package.name) %>
 <h1>Package: <%= h(@package.name) %></h1>
-<p>
-  <strong>Name:</strong>   <%= h(@package.name) %><br />
-  <strong>Version:</strong> <%= h(@package.version) %><br />
-  <strong>Package Version:</strong> <%= h(@package.package_version) %><br />
-  <strong>Maintainer:</strong> <%= h(@package.maintainer) %><br />
-  <strong>OS:</strong> <%= h(@package.os) %><br />
-  <strong>Architecture:</strong> <%= h(@package.arch) %><br />
-  <strong>Description:</strong> <%= h(@package.description) %><br />
-</p>
-<p>
-  <strong>Installed on:</strong>
-  <ul>
+<table class="styled">
+<tr><td>Name</td><td><%= h(@package.name) %></td></tr>
+<tr><td>Package file</td><td><%= link_to h(@package.filename), {:action=>"download", :filename => @package.filename}  %></td></tr>
+<tr><td>Version</td><td><%= h(@package.version) %></td></tr>
+<tr><td>Package Version</td><td><%= h(@package.package_version) %></td></tr>
+<tr><td>Maintainer</td><td><%= h(@package.maintainer) %></td></tr>
+<tr><td>OS</td><td><%= h(@package.os) %></td></tr>
+<tr><td>Architecture</td><td><%= h(@package.arch) %></td></tr>
+<tr><td>Description</td><td><%= h(@package.description) %></td></tr>
+<tr><td>Installed on</strong></td>
+  <td>
     <%- @installed_on.each do |client| -%>
-      <li><%= link_to client.name, {:controller=>:clients, :action=>:show, :id => client.id}  %></li>
+      <%= link_to client.name, {:controller=>:clients, :action=>:show, :id => client.id}  %><br/>
     <%- end -%>
-  </ul>
-</p>
+  </td>
+</tr>
+<tr>
+  <td>File Info</td>
+  <td>
+    <%- @uploads.each do |upload| -%>
+      <%= "Uploaded on #{upload["created_at"]} by #{upload[:uploader]}"  %><br/>
+    <%- end -%>
+  </td>
+</table>

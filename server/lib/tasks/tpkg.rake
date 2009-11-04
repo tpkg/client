@@ -1,6 +1,7 @@
 require 'tempfile'
 require 'rexml/document'
 require 'tpkg'
+require 'nventory'
 
 # Haven't found a Ruby method for creating temporary directories,
 # so create a temporary file and replace it with a directory.
@@ -10,6 +11,15 @@ def tempdir(basename, tmpdir=Dir::tmpdir)
   tmpfile.close!
   Dir.mkdir(tmpdir)
   tmpdir
+end
+
+def get_tpkg_servers_for_environment(environment)
+  nvclient = NVentory::Client.new
+  servers = nvclient.get_expanded_nodegroup("tpkg_#{environment}")
+  if servers.empty?
+    abort "No servers found for environment '#{environment}'"
+  end
+  servers
 end
 
 namespace :tpkg do
@@ -88,6 +98,13 @@ namespace :tpkg do
          File.join(rootdir, 'home', 't', 'etc', 'init.d', "tpkg-#{appclass}"))
     end
     
+    # Copy crontab into the appropriate place
+    mkdir_p(File.join(rootdir, 'home', 't', 'etc', 'cron.d'))
+    # The tpkg client package installs a crontab named 'tpkg',
+    # so we name this file 'tpkg_server' to differentiate
+    cp(File.join(apppath, 'config', "cron-tpkg_server"),
+       File.join(rootdir, 'home', 't', 'etc', 'cron.d', "tpkg_server"))
+    
     # stunnel server config -> /home/t/etc/stunnel
     mkdir_p(File.join(rootdir, 'home', 't', 'etc', 'stunnel'))
     cp(File.join(apppath, 'config', 'stunnel-mysql_server.conf'),
@@ -100,11 +117,65 @@ namespace :tpkg do
          File.join(rootdir, 'home', 't', 'etc', 'logrotate.d', "tpkg-#{appclass}"))
     end
     
-    pkgfile = Tpkg::make_package(pkgdir)
-    puts "Package is #{pkgfile}"
+    @pkgfile = Tpkg::make_package(pkgdir)
+    puts "Package is #{@pkgfile}"
     
     # Cleanup
     rm_rf(pkgdir)
+  end
+  
+  desc 'Upload tpkg'
+  task :upload => :build do
+    puts "running tpkg_uploader"
+    # system silently fails if the executable is not found or not executable,
+    # some warning to the user might be nice.
+    system("tpkg_uploader.rb --file #{@pkgfile}")
+    rm(@pkgfile)
+  end
+  
+  desc 'Deploy tpkg, e.g. rake tpkg:deploy[prod]'
+  task :deploy, :env do |t, args|
+    # Make sure we upgrade to the current version
+    tpkg_xml = REXML::Document.new(File.open(File.join('config', 'tpkg.xml')))
+    version = tpkg_xml.elements['/tpkg/version'].text
+    version_request = "=#{version}"
+    if tpkg_xml.elements['/tpkg/package_version']
+      package_version = tpkg_xml.elements['/tpkg/package_version'].text
+      version_request << "=#{package_version}"
+    end
+    deploy_params = ['--upgrade', "tpkg-server#{version_request}"]
+    deploy_options = {'abort-on-fail' => false}
+    servers = get_tpkg_servers_for_environment(args.env)
+    Tpkg::deploy(deploy_params, deploy_options, servers)
+  end
+  
+  desc 'Start tpkg, e.g. rake tpkg:start[prod]'
+  task :start, :env do |t, args|
+    deploy_params = ['--start', 'tpkg-server']
+    deploy_options = {'abort-on-fail' => false}
+    servers = get_tpkg_servers_for_environment(args.env)
+    Tpkg::deploy(deploy_params, deploy_options, servers)
+  end
+  desc 'Stop tpkg, e.g. rake tpkg:stop[prod]'
+  task :stop, :env do |t, args|
+    deploy_params = ['--stop', 'tpkg-server']
+    deploy_options = {'abort-on-fail' => false}
+    servers = get_tpkg_servers_for_environment(args.env)
+    Tpkg::deploy(deploy_params, deploy_options, servers)
+  end
+  desc 'Restart tpkg, e.g. rake tpkg:restart[prod]'
+  task :restart, :env do |t, args|
+    deploy_params = ['--restart', 'tpkg-server']
+    deploy_options = {'abort-on-fail' => false}
+    servers = get_tpkg_servers_for_environment(args.env)
+    Tpkg::deploy(deploy_params, deploy_options, servers)
+  end
+  desc 'Reload tpkg, e.g. rake tpkg:reload[prod]'
+  task :reload, :env do |t, args|
+    deploy_params = ['--reload', 'tpkg-server']
+    deploy_options = {'abort-on-fail' => false}
+    servers = get_tpkg_servers_for_environment(args.env)
+    Tpkg::deploy(deploy_params, deploy_options, servers)
   end
 end
 
