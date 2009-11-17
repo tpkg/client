@@ -2,19 +2,19 @@ tpkgbase="/home/t"
 
 if [ -f /etc/tpkg.conf ]
 then
-  base=`cat /etc/tpkg.conf | grep '^base\s*=' | awk -F= '{print $2}'`
+  base=`cat /etc/tpkg.conf | grep '^base\s*=' | awk -F= '{print $2}' | sed 's/^\s*//' | sed 's/\s*$//'`
   if [ "$base" != "" ]
   then
-    tpkgbase=base
+    tpkgbase=$base
   fi
 fi
 
 if [ -f $HOME/.tpkg.conf ]
 then
-  base=`cat $HOME/.tpkg.conf | grep '^base\s*=' | awk -F= '{print $2}'`
+  base=`cat $HOME/.tpkg.conf | grep '^base\s*=' | awk -F= '{print $2}' | sed 's/^\s*//' | sed 's/\s*$//'`
   if [ "$base" != "" ]
   then
-    tpkgbase=base
+    tpkgbase=$base
   fi
 fi
 
