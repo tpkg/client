@@ -121,11 +121,11 @@ class Deployer
               # for; now we can check to see if it's a password prompt, and
               # interactively return data if so (see request_pty above).
               channel.on_data do |ch, data|
-                if data == "Password:"
+                if data =~ /Password/
                   #sudo_password = (!password.nil && password != "" && password) ||  get_sudo_pw
                   password = get_sudo_pw unless !password.nil? && password != ""
                   channel.send_data "#{password}\n"
-                elsif data  =~ /^Passphrase for/ 
+                elsif data  =~ /Passphrase/ or data =~ /pass phrase/ or data =~ /incorrect passphrase/i
                   passphrase = get_passphrase(data)  
                   channel.send_data "#{passphrase}\n"
                 else
