@@ -2,6 +2,7 @@ set daemon 120
 set logfile %BASE%/var/log/monit
 set idfile %BASE%/var/lib/monit/id
 set statefile %BASE%/var/lib/monit/state
+set mailserver 127.0.0.1
 
 # Packages wishing to use monit should create config files matching this glob
 INCLUDE %BASE%/etc/monit/*.conf

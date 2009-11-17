@@ -24,8 +24,14 @@ case "$1" in
 	$0 stop
 	$0 start
 	;;
+'reload')
+	if [ -f $pidfile ]
+	then
+		kill -HUP `cat $pidfile`
+	fi
+	;;
 *)
-	echo "Usage: $0 { start | stop | restart }"
+	echo "Usage: $0 { start | stop | restart | reload }"
 	exit 1
 	;;
 esac
