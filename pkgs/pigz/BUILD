@@ -9,7 +9,7 @@ set -u
 set -o pipefail
 
 PKG=pigz
-VER=2.1.4
+VER=2.1.5
 PKGVER=1
 OSMAJOR=`facter | grep lsbmajdistrelease | cut -d' ' -f3`
 ARCH=`facter hardwaremodel`
