@@ -5,7 +5,7 @@
 
 PKG=logrotate
 VER=3.7.8
-PKGVER=2
+PKGVER=3
 OSMAJOR=`facter | grep lsbmajdistrelease | cut -d' ' -f3`
 ARCH=`facter hardwaremodel`
 
@@ -33,6 +33,8 @@ cp ../logrotate.conf $pkgdir/reloc/etc/logrotate.conf || exit 1
 # Add cronjob
 mkdir -p $pkgdir/reloc/etc/cron.d || exit 1
 cp ../logrotate.cron $pkgdir/reloc/etc/cron.d/logrotate || exit 1
+# Add directory for the log file used in the cronjob
+mkdir -p $pkgdir/reloc/var/log || exit 1
 # Install
 make install PREFIX=$pkgdir/reloc BASEDIR= || exit 1
 # Make package
