@@ -8,6 +8,13 @@ case "$1" in
 	then
 		echo "Initializing MySQL database with mysql_install_db"
 		/home/t/bin/mysql_install_db --user=mysql
+		# mysql_install_db sets restrictive permissions on the
+		# top level directory by default, but we put the socket
+		# file (mysql.sock) into that directory and thus need
+		# the directory to be world readable.  mysqld sets
+		# restrictive permissions on the individual data files
+		# so there's no harm in making the directory readable.
+		chmod 755 /home/t/var/mysql
 	fi
 	echo "Starting mysqld"
 	/home/t/bin/mysqld_safe --defaults-file=/home/t/etc/my.cnf > /home/t/var/log/mysqld_safe.log 2>&1 &
