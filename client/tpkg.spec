@@ -16,6 +16,7 @@ tpkg client
 /usr/bin/gem2tpkg
 /usr/lib/ruby/site_ruby/1.8/tpkg
 /usr/lib/ruby/site_ruby/1.8/tpkg.rb
+/usr/share/man/man1/tpkg.1
 /etc/profile.d/tpkg_profile.sh
 /etc/cron.d/tpkg
 /home/t/var/tpkg/externals

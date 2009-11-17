@@ -1,0 +1,304 @@
+.TH tpkg 1 "October 2009"
+
+.SH NAME
+
+.B tpkg
+\- Application package management and deployment
+
+.SH SYNOPSIS
+
+.B tpkg
+.RB [ --servers | \-s
+.IR SERVERS ]
+.RB [ --make | \-m
+.IR DIRECTORY ]
+.RB [ --extract | \-x
+.IR DIRECTORY ]
+.RB [ --install | \-i
+.IR PACKAGES ]
+.RB [ --upgrade | \-u
+.IR PACKAGES ]
+.RB [ --ua ]
+.RB [ --remove | \-r
+.IR PACKAGES ]
+.RB [ --rd
+.IR PACKAGES ]
+.RB [ --ra ]
+.RB [ --verify | \-V ]
+.RB [ --start
+.IR NAME ]
+.RB [ --stop
+.IR NAME ]
+.RB [ --restart
+.IR NAME ]
+.RB [ --reload
+.IR NAME ]
+.RB [ --start-all
+.IR NAME ]
+.RB [ --stop-all
+.IR NAME ]
+.RB [ --restart-all
+.IR NAME ]
+.RB [ --reload-all
+.IR NAME ]
+.RB [ --query | \-q
+.IR NAMES ]
+.RB [ --qa ]
+.RB [ --qi
+.IR NAME ]
+.RB [ --ql
+.IR NAME ]
+.RB [ --qf
+.IR FILE ]
+.RB [ --qv
+.IR NAME ]
+.RB [ --qva ]
+.RB [ --qr
+.IR NAME ]
+.RB [ --qd
+.IR NAME ]
+.RB [ --dw
+.IR INTEGER ]
+.RB [ --qX
+.IR NAME ]
+.RB [ --source
+.IR SOURCE ]
+.RB [ --no-prompt | \-n ]
+.RB [ --quiet ]
+.RB [ --no-sudo ]
+.RB [ --lock-force ]
+.RB [ --force ]
+.RB [ --use-ssh-key ]
+.RB [ --deploy-as
+.IR USERNAME ]
+.RB [ --debug ]
+.RB [ --version ]
+.RB [ --help | \-h ]
+
+.SH DESCRIPTION
+
+Tpkg is a tool for packaging and deploying applications. It is designed
+to work alongside your operating system's packaging tool. The deployment
+features in tpkg are designed to scale to deployments across hundreds or
+thousands of systems. 
+
+.SH OPTIONS
+.TP
+.BI --servers|-s " SERVERS"
+Switches
+.B tpkg
+to deployment mode rather than local mode.  Specifies the server(s) to
+operate against in deployment mode.  Servers are specified as a
+comma-separated list.
+.B Tpkg
+will connect to each server via ssh and perform the requested operation.
+SSH and sudo password prompts will be handled.
+.TP
+.BI --make|\-m " DIRECTORY"
+Make a package from the specified directory.  The directory must contain
+at a minimum a tpkg.xml file.
+.TP
+.BI --extract|\-x " DIRECTORY"
+Extract the metadata from a directory of packages to metadata.xml.  The
+client expects source directories to have this operation performed on
+them so that it can resolve dependencies without having to download all
+packages.
+.TP
+.BI --install|\-i " PACKAGES"
+Install the specified package(s).  Packages may be specified as name,
+name=version, name=version=packageversion, or as a filename or URL.
+.TP
+.BI --upgrade|\-u " PACKAGES"
+Upgrade the specified package(s).  Packages specified as with --install.
+If a specific version is not specified then the packages are upgraded to
+the latest available.
+.TP
+.B --ua
+Upgrade all packages to the latest available version.
+.TP
+.BI --remove|\-r " PACKAGES"
+Remove the specified packages.  Packages specified as with --install.
+.TP
+.BI --rd " PACKAGES"
+Similar to --remove|\-r but also remove all depending packages.
+.TP
+.B --ra
+Remove all installed packages.
+.TP
+.BI --verify|\-V " NAME"
+Verify that the permissions, ownership and file contents of the files
+from the specified package have not been modified.
+.TP
+.BI --start " NAME"
+Run any init scripts associated with the specified package with a
+"start" argument.
+.TP
+.BI --stop " NAME"
+Run any init scripts associated with the specified package with a
+"stop" argument.
+.TP
+.BI --restart " NAME"
+Run any init scripts associated with the specified package with a
+"restart" argument.
+.TP
+.BI --reload " NAME"
+Run any init scripts associated with the specified package with a
+"reload" argument.
+.TP
+.BI --start-all
+Run the init scripts of all installed packages with a "start" argument.
+.TP
+.BI --stop-all
+Run the init scripts of all installed packages with a "stop" argument.
+.TP
+.BI --restart-all
+Run the init scripts of all installed packages with a "restart" argument.
+.TP
+.BI --reload-all
+Run the init scripts of all installed packages with a "reload" argument.
+.TP
+.BI --query|\-q " NAMES"
+Check if the specified packages is installed.
+.B Tpkg
+exit value will also indicate whether the package was found, so in
+combination with --quiet this can be useful in scripts.
+.TP
+.B --qa
+List all installed packages.
+.TP
+.BI --qi " NAME"
+Display info for the specified package.
+.TP
+.BI --ql " NAME"
+List the files in the specified package.
+.TP
+.BI --qf " FILE"
+List the package that owns the specified file.
+.TP
+.BI --qv " NAME"
+List available packages that match the specified name.
+.TP
+.B --qva
+List all available packages.
+.TP
+.BI --qr " NAME"
+List installed packages that depend on the specified package.
+.TP
+.BI --qd " NAME"
+List the packages that the specified package depends on.
+.TP
+.BI --qld " NAME"
+Similar to --qd, but only look at local packages.
+.TP
+.BI --dw " INTEGER"
+The number of workers to use when deploying.  Defaults to 10. Only meaningful
+when used with the servers option.
+.TP
+.BI --qX " NAME"
+Display the tpkg.xml for the specified package.
+.TP
+.BI --qenv 
+Display machine's information such as OS and architecture.
+.TP
+.BR --no-prompt | \-n
+Turn off confirmation prompts.
+.TP
+.B --quiet
+Reduce or eliminate informative but non-essential output.
+.TP
+.B --no-sudo
+Normally
+.B tpkg
+will re-execute itself with sudo for operations that might need root
+privileges.  This option disables that behavior.
+.TP
+.B --lock-force
+.B Tpkg
+locks the package database when performing install/upgrade/removal operations.
+If tpkg is interrupted for some reason it might leave the lock file behind.
+It will automatically remove lock files that are more than two hours old, this
+option can be used to force immediate removal.
+.TP
+.B --force
+Force the execution of a given task.
+.TP
+.B --use-ssh-key
+Eliminate the prompt for an SSH password when deploying.
+.TP
+.BI --deploy-as " USERNAME"
+The user to use with SSH when deploying.  Defaults to the current user.
+.TP
+.B --debug
+Print lots of messages about what
+.B tpkg
+is doing.
+.TP
+.B --version
+Show the
+.B tpkg
+client version and exit.
+.TP
+.BR --help | \-h
+Display the
+.B tpkg
+usage message and exit.
+
+.SH FILES
+
+.TP
+.B /home/t
+The default
+.B tpkg
+base.  Relocatable packages are installed relative to the base directory.
+.B Tpkg
+stores its package database, cache, etc. in BASE/var/tpkg.
+.TP
+.B /etc/tpkg.conf, $HOME/.tpkg.conf
+Configuration file for
+.B tpkg.
+The home directory file overrides settings in the system-wide file.
+.RS 8
+.TP
+.BI "base = " BASE
+Set a different base other than /home/t
+.TP
+.BI "source = " SOURCE
+A URL or directory to use as a source of packages.  May be specified more than
+once if more than one source of packages is available.  The directory must
+have been prepared with the --extract option to create metadata.xml.
+.TP
+.BI "report_server = " URL
+The URL for a
+.B tpkg
+reporting server.  If this is defined then all package install/upgrade/removal
+operations will be reported to the server.
+.RE
+.TP
+.B /etc/tpkg/ca.pem
+SSL certificate(s) needed to verify the
+.B tpkg
+server's identity. If
+.B tpkg
+is using a server with an https:// URL and if this file exists then
+.B tpkg
+will not proceed if the server's SSL certificate can't be verified against the
+certs in this file.
+.TP
+.B /etc/tpkg/dhparams
+The Diffie-Hellman parameters used as part of the SSL connection process.
+.B Tpkg
+comes with a set and there's no need to generate your own, but a new set can
+be generated via "openssl dhparam" if desired. If this file is not present the
+Ruby SSL library will warn that it is using its internal default set of
+parameters.
+
+.SH DIAGNOSTICS
+
+See the
+.B --debug
+option.
+
+.SH AUTHOR
+
+.B Tpkg
+is designed and maintained by Jason Heiss and Darren Dao.

@@ -33,6 +33,8 @@ rpm: tpkg.spec
 	cp -p thread_pool.rb $(BUILDROOT)/usr/lib/ruby/site_ruby/1.8/tpkg
 	chmod 444 $(BUILDROOT)/usr/lib/ruby/site_ruby/1.8/tpkg/thread_pool.rb
 	find thirdparty -name .svn -prune -o -print | cpio -pdum $(BUILDROOT)/usr/lib/ruby/site_ruby/1.8/tpkg
+	mkdir -p $(BUILDROOT)/usr/share/man/man1
+	cp -p tpkg.1 $(BUILDROOT)/usr/share/man/man1
 	mkdir -p $(BUILDROOT)/etc
 	cp -p tpkg.conf $(BUILDROOT)/etc/tpkg.conf
 	chmod 644 $(BUILDROOT)/etc/tpkg.conf
@@ -78,6 +80,8 @@ deb: control
 	cp -p thread_pool.rb $(BUILDROOT)/usr/local/lib/site_ruby/1.8/tpkg
 	chmod 444 $(BUILDROOT)/usr/local/lib/site_ruby/1.8/tpkg/thread_pool.rb
 	find thirdparty -name .svn -prune -o -print | cpio -pdum $(BUILDROOT)/usr/local/lib/site_ruby/1.8/tpkg
+	mkdir -p $(BUILDROOT)/usr/share/man/man1
+	cp -p tpkg.1 $(BUILDROOT)/usr/share/man/man1
 	mkdir -p $(BUILDROOT)/etc
 	cp -p tpkg.conf $(BUILDROOT)/etc/tpkg.conf
 	chmod 644 $(BUILDROOT)/etc/tpkg.conf
@@ -126,6 +130,8 @@ sysvpkg: pkginfo depend
 	cp -p thread_pool.rb $(BUILDROOT)/opt/csw/lib/ruby/site_ruby/1.8/tpkg
 	chmod 444 $(BUILDROOT)/opt/csw/lib/ruby/site_ruby/1.8/tpkg/thread_pool.rb
 	find thirdparty -name .svn -prune -o -print | cpio -pdum $(BUILDROOT)/opt/csw/lib/ruby/site_ruby/1.8/tpkg
+	mkdir -p $(BUILDROOT)/usr/share/man/man1
+	cp -p tpkg.1 $(BUILDROOT)/usr/share/man/man1
 	mkdir -p $(BUILDROOT)/etc
 	cp -p tpkg.conf $(BUILDROOT)/etc/tpkg.conf
 	chmod 644 $(BUILDROOT)/etc/tpkg.conf
