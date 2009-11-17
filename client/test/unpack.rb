@@ -140,9 +140,16 @@ class TpkgUnpackTests < Test::Unit::TestCase
     
     # Test that preinstall/postinstall are run at the right points
     #   Make up a package with scripts that create files so we can check timestamps
+    # Also, test PS-476 tpkg should chdir to package unpack directory before calling pre/post/install/remove scripts
     srcdir = Tempdir.new("srcdir")
     # Include the stock test package contents
     system("#{Tpkg::find_tar} -C testpkg --exclude .svn -cf - . | #{Tpkg::find_tar} -C #{srcdir} -xf -")
+
+    # Add some dummy file for testing relative path
+    File.open(File.join(srcdir, "dummyfile"), 'w') do |file|
+      file.puts("hello world")
+    end
+
     # Then add scripts
     scriptfiles = {}
     ['preinstall', 'postinstall'].each do |script|
@@ -156,6 +163,8 @@ class TpkgUnpackTests < Test::Unit::TestCase
         # Test that tpkg set $TPKG_HOME before running the script
         scriptfile.puts('echo TPKG_HOME: \"$TPKG_HOME\"')
         scriptfile.puts('test -n "$TPKG_HOME" || exit 1')
+        # Test that we had chdir'ed to package unpack directory
+        scriptfile.puts('ls dummyfile || exit 1')
         scriptfile.puts("echo #{script} > #{tmpfile.path}")
         scriptfile.puts("echo #{script}: #{tmpfile.path}")
         scriptfile.puts('sleep 1')
@@ -174,7 +183,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
     assert(File.stat(scriptfiles['preinstall'].path).mtime < File.stat(scriptfiles['postinstall'].path).mtime)
     FileUtils.rm_rf(testroot)
     FileUtils.rm_f(pkgfile)
-    
+
     # Test init script handling
     srcdir = Tempdir.new("srcdir")
     FileUtils.cp(File.join('testpkg', 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))

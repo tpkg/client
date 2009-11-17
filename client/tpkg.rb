@@ -47,8 +47,14 @@ require 'set'
 
 class Tpkg
   
-  VERSION = '1.13'
-  
+  VERSION = '1.15'
+
+  POSTINSTALL_ERR = 2
+  POSTREMOVE_ERR = 3
+  INITSCRIPT_ERR = 4
+
+  attr_reader :installed_directory
+ 
   #
   # Class methods
   #
@@ -498,7 +504,7 @@ class Tpkg
     metadata_xml.elements.each('/tpkg/dependencies/dependency') do |depxml|
       dep = {}
       dep[:name] = depxml.elements['name'].text
-      [:minimum_version, :maximum_version,
+      [:allowed_versions, :minimum_version, :maximum_version,
        :minimum_package_version, :maximum_package_version].each do |depfield|
         if depxml.elements[depfield.to_s]
           dep[depfield] = depxml.elements[depfield.to_s].text
@@ -721,6 +727,15 @@ class Tpkg
     Dir.mkdir(tmpdir)
     tmpdir
   end
+
+  @@arch = nil
+  def self.get_arch
+    if !@@arch
+      Facter.loadfacts
+      @@arch = Facter['hardwaremodel'].value
+    end
+    @@arch.dup
+  end
   
   # Returns a string representing the OS of this box of the form:
   # "OSname-OSmajorversion".  The OS name is currently whatever facter
@@ -767,7 +782,16 @@ class Tpkg
     end
     @@os.dup
   end
-  
+
+  # Given an array of pkgs. Determine if any of those package
+  # satisfy the requirement specified by req
+  def self.packages_meet_requirement?(pkgs, req)
+    pkgs.each do | pkg |
+      return true if Tpkg::package_meets_requirement?(pkg, req)   
+    end
+    return false
+  end
+ 
   # pkg is a standard Hash format used in the library to represent an
   # available package
   # req is a standard Hash format used in the library to represent package
@@ -788,6 +812,14 @@ class Tpkg
     elsif metadata[:name] == req[:name]
       same_min_ver_req = false
       same_max_ver_req = false
+      if req[:allowed_versions]
+        version = metadata[:version]
+        version = "#{version}-#{metadata[:package_version]}" if metadata[:package_version]
+        if !File.fnmatch(req[:allowed_versions], version)
+          puts "Package fails version requirement.)" if @@debug
+          result = false
+        end
+      end
       if req[:minimum_version]
         pkgver = Version.new(metadata[:version])
         reqver = Version.new(req[:minimum_version])
@@ -828,14 +860,16 @@ class Tpkg
       # field matches all clients.
       if metadata[:operatingsystem] &&
          !metadata[:operatingsystem].empty? &&
-         !metadata[:operatingsystem].include?(get_os)
+         !metadata[:operatingsystem].include?(get_os) &&
+         !metadata[:operatingsystem].any?{|os| get_os =~ /#{os}/}
         puts "Package fails operatingsystem" if @@debug
         result = false
       end
       # Same deal with empty? here
       if metadata[:architecture] &&
          !metadata[:architecture].empty? &&
-         !metadata[:architecture].include?(Facter['hardwaremodel'].value)
+         !metadata[:architecture].include?(get_arch) &&
+         !metadata[:architecture].any?{|arch| get_arch =~ /#{arch}/}
         puts "Package fails architecture" if @@debug
         result = false
       end
@@ -1102,6 +1136,29 @@ class Tpkg
         return true
       end
     end
+  end
+
+  def self.extract_tpkgxml(package_file)
+    result = ""
+    workdir = ""
+    begin
+      topleveldir = Tpkg::package_toplevel_directory(package_file)
+      workdir = Tpkg::tempdir(topleveldir)
+      system("#{find_tar} -xf #{package_file} -O #{File.join(topleveldir, 'tpkg.tar')} | #{find_tar} -C #{workdir} -xpf -")
+
+      if !File.exist?(File.join(workdir,"tpkg", "tpkg.xml"))
+        raise "#{package_file} does not contain tpkg.xml"
+      else
+        File.open(File.join(workdir,"tpkg", "tpkg.xml"), "r") do | f |
+          result = f.read
+        end
+      end
+    rescue
+      puts "Failed to extract package."
+    ensure
+      FileUtils.rm_rf(workdir) if workdir
+    end
+    return result
   end
   
   #
@@ -2270,6 +2327,7 @@ class Tpkg
   # files or packages, etc.  Those checks (if desired) must be done before
   # calling this method.
   def unpack(package_file, passphrase=nil, options={})
+    ret_val = 0
     metadata_xml = Tpkg::metadata_from_package(package_file)
     metadata = Tpkg::metadata_xml_to_hash(metadata_xml)
     
@@ -2309,6 +2367,11 @@ class Tpkg
     
     # Run preinstall script
     if File.exist?(File.join(workdir, 'tpkg', 'preinstall'))
+      pwd = Dir.pwd
+      # chdir into the working directory so that the user can specify a
+      # relative path to their file/script.
+      Dir.chdir(File.join(workdir, 'tpkg'))
+
       # Warn the user about non-executable files, as system will just
       # silently fail and exit if that's the case.
       if !File.executable?(File.join(workdir, 'tpkg', 'preinstall'))
@@ -2319,6 +2382,8 @@ class Tpkg
       else
         system(File.join(workdir, 'tpkg', 'preinstall')) || raise("Error: preinstall for #{File.basename(package_file)} failed with exit value #{$?.exitstatus}")
       end
+      # Switch back to our previous directory
+      Dir.chdir(pwd)
     end
     
     # Run any externals
@@ -2478,7 +2543,20 @@ class Tpkg
           # potentially useful for development or QA environments.
           File.delete(working_path)
         else
-          Tpkg::decrypt(metadata[:name], working_path, passphrase)
+          (1..3).each do | i |
+            begin
+              Tpkg::decrypt(metadata[:name], working_path, passphrase)
+              break 
+            rescue OpenSSL::CipherError
+              @@passphrase = nil
+              if i == 3
+                raise "Incorrect passphrase." 
+              else
+                puts "Incorrect passphrase. Try again."
+              end
+            end
+          end
+
           #digest = Digest::SHA256.file(working_path).hexdigest
           digest = Digest::SHA256.hexdigest(File.read(working_path))
           # get checksum for the decrypted file. Will be used for creating file_metadata.xml
@@ -2638,6 +2716,11 @@ class Tpkg
     
     # Run postinstall script
     if File.exist?(File.join(workdir, 'tpkg', 'postinstall'))
+      pwd = Dir.pwd
+      # chdir into the working directory so that the user can specify a
+      # relative path to their file/script.
+      Dir.chdir(File.join(workdir, 'tpkg'))
+
       # Warn the user about non-executable files, as system will just
       # silently fail and exit if that's the case.
       if !File.executable?(File.join(workdir, 'tpkg', 'postinstall'))
@@ -2650,6 +2733,10 @@ class Tpkg
       # desirable.  We could remove the package's files and raise an
       # exception, but this seems the best approach to me.
       system(File.join(workdir, 'tpkg', 'postinstall')) || warn("Warning: postinstall for #{File.basename(package_file)} failed with exit value #{$?.exitstatus}")
+      ret_val = POSTINSTALL_ERR if $?.exitstatus > 0
+
+      # Switch back to our previous directory
+      Dir.chdir(pwd)
     end
     
     # Save metadata for this pkg
@@ -2692,6 +2779,7 @@ class Tpkg
     
     # Cleanup
     FileUtils.rm_rf(workdir)
+    return ret_val
   end
   
   def requirements_for_currently_installed_package(pkgname=nil)
@@ -2802,7 +2890,7 @@ class Tpkg
     packages.each do |name, pkgs |
       if pkgs.empty?
         errors << ["Unable to find any packages which satisfy #{name}"]
-        satisfied_all = false
+        all_requests_satisfied = false 
         next
       end
 
@@ -2820,7 +2908,7 @@ class Tpkg
         # available for each dependency of this package
         dep_satisfied = true
         metadata[:dependencies].each do |depreq|
-          if available_packages_that_meet_requirement(depreq).empty?
+          if available_packages_that_meet_requirement(depreq).empty? && !Tpkg::packages_meet_requirement?(packages.values.flatten, depreq)
             possible_errors << "  Requested package #{metadata[:filename]} depends on #{depreq.inspect}, no packages that satisfy that dependency are available"
             dep_satisfied = false
           end
@@ -2965,6 +3053,7 @@ class Tpkg
 
   # See parse_requests for format of requests
   def install(requests, passphrase=nil)
+    ret_val = 0
     requirements = []
     packages = {}
     lock
@@ -3075,7 +3164,7 @@ class Tpkg
           warn "Skipping #{File.basename(pkgfile)}, already installed"
         else
           if prompt_for_conflicting_files(pkgfile)
-            unpack(pkgfile, passphrase)
+            ret_val |= unpack(pkgfile, passphrase)
           end
         end
       end
@@ -3087,10 +3176,12 @@ class Tpkg
 
     send_update_to_server unless @report_server.nil?
     unlock
+    return ret_val
   end
 
   # This method can also be used for doing downgrade
   def upgrade(requests=nil, passphrase=nil, downgrade=false)
+    ret_val = 0
     requirements = []
     packages = {}
     core_packages = []
@@ -3170,9 +3261,9 @@ class Tpkg
     check_for_conflicting_pkgs(solution_packages | installed_packages)
 
     if downgrade
-      prompt_action = 'downgrade'
+      prompt_action = 'downgraded'
     else
-      prompt_action = 'upgrade'
+      prompt_action = 'upgraded'
     end
     if !prompt_for_install(solution_packages, prompt_action)
       unlock
@@ -3281,7 +3372,7 @@ class Tpkg
             end
           end
           if can_unpack
-            unpack(pkgfile, passphrase, :externals_to_skip => externals_to_skip)
+            ret_val |= unpack(pkgfile, passphrase, :externals_to_skip => externals_to_skip)
           end
 
           has_updates = true
@@ -3296,9 +3387,11 @@ class Tpkg
     end
 
     unlock
+    return ret_val
   end
   
   def remove(requests=nil, options={})
+    ret_val = 0
     lock
     
     packages_to_remove = nil
@@ -3317,9 +3410,13 @@ class Tpkg
       unlock
       return false
     end
-    
+
+    # If user want to remove all the dependent pkgs, then go ahead
+    # and include them in our array of things to remove
+    if options[:remove_all_dep]
+      packages_to_remove |= get_dependents(packages_to_remove)
     # Check that this doesn't leave any dependencies unresolved
-    if !options[:upgrade]
+    elsif !options[:upgrade]
       pkg_files_to_remove = packages_to_remove.map { |pkg| pkg[:metadata][:filename] }
       metadata_for_installed_packages.each do |metadata|
         next if pkg_files_to_remove.include?(metadata[:filename])
@@ -3370,6 +3467,11 @@ class Tpkg
     
       # Run preremove script
       if File.exist?(File.join(workdir, 'tpkg', 'preremove'))
+        pwd = Dir.pwd
+        # chdir into the working directory so that the user can specify a
+        # relative path to their file/script.
+        Dir.chdir(File.join(workdir, 'tpkg'))
+
         # Warn the user about non-executable files, as system will just
         # silently fail and exit if that's the case.
         if !File.executable?(File.join(workdir, 'tpkg', 'preremove'))
@@ -3380,6 +3482,9 @@ class Tpkg
         else
           system(File.join(workdir, 'tpkg', 'preremove')) || raise("Error: preremove for #{File.basename(package_file)} failed with exit value #{$?.exitstatus}")
         end
+
+        # Switch back to our previous directory
+        Dir.chdir(pwd)
       end
     
       # Remove any init scripts
@@ -3493,6 +3598,11 @@ class Tpkg
     
       # Run postremove script
       if File.exist?(File.join(workdir, 'tpkg', 'postremove'))
+        pwd = Dir.pwd
+        # chdir into the working directory so that the user can specify a
+        # relative path to their file/script.
+        Dir.chdir(File.join(workdir, 'tpkg'))
+
         # Warn the user about non-executable files, as system will just
         # silently fail and exit if that's the case.
         if !File.executable?(File.join(workdir, 'tpkg', 'postremove'))
@@ -3505,6 +3615,10 @@ class Tpkg
         # desirable.  We could reinstall the package's files and raise an
         # exception, but this seems the best approach to me.
         system(File.join(workdir, 'tpkg', 'postremove')) || warn("Warning: postremove for #{File.basename(package_file)} failed with exit value #{$?.exitstatus}")
+        ret_val = POSTREMOVE_ERR if $?.exitstatus > 0
+
+        # Switch back to our previous directory
+        Dir.chdir(pwd)
       end
     
       File.delete(package_file)
@@ -3519,6 +3633,7 @@ class Tpkg
     
     send_update_to_server unless @report_server.nil? || options[:upgrade]
     unlock
+    return ret_val
   end
   
   def verify_file_metadata(requests)
@@ -3624,24 +3739,31 @@ class Tpkg
   end
   
   def execute_init(requests, action)
+    ret_val = 0
     packages_to_execute_on = []
-    requests.each do |request|
-      req = Tpkg::parse_request(request)
-      packages_to_execute_on.concat(installed_packages_that_meet_requirement(req))
+    if requests.nil?
+      packages_to_execute_on = installed_packages_that_meet_requirement(nil)
+    else
+      requests.each do |request|
+        req = Tpkg::parse_request(request)
+        packages_to_execute_on.concat(installed_packages_that_meet_requirement(req))
+      end
     end
     
     packages_to_execute_on.each do |pkg|
-      execute_init_for_package(pkg, action)
+      ret_val |= execute_init_for_package(pkg, action)
     end 
+    return ret_val
   end
   
   def execute_init_for_package(pkg, action)
+    ret_val = 0
     init_scripts_metadata = init_scripts(pkg[:metadata])
 
     # warn if there's no init script and then return
     if init_scripts_metadata.nil? || init_scripts_metadata.empty?
       warn "Warning: There is no init script for #{pkg[:metadata][:name]}"
-      return
+      return 1
     end
 
     # convert the init scripts metadata  to an array of { path => value, start => value}
@@ -3665,7 +3787,9 @@ class Tpkg
     ordered_init_scripts.each do |init_script|
       installed_path = init_script[:path]
       system("#{installed_path} #{action}")
+      ret_val = INITSCRIPT_ERR if $?.exitstatus > 0
     end 
+    return ret_val
   end
   
   # We can't safely calculate a set of dependencies and install the
@@ -3753,28 +3877,43 @@ class Tpkg
       puts "Failed to send update to reporter server"
     end
   end  
-  
-  def extract_tpkgxml(package_file)
-    result = ""
-    workdir = ""
-    begin
-      topleveldir = Tpkg::package_toplevel_directory(package_file)
-      workdir = Tpkg::tempdir(topleveldir)
-      system("#{@tar} -xf #{package_file} -O #{File.join(topleveldir, 'tpkg.tar')} | #{@tar} -C #{workdir} -xpf -")
 
-      if !File.exist?(File.join(workdir,"tpkg", "tpkg.xml"))
-        raise "#{package_file} does not contain tpkg.xml" 
-      else
-        File.open(File.join(workdir,"tpkg", "tpkg.xml"), "r") do | f |
-          result = f.read
-        end
-      end 
-    rescue
-      puts "Failed to extract package."
-    ensure
-      FileUtils.rm_rf(workdir) if workdir
+  # Build a dependency map of currently installed packages
+  # For example, if we have pkgB and pkgC which depends on pkgA, then 
+  # the dependency map would look like this:
+  # "pkgA.tpkg" => [{pkgB metadata}, {pkgC metadata}]
+  def get_dependency_mapping
+    dependency_mapping = {}
+    installed_packages.each do | pkg |
+      metadata = pkg[:metadata]
+      # Get list of pkgs that this pkg depends on
+      depended_on = []
+      metadata[:dependencies].each do |req|
+        next if req[:type] == :native
+        depended_on |= installed_packages_that_meet_requirement(req)
+      end
+
+      # populate the depencency map
+      depended_on.each do | req_pkg |
+        dependency_mapping[req_pkg[:metadata][:filename]] = [] if dependency_mapping[req_pkg[:metadata][:filename]].nil?
+        dependency_mapping[req_pkg[:metadata][:filename]] << pkg
+      end
     end
-    return result
+    return dependency_mapping
+  end
+
+  # Given a list of packages, return a list of dependents packages
+  def get_dependents(pkgs)
+    dependents = []
+    to_check = pkgs.map { |pkg| pkg[:metadata][:filename] }
+    dependency = get_dependency_mapping
+    while pkgfile = to_check.pop
+      pkgs = dependency[pkgfile.to_s]
+      next if pkgs.nil?
+      dependents |= pkgs
+      to_check |= pkgs.map { |pkg| pkg[:metadata][:filename] }
+    end 
+    return dependents
   end
 end
 

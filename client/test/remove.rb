@@ -87,9 +87,16 @@ class TpkgRemoveTests < Test::Unit::TestCase
     
     # Test that preremove/postremove are run at the right points
     #   Make up a package with scripts that create files so we can check timestamps
+    # Also, test PS-476 tpkg should chdir to package unpack directory before calling pre/post/install/remove scripts
     srcdir = Tempdir.new("srcdir")
     # Include the stock test package contents
     system("#{Tpkg::find_tar} -C testpkg --exclude .svn -cf - . | #{Tpkg::find_tar} -C #{srcdir} -xf -")
+
+    # Add some dummy file for testing relative path
+    File.open(File.join(srcdir, "dummyfile"), 'w') do |file|
+      file.puts("hello world")
+    end
+
     # Then add scripts
     scriptfiles = {}
     ['preremove', 'postremove'].each do |script|
@@ -102,6 +109,8 @@ class TpkgRemoveTests < Test::Unit::TestCase
         scriptfile.puts('#!/bin/sh')
         # Test that tpkg set $TPKG_HOME before running the script
         scriptfile.puts('echo TPKG_HOME: \"$TPKG_HOME\"')
+        # Test that we had chdir'ed to package unpack directory
+        scriptfile.puts('ls dummyfile || exit 1')
         scriptfile.puts('test -n "$TPKG_HOME" || exit 1')
         scriptfile.puts("echo #{script} > #{tmpfile.path}")
         scriptfile.puts("echo #{script}: #{tmpfile.path}")

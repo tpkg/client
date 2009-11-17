@@ -231,6 +231,13 @@ class TpkgDependencyTests < Test::Unit::TestCase
     pkg = { :metadata => metadata, :source => pkgfile }
     assert(!Tpkg::package_meets_requirement?(pkg, req))
     FileUtils.rm_f(pkgfile)
+
+    # Package with operatingsystem and arch specified as regex
+    pkgfile = make_package(:output_directory => @tempoutdir, :change => {'operatingsystem' => 'RedHat|CentOS|Fedora|Debian|Ubuntu|Solaris|FreeBSD|Darwin',  'architecture' => "i386|x86_64|#{Facter['hardwaremodel'].value}|sparc|powerpc"})
+    metadata_xml = Tpkg::metadata_from_package(pkgfile)
+    metadata = Tpkg::metadata_xml_to_hash(metadata_xml)
+    pkg = { :metadata => metadata, :source => pkgfile }
+    assert(Tpkg::package_meets_requirement?(pkg, req))
   end
   
   def test_available_packages_that_meet_requirement
@@ -271,6 +278,35 @@ class TpkgDependencyTests < Test::Unit::TestCase
     req[:name] = 'otherpkg'
     pkgs = tpkg.available_packages_that_meet_requirement(req)
     assert(pkgs.empty?)
+
+    # PS-478
+    pkgfiles << make_package(:output_directory => @tempoutdir, :change => {'version' => '2'}, :remove => ['operatingsystem', 'architecture', 'package_version'])
+    pkgfiles << make_package(:output_directory => @tempoutdir, :change => {'version' => '2', 'package_version' => '1'}, :remove => ['operatingsystem', 'architecture'])
+    pkgfiles << make_package(:output_directory => @tempoutdir, :change => {'version' => '2', 'package_version' => '112'}, :remove => ['operatingsystem', 'architecture'])
+    tpkg = Tpkg.new(:base => testbase, :sources => pkgfiles)
+
+    req = { :name => 'testpkg' }
+    
+    # Should only match package of version 2 and NO package version
+    req[:allowed_versions] = '2'
+    pkgs = tpkg.available_packages_that_meet_requirement(req)
+    assert_equal(1, pkgs.length)
+
+    # Should match any packages that has a version number that starts with 2
+    req[:allowed_versions] = '2*'
+    pkgs = tpkg.available_packages_that_meet_requirement(req)
+    assert_equal(3, pkgs.length)
+
+    # Should match any packages that is version 2 AND has a package version number
+    req[:allowed_versions] = '2-*'
+    pkgs = tpkg.available_packages_that_meet_requirement(req)
+    assert_equal(2, pkgs.length)
+
+    # Should match any packages that is version 2 AND has a package version number that ends with 2
+    req[:allowed_versions] = '2-*2'
+    pkgs = tpkg.available_packages_that_meet_requirement(req)
+    assert_equal(1, pkgs.length)
+
     
     pkgfiles.each { |pkgfile| FileUtils.rm_f(pkgfile) }
     FileUtils.rm_rf(testbase)
@@ -569,6 +605,27 @@ class TpkgDependencyTests < Test::Unit::TestCase
     requirements.clear
     packages.clear
     FileUtils.rm_f(apkg)
+
+    # PS-465: local package dependencies on install
+    # Check that tpkg accept list of local packages where one depends on another
+    localapkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'locala', 'version' => '1.0' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    localbpkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'localb', 'version' => '1.0' }, :dependencies => {'locala' => {}}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    localcpkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'localc', 'version' => '1.0' }, :dependencies => {'nonexisting' => {}}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    tpkg.parse_requests([localapkg, localbpkg], requirements, packages) 
+    assert_nothing_raised { tpkg.check_requests(packages) }
+    requirements.clear
+    packages.clear
+    tpkg.parse_requests([localbpkg, localapkg], requirements, packages) 
+    assert_nothing_raised { tpkg.check_requests(packages) }
+    requirements.clear
+    packages.clear
+    # Should not be ok since localc depends on nonexisting package
+    tpkg.parse_requests([localapkg, localbpkg, localcpkg], requirements, packages) 
+    assert_raise(RuntimeError) { tpkg.check_requests(packages) }
+    requirements.clear
+    packages.clear
+    FileUtils.rm_f(localapkg)
+    FileUtils.rm_f(localbpkg)
     
     # Verify that it rejects a package that can't be installed on this
     # machine
