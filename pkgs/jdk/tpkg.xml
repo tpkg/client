@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE tpkg SYSTEM "http://tpkg.sourceforge.net/tpkg-1.0.dtd">
+<tpkg>
+  <name>NAME</name>
+  <version>VERSION</version>
+  <package_version>PKGVER</package_version>
+  <maintainer>tpkg-users@lists.sourceforge.net</maintainer>
+  <operatingsystem>OS</operatingsystem>
+  <files>
+  </files>
+</tpkg>
+
