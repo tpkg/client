@@ -4,7 +4,7 @@ set -u
 set -o pipefail
 
 PKG=tokyocabinet
-VER=1.4.20
+VER=1.4.31
 PKGVER=1
 prefix=/home/t
 OSMAJOR=`facter | grep lsbmajdistrelease | cut -d' ' -f3`
