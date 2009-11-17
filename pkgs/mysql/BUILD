@@ -2,12 +2,9 @@
 
 PKG=mysql
 VER=5.1.33
-PKGVER=2
+PKGVER=3
 OSMAJOR=`facter | grep lsbmajdistrelease | cut -d' ' -f3`
 ARCH=`facter hardwaremodel`
-
-# FIXME:
-# mysql user and group
 
 rm -rf $PKG-$VER || exit 1
 tar zxvf $PKG-$VER.tar.gz || exit 1
@@ -29,8 +26,10 @@ cat ../../tpkg.xml | \
 	sed "s/PKGVER/$PKGVER/" | \
 	sed "s/OS/RedHat-$OSMAJOR,CentOS-$OSMAJOR/" | \
 	sed "s/ARCH/$ARCH/" | \
+	sed '/<files>/i\
+<externals><external><name>user</name><data>mysql</data></external><external><name>group</name><data>mysql</data></external></externals>' | \
 	sed '/<files>/a\
-<file><path>/home/t/etc/init.d/mysql</path><init/></file>' |
+<file><path>/home/t/etc/init.d/mysql</path><init/></file>' | \
 	sed '/<files>/a\
 <file><path>/home/t/var/run/mysqld</path><posix><owner>mysql</owner><group>mysql</group></posix></file>' > $pkgdir/tpkg.xml
 mkdir -p $pkgdir/root/home/t || exit 1
