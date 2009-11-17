@@ -5,7 +5,7 @@ set -eu
 set -o pipefail # bash v3 dependency
 
 PKG=haproxy
-VER=1.3.17
+VER=1.3.20
 PKGVER=1
 eval `facter |sed 's/ => /=/' | \
   egrep '(hardwaremodel|lsbmajdistrelease|kernelversion|kernel)'`
