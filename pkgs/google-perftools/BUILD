@@ -4,7 +4,7 @@ set -u
 set -o pipefail
 
 PKG=google-perftools
-VER=1.2
+VER=1.4
 PKGVER=1
 prefix=/home/t
 OSMAJOR=`facter | grep lsbmajdistrelease | cut -d' ' -f3`
