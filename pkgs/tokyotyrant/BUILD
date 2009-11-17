@@ -4,7 +4,7 @@ set -u
 set -o pipefail
 
 PKG=tokyotyrant
-VER=1.1.27
+VER=1.1.33
 PKGVER=1
 prefix=/home/t
 OSMAJOR=`facter | grep lsbmajdistrelease | cut -d' ' -f3`
