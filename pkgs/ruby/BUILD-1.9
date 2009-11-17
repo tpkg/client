@@ -3,7 +3,7 @@ set -e
 set -u
 
 PKG=ruby
-VER=1.9.1-p129
+VER=1.9.1-p243
 PKGVER=1
 prefix=/home/t/$PKG-1.9
 OSMAJOR=`facter | grep lsbmajdistrelease | cut -d' ' -f3`
@@ -37,14 +37,12 @@ sed -e "s/NAME/$PKG/" \
 
 # Install
 make install DESTDIR=$pkgdir/root
-# Fix perms
-sudo chown -R 0:0 $pkgdir/root
 # Make package
-sudo tpkg --make $pkgdir
+tpkg --make $pkgdir
 # Rename the package to reflect OS and arch
-sudo mv /tmp/$PKG-$VER-$PKGVER.tpkg \
+mv /tmp/$PKG-$VER-$PKGVER.tpkg \
   /tmp/$PKG-$VER-$PKGVER-redhat$OSMAJOR-$ARCH.tpkg
 # Cleanup
-sudo rm -rf $pkgdir
+rm -rf $pkgdir
 cd ..
 rm -rf $PKG-$VER
