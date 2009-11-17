@@ -1,7 +1,17 @@
 #!/bin/sh
 
 PKG=oracle_client
-PKGVER=1
+PKGVER=2
+
+# The installer expects the user to be in whatever group we specify in
+# the UNIX_GROUP_NAME setting in the configuration (dba in our case), so
+# make sure the user actually is in that group.  The error the installer
+# kicks out (SEVERE:S_OWNER_SYSTEM_EPERM) is not very obvious.
+if ! id | awk '{print $3}' | grep dba
+then
+	echo "You need to be in the dba group" >&2
+	exit 1
+fi
 
 #for ver in 10.2.0.1.0 11.1.0.6.0
 for ver in 10.2.0.1.0
@@ -78,12 +88,15 @@ do
 		# Move over installed files
 		mkdir -p $pkgdir/root/home/t || exit 1
 		sudo mv /home/t/$PKG-$ver $pkgdir/root/home/t || exit 1
+		# Fix permissions
+		find $pkgdir/root/home/t -type d | xargs chmod g-w,o+rx
+		find $pkgdir/root/home/t -type f | xargs chmod g-w,o+rX
 		# Make package
-		sudo tpkg --make $pkgdir || exit 1
+		tpkg --make $pkgdir || exit 1
 		# Rename the package to reflect OS and arch
-		sudo mv /tmp/$PKG-$ver-$PKGVER.tpkg /tmp/$PKG-$ver-$PKGVER-redhat-$arch.tpkg
+		mv /tmp/$PKG-$ver-$PKGVER.tpkg /tmp/$PKG-$ver-$PKGVER-redhat-$arch.tpkg
 		# Cleanup
-		sudo rm -rf $pkgdir
+		rm -rf $pkgdir
 	done
 done
 
