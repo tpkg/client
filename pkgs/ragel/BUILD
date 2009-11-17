@@ -3,7 +3,7 @@ set -e
 set -u
 
 PKG=ragel
-VER=6.4
+VER=6.5
 PKGVER=1
 OSMAJOR=`facter | grep lsbmajdistrelease | cut -d' ' -f3`
 ARCH=`facter hardwaremodel`
