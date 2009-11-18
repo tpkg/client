@@ -1,11 +1,11 @@
-tpkg - Unix System Configuration Management
+tpkg - Application Packaging and Deployment
 http://tpkg.sourceforge.net
 
 ------------------------------------------------------------------------------
 Setup
 ------------------------------------------------------------------------------
 
-See the GettingStarted page on http://tpkg.wiki.sourceforge.net/
+See the GettingStarted page on http://tpkg.sourceforge.net/
 
 ------------------------------------------------------------------------------
 Help
@@ -20,12 +20,12 @@ https://lists.sourceforge.net/lists/listinfo/tpkg-users
 License
 ------------------------------------------------------------------------------
 
-License: MIT (http://www.opensource.org/licenses/mit-license.php)
+License: MIT (see LICENSE file)
 
 ------------------------------------------------------------------------------
 Credits
 ------------------------------------------------------------------------------
 
 copyright 2009, AT&T Interactive
-Development by Jason Heiss and Darren Dao
+Development by Darren Dao and Jason Heiss
 
