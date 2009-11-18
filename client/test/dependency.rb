@@ -5,9 +5,8 @@
 #
 
 require 'test/unit'
-require 'tpkgtest'
+require File.dirname(__FILE__) + '/tpkgtest'
 require 'facter'
-require 'tempfile'
 require 'fileutils'
 
 class TpkgDependencyTests < Test::Unit::TestCase

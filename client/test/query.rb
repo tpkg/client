@@ -5,8 +5,7 @@
 #
 
 require 'test/unit'
-require 'tpkgtest'
-require 'tempfile'
+require File.dirname(__FILE__) + '/tpkgtest'
 
 class TpkgQueryTests < Test::Unit::TestCase
   include TpkgTests
@@ -43,7 +42,7 @@ class TpkgQueryTests < Test::Unit::TestCase
     pkgfiles = []
     ['1.0', '2.0'].each do |ver|
       srcdir = Tempdir.new("srcdir")
-      FileUtils.cp(File.join('testpkg', 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+      FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
       pkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => ver }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
       tpkg.install([pkg], PASSPHRASE)
       pkgfiles << pkg
@@ -65,7 +64,7 @@ class TpkgQueryTests < Test::Unit::TestCase
     # they don't conflict
     ['a', 'b'].each do |pkgname|
       srcdir = Tempdir.new("srcdir")
-      FileUtils.cp(File.join('testpkg', 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+      FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
       FileUtils.mkdir_p(File.join(srcdir, 'reloc', 'directory'))
       File.open(File.join(srcdir, 'reloc', 'directory', pkgname), 'w') do |file|
         file.puts pkgname
@@ -101,16 +100,12 @@ class TpkgQueryTests < Test::Unit::TestCase
     files = Tpkg::files_in_package(@pkgfile)
     assert_equal(0, files[:root].length)
     pwd = Dir.pwd
-    Dir.chdir(File.join('testpkg', 'reloc'))
+    Dir.chdir(File.join(TESTPKGDIR, 'reloc'))
     reloc_expected = Dir.glob('*')
     Dir.chdir(pwd)
     assert_equal(reloc_expected.length, files[:reloc].length)
     reloc_expected.each { |r| assert(files[:reloc].include?(r)) }
     files[:reloc].each { |r| assert(reloc_expected.include?(r)) }
-  end
-
-  def teardown
-    FileUtils.rm_f(@pkgfile)
   end
 end
 

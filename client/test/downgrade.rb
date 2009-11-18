@@ -5,7 +5,7 @@
 #
 
 require 'test/unit'
-require 'tpkgtest'
+require File.dirname(__FILE__) + '/tpkgtest'
 require 'fileutils'
 
 class TpkgDowngradeTests < Test::Unit::TestCase
@@ -16,7 +16,7 @@ class TpkgDowngradeTests < Test::Unit::TestCase
 
     @pkgfiles = []   
     srcdir = Tempdir.new("srcdir")
-    FileUtils.cp(File.join('testpkg', 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+    FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
     FileUtils.mkdir(File.join(srcdir, 'reloc'))
 
     # Creating packages that will be used for testing

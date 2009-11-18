@@ -5,7 +5,7 @@
 #
 
 require 'test/unit'
-require 'tpkgtest'
+require File.dirname(__FILE__) + '/tpkgtest'
 require 'fileutils'
 
 class TpkgUpgradeTests < Test::Unit::TestCase
@@ -19,7 +19,7 @@ class TpkgUpgradeTests < Test::Unit::TestCase
       # Make sure the files in the a packages don't conflict with
       # the b packages
       srcdir = Tempdir.new("srcdir")
-      FileUtils.cp(File.join('testpkg', 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+      FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
       FileUtils.mkdir(File.join(srcdir, 'reloc'))
       File.open(File.join(srcdir, 'reloc', pkgname), 'w') do |file|
         file.puts pkgname
@@ -38,7 +38,7 @@ class TpkgUpgradeTests < Test::Unit::TestCase
 
     # Create pkg c-1.2-3 and c-2-3-1
     srcdir = Tempdir.new("srcdir")
-    FileUtils.cp(File.join('testpkg', 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+    FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
     FileUtils.mkdir(File.join(srcdir, 'reloc'))
     File.open(File.join(srcdir, 'reloc', 'c'), 'w') do |file|
       file.puts "this file belong to c package"
@@ -62,7 +62,7 @@ class TpkgUpgradeTests < Test::Unit::TestCase
     # Create pkg ordera-1 and orderb-1
     srcdir = Tempdir.new("srcdir")
     pkgfiles = []
-    FileUtils.cp(File.join('testpkg', 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+    FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
     pkgfiles <<  make_package(:change => { 'name' => 'ordera', 'version' => '1' }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
     deps = {'ordera'=> {'minimum_version' => '1.0'}}
     pkgfiles <<  make_package(:change => { 'name' => 'orderb', 'version' => '1' }, :source_directory => srcdir, :dependencies => deps, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
@@ -194,7 +194,7 @@ class TpkgUpgradeTests < Test::Unit::TestCase
     # Older version has one external, newer version has same external plus an
     # additional one
     srcdir = Tempdir.new("srcdir")
-    FileUtils.cp(File.join('testpkg', 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+    FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
     extname1 = 'testext1'
     extdata1 = "This is a test of an external hook\nwith multiple lines\nof data"
     extname2 = 'testext2'
@@ -241,7 +241,7 @@ class TpkgUpgradeTests < Test::Unit::TestCase
     # Create pkg stricta-1 and strictb-1
     srcdir = Tempdir.new("srcdir")
     pkgfiles = []
-    FileUtils.cp(File.join('testpkg', 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+    FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
     pkgfiles <<  make_package(:change => { 'name' => 'stricta', 'version' => '1.0' }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
     pkgfiles <<  make_package(:change => { 'name' => 'stricta', 'version' => '2.0' }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
     pkgfiles <<  make_package(:change => { 'name' => 'strictb', 'version' => '1.0' }, :source_directory => srcdir, :dependencies => {'stricta' => {'minimum_version' => '1.0', 'maximum_version' => '1.0'}}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])

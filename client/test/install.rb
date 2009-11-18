@@ -5,9 +5,8 @@
 #
 
 require 'test/unit'
-require 'tpkgtest'
+require File.dirname(__FILE__) + '/tpkgtest'
 require 'facter'
-require 'tempfile'
 require 'fileutils'
 
 class TpkgInstallTests < Test::Unit::TestCase
@@ -35,9 +34,9 @@ class TpkgInstallTests < Test::Unit::TestCase
     
     # Check that the files from the package ended up in the right place
     assert(File.exist?(File.join(testbase, 'file')))
-    assert_equal(IO.read(File.join('testpkg', 'reloc', 'file')), IO.read(File.join(testbase, 'file')))
+    assert_equal(IO.read(File.join(TESTPKGDIR, 'reloc', 'file')), IO.read(File.join(testbase, 'file')))
     assert(File.exist?(File.join(testbase, 'encfile')))
-    assert_equal(IO.read(File.join('testpkg', 'reloc', 'encfile')), IO.read(File.join(testbase, 'encfile')))
+    assert_equal(IO.read(File.join(TESTPKGDIR, 'reloc', 'encfile')), IO.read(File.join(testbase, 'encfile')))
     
   end
 
@@ -48,7 +47,7 @@ class TpkgInstallTests < Test::Unit::TestCase
     @pkgfiles = []
     ['a', 'b', 'c'].each do |pkgname|
       srcdir = Tempdir.new("srcdir")
-      FileUtils.cp(File.join('testpkg', 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+      FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
       FileUtils.mkdir(File.join(srcdir, 'reloc'))
       File.open(File.join(srcdir, 'reloc', pkgname), 'w') do |file|
         file.puts pkgname

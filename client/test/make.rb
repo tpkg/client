@@ -5,8 +5,7 @@
 #
 
 require 'test/unit'
-require 'tpkgtest'
-require 'tempfile'
+require File.dirname(__FILE__) + '/tpkgtest'
 require 'fileutils'
 
 class TpkgMakeTests < Test::Unit::TestCase
@@ -20,7 +19,7 @@ class TpkgMakeTests < Test::Unit::TestCase
   
   def make_pkgdir
     pkgdir = Tempdir.new("pkgdir")
-    system("#{@tar} -C testpkg --exclude .svn --exclude tpkg-nofiles.xml --exclude tpkg-dir-default.xml -cf - . | #{@tar} -C #{pkgdir} -xf -")
+    system("#{@tar} -C #{TESTPKGDIR} --exclude .svn --exclude tpkg-nofiles.xml --exclude tpkg-dir-default.xml -cf - . | #{@tar} -C #{pkgdir} -xf -")
     # Set special permissions on a file so that we can verify they are
     # preserved
     File.chmod(0400, File.join(pkgdir, 'reloc', 'file'))
@@ -78,7 +77,7 @@ class TpkgMakeTests < Test::Unit::TestCase
       # Verify that the file we specified should be encrypted was encrypted
       testname = 'encrypted file is encrypted'
       encrypted_contents = IO.read(File.join(workdir, 'testpkg-1.0-1', 'tpkg', 'reloc', 'encfile'))
-      unencrypted_contents = IO.read(File.join('testpkg', 'reloc', 'encfile'))
+      unencrypted_contents = IO.read(File.join(TESTPKGDIR, 'reloc', 'encfile'))
       assert_not_equal(unencrypted_contents, encrypted_contents, testname)
       testname = 'encrypted file can be decrypted'
       Tpkg::decrypt('testpkg', File.join(workdir, 'testpkg-1.0-1', 'tpkg', 'reloc', 'encfile'), PASSPHRASE)
@@ -88,7 +87,7 @@ class TpkgMakeTests < Test::Unit::TestCase
       testname = 'precrypt file can be decrypted'
       Tpkg::decrypt('testpkg', File.join(workdir, 'testpkg-1.0-1', 'tpkg', 'reloc', 'precryptfile'), PASSPHRASE)
       decrypted_contents = IO.read(File.join(workdir, 'testpkg-1.0-1', 'tpkg', 'reloc', 'precryptfile'))
-      unencrypted_contents = IO.read(File.join('testpkg', 'reloc', 'precryptfile.plaintext'))
+      unencrypted_contents = IO.read(File.join(TESTPKGDIR, 'reloc', 'precryptfile.plaintext'))
       assert_equal(unencrypted_contents, decrypted_contents, testname)
     rescue  => e
       raise e
@@ -106,7 +105,7 @@ class TpkgMakeTests < Test::Unit::TestCase
         testname = "make package without required field #{r}"
         pkgdir = Tempdir.new("pkgdir")
         File.open(File.join(pkgdir, 'tpkg.xml'), 'w') do |pkgxmlfile|
-          IO.foreach(File.join('testpkg', 'tpkg-nofiles.xml')) do |line|
+          IO.foreach(File.join(TESTPKGDIR, 'tpkg-nofiles.xml')) do |line|
             if line !~ /^\s*<#{r}>/
               pkgxmlfile.print(line)
             end
@@ -120,7 +119,7 @@ class TpkgMakeTests < Test::Unit::TestCase
         testname = "make package with empty required field #{r}"
         pkgdir = Tempdir.new("pkgdir")
         File.open(File.join(pkgdir, 'tpkg.xml'), 'w') do |pkgxmlfile|
-          IO.foreach(File.join('testpkg', 'tpkg-nofiles.xml')) do |line|
+          IO.foreach(File.join(TESTPKGDIR, 'tpkg-nofiles.xml')) do |line|
             line.sub!(/^(\s*<#{r}>).*(<\/#{r}>.*)/, '\1\2')
             pkgxmlfile.print(line)
           end
@@ -134,7 +133,7 @@ class TpkgMakeTests < Test::Unit::TestCase
       pkgfile = nil
       pkgdir = Tempdir.new("pkgdir")
       File.open(File.join(pkgdir, 'tpkg.xml'), 'w') do |pkgxmlfile|
-        IO.foreach(File.join('testpkg', 'tpkg-nofiles.xml')) do |line|
+        IO.foreach(File.join(TESTPKGDIR, 'tpkg-nofiles.xml')) do |line|
           if line =~ /^<?xml/ || line =~ /^<!DOCTYPE/ || line =~ /^<\/?tpkg>/
             # XML headers and document root
             pkgxmlfile.print(line)
@@ -153,7 +152,7 @@ class TpkgMakeTests < Test::Unit::TestCase
       testname = 'make package with non-existent file'
       pkgdir = Tempdir.new("pkgdir")
       File.open(File.join(pkgdir, 'tpkg.xml'), 'w') do |pkgxmlfile|
-        IO.foreach(File.join('testpkg', 'tpkg-nofiles.xml')) do |line|
+        IO.foreach(File.join(TESTPKGDIR, 'tpkg-nofiles.xml')) do |line|
           # Insert our files entry right before the end of the file
           if line =~ /^\s*<\/tpkg>/
             pkgxmlfile.puts('<files>')
@@ -173,7 +172,7 @@ class TpkgMakeTests < Test::Unit::TestCase
       testname = 'make package with encryption but nil passphrase'
       pkgdir = Tempdir.new("pkgdir")
       File.open(File.join(pkgdir, 'tpkg.xml'), 'w') do |pkgxmlfile|
-        IO.foreach(File.join('testpkg', 'tpkg-nofiles.xml')) do |line|
+        IO.foreach(File.join(TESTPKGDIR, 'tpkg-nofiles.xml')) do |line|
           # Insert our files entry right before the end of the file
           if line =~ /^\s*<\/tpkg>/
             pkgxmlfile.puts('<files>')
@@ -187,7 +186,7 @@ class TpkgMakeTests < Test::Unit::TestCase
         end
       end
       Dir.mkdir(File.join(pkgdir, 'reloc'))
-      FileUtils.cp(File.join('testpkg', 'reloc', 'encfile'), File.join(pkgdir, 'reloc'))
+      FileUtils.cp(File.join(TESTPKGDIR, 'reloc', 'encfile'), File.join(pkgdir, 'reloc'))
       assert_raise(RuntimeError, testname) { Tpkg.make_package(pkgdir, nil) }
       FileUtils.rm_rf(pkgdir)
       
@@ -196,7 +195,7 @@ class TpkgMakeTests < Test::Unit::TestCase
       testname = 'make package with plaintext precrypt'
       pkgdir = Tempdir.new("pkgdir")
       File.open(File.join(pkgdir, 'tpkg.xml'), 'w') do |pkgxmlfile|
-        IO.foreach(File.join('testpkg', 'tpkg-nofiles.xml')) do |line|
+        IO.foreach(File.join(TESTPKGDIR, 'tpkg-nofiles.xml')) do |line|
           # Insert our files entry right before the end of the file
           if line =~ /^\s*<\/tpkg>/
             pkgxmlfile.puts('<files>')
@@ -210,7 +209,7 @@ class TpkgMakeTests < Test::Unit::TestCase
         end
       end
       Dir.mkdir(File.join(pkgdir, 'reloc'))
-      FileUtils.cp(File.join('testpkg', 'reloc', 'precryptfile.plaintext'), File.join(pkgdir, 'reloc', 'precryptfile'))
+      FileUtils.cp(File.join(TESTPKGDIR, 'reloc', 'precryptfile.plaintext'), File.join(pkgdir, 'reloc', 'precryptfile'))
       assert_raise(RuntimeError, testname) { Tpkg.make_package(pkgdir, nil) }
       FileUtils.rm_rf(pkgdir)
       
@@ -221,7 +220,7 @@ class TpkgMakeTests < Test::Unit::TestCase
         file.puts existing_contents
       end
       pkgdir = Tempdir.new("pkgdir")
-      FileUtils.cp(File.join('testpkg', 'tpkg-nofiles.xml'), File.join(pkgdir, 'tpkg.xml'))
+      FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(pkgdir, 'tpkg.xml'))
       assert_nothing_raised { Tpkg.make_package(pkgdir, PASSPHRASE) }
       assert_not_equal(existing_contents, IO.read(pkgfile))
       FileUtils.rm_f(pkgfile)

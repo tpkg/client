@@ -5,8 +5,7 @@
 #
 
 require 'test/unit'
-require 'tpkgtest'
-require 'tempfile'
+require File.dirname(__FILE__) + '/tpkgtest'
 require 'fileutils'
 
 class TpkgChecksumTests < Test::Unit::TestCase

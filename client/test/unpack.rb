@@ -5,7 +5,7 @@
 #
 
 require 'test/unit'
-require 'tpkgtest'
+require File.dirname(__FILE__) + '/tpkgtest'
 require 'fileutils'
 
 class TpkgUnpackTests < Test::Unit::TestCase
@@ -21,7 +21,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
     # properly.
     srcdir = Tempdir.new("srcdir")
     # The stock test package has a reloc directory we can use
-    system("#{Tpkg::find_tar} -C testpkg --exclude .svn -cf - . | #{Tpkg::find_tar} -C #{srcdir} -xf -")
+    system("#{Tpkg::find_tar} -C #{TESTPKGDIR} --exclude .svn -cf - . | #{Tpkg::find_tar} -C #{srcdir} -xf -")
     # Then add a root directory
     FileUtils.mkdir_p(File.join(srcdir, 'root', 'etc'))
     File.open(File.join(srcdir, 'root', 'etc', 'rootfile'), 'w') do |file|
@@ -42,7 +42,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
     # This file should have the 0400 perms specified specifically for it in the stock test tpkg.xml
     assert(File.exist?(File.join(testbase, 'home', 'tpkg', 'encfile')))
     assert_equal(0400, File.stat(File.join(testbase, 'home', 'tpkg', 'encfile')).mode & 07777)
-    assert_equal(IO.read(File.join('testpkg', 'reloc', 'encfile')), IO.read(File.join(testbase, 'home', 'tpkg', 'encfile')))
+    assert_equal(IO.read(File.join(TESTPKGDIR, 'reloc', 'encfile')), IO.read(File.join(testbase, 'home', 'tpkg', 'encfile')))
     # This file should have the 0666 perms we specified above
     assert(File.exist?(File.join(testbase, 'etc', 'rootfile')))
     assert_equal(0666, File.stat(File.join(testbase, 'etc', 'rootfile')).mode & 07777)
@@ -71,7 +71,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
     # The stock test package has default permissions specified, so start
     # with the -nofiles template which doesn't have default permissions.
     srcdir = Tempdir.new("srcdir")
-    FileUtils.cp(File.join('testpkg', 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+    FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
     FileUtils.mkdir_p(File.join(srcdir, 'reloc', 'etc'))
     # Set non-standard permissions on the directory so that we can
     # ensure that the default permissions are applied by tpkg
@@ -113,7 +113,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
 
     # Test perms for default directory setting
     srcdir = Tempdir.new("srcdir")
-    FileUtils.cp(File.join('testpkg', 'tpkg-dir-default.xml'), File.join(srcdir, 'tpkg.xml'))
+    FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-dir-default.xml'), File.join(srcdir, 'tpkg.xml'))
     FileUtils.mkdir_p(File.join(srcdir, 'reloc'))
     FileUtils.mkdir_p(File.join(srcdir, 'reloc', 'dir1'))
     FileUtils.mkdir_p(File.join(srcdir, 'reloc', 'dir1', 'subdir1'))
@@ -143,7 +143,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
     # Also, test PS-476 tpkg should chdir to package unpack directory before calling pre/post/install/remove scripts
     srcdir = Tempdir.new("srcdir")
     # Include the stock test package contents
-    system("#{Tpkg::find_tar} -C testpkg --exclude .svn -cf - . | #{Tpkg::find_tar} -C #{srcdir} -xf -")
+    system("#{Tpkg::find_tar} -C #{TESTPKGDIR} --exclude .svn -cf - . | #{Tpkg::find_tar} -C #{srcdir} -xf -")
 
     # Add some dummy file for testing relative path
     File.open(File.join(srcdir, "dummyfile"), 'w') do |file|
@@ -186,7 +186,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
 
     # Test init script handling
     srcdir = Tempdir.new("srcdir")
-    FileUtils.cp(File.join('testpkg', 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+    FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
     FileUtils.mkdir_p(File.join(srcdir, 'reloc'))
     # These packages have different init scripts of the same name
     (1..3).each do  | i |
@@ -240,7 +240,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
     
     # Test crontab handling
     srcdir = Tempdir.new("srcdir")
-    FileUtils.cp(File.join('testpkg', 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+    FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
     FileUtils.mkdir_p(File.join(srcdir, 'reloc'))
     crontab_contents = '* * * * *  crontab'
     File.open(File.join(srcdir, 'reloc', 'mycrontab'), 'w') do |file|
@@ -306,7 +306,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
     
     # Test external handling
     srcdir = Tempdir.new("srcdir")
-    FileUtils.cp(File.join('testpkg', 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+    FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
     extname = 'testext'
     extdata = "This is a test of an external hook\nwith multiple lines\nof data"
     pkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'externalpkg' }, :externals => { extname => { 'data' => extdata } }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
@@ -336,7 +336,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
     
     # Test handling of external with datafile
     srcdir = Tempdir.new("srcdir")
-    FileUtils.cp(File.join('testpkg', 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+    FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
     extname = 'testext'
     # Create the datafile
     extdata = "This is a test of an external hook\nwith multiple lines\nof data from a datafile"
@@ -371,7 +371,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
     
     # Test handling of external with datascript
     srcdir = Tempdir.new("srcdir")
-    FileUtils.cp(File.join('testpkg', 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+    FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
     extname = 'testext'
     # Create the datascript
     extdata = "This is a test of an external hook\nwith multiple lines\nof data from a datascript"

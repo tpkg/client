@@ -4,23 +4,16 @@
 
 $:.unshift('..')
 require 'tpkg'
-require 'tempdir'
+require File.dirname(__FILE__) + '/tempdir'
+require 'tempfile'
 
-Tpkg::set_debug(true)
+Tpkg::set_debug(true) if ENV['debug']
 
 module TpkgTests
+  # Directory with test package contents
+  TESTPKGDIR = File.join(File.dirname(__FILE__), 'testpkg')
   # Passphrase used for encrypting/decrypting packages
   PASSPHRASE = 'password'
-  
-  # Haven't found a Ruby method for creating temporary directories,
-  # so create a temporary file and replace it with a directory.
-  def tempdir
-    tmpfile = Tempfile.new('tpkgtest')
-    tmpdir = tmpfile.path
-    tmpfile.close!
-    Dir.mkdir(tmpdir)
-    tmpdir
-  end
   
   # Make up our regular test package, substituting any fields and adding
   # dependencies as requested by the caller
@@ -49,7 +42,7 @@ module TpkgTests
     if options[:externals]
       externals = options[:externals]
     end
-    source_directory = 'testpkg'
+    source_directory = TESTPKGDIR
     if options[:source_directory]
       source_directory = options[:source_directory]
     end
@@ -61,7 +54,7 @@ module TpkgTests
       output_directory = options[:output_directory]
     end
     
-    pkgdir = tempdir
+    pkgdir = Tempdir.new('make_package')
     
     # Copy package contents into working directory
     system("#{Tpkg::find_tar} -C #{source_directory} --exclude .svn -cf - . | #{Tpkg::find_tar} -C #{pkgdir} -xpf -")
@@ -186,6 +179,7 @@ module TpkgTests
 
     # move the pkgfile to designated directory (if user specifies it)
     if !output_directory.nil?
+      FileUtils.mkdir_p(output_directory)
       FileUtils.move(pkgfile, output_directory) 
       return File.join(output_directory, File.basename(pkgfile))
     else

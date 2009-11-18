@@ -2,6 +2,7 @@ require 'rbconfig'
 require 'tempfile'
 require 'tmpdir'
 require 'open-uri'
+require 'rake/testtask'
 
 TPKGVER = IO.read('../VERSION').chomp
 TARBALLFILE = "tpkg-#{TPKGVER}.tar.gz"
@@ -142,6 +143,13 @@ def copy_tpkg_files(destdir, options={})
   end
   mv(newtpkgrb, tpkgrb)
   chmod(0444, tpkgrb)
+end
+
+# rake test
+Rake::TestTask.new do |t|
+  t.libs << "."
+  t.verbose = true
+  t.pattern = 'test/*.rb'
 end
 
 desc 'Build an tpkg client RPM on a Red Hat box'
@@ -422,15 +430,15 @@ end
 # executables that go in the normal packages.
 task :tpkgpkg do
   # FIXME
-	rm -rf $(BUILDROOT)
-	mkdir -p $(BUILDROOT)/root/home/t/ruby/lib/ruby/site_ruby/1.8/tpkg
-	sed 's/VER/$(VER)/' tpkg.xml > $(BUILDROOT)/tpkg.xml
-	cp -p tpkg.rb $(BUILDROOT)/root/home/t/ruby/lib/ruby/site_ruby/1.8
-	cp -p versiontype.rb $(BUILDROOT)/root/home/t/ruby/lib/ruby/site_ruby/1.8/tpkg
-	cp -p deployer.rb $(BUILDROOT)/root/home/t/ruby/lib/ruby/site_ruby/1.8/tpkg
-	cp -p thread_pool.rb $(BUILDROOT)/root/home/t/ruby/lib/ruby/site_ruby/1.8/tpkg
-	find thirdparty -name .svn -prune -o -print | cpio -pdum $(BUILDROOT)/root/home/t/ruby/lib/ruby/site_ruby/1.8/tpkg
-	tpkg --make $(BUILDROOT)
-	rm -rf $(BUILDROOT)
+	#rm -rf $(BUILDROOT)
+	#mkdir -p $(BUILDROOT)/root/home/t/ruby/lib/ruby/site_ruby/1.8/tpkg
+	#sed 's/VER/$(VER)/' tpkg.xml > $(BUILDROOT)/tpkg.xml
+	#cp -p tpkg.rb $(BUILDROOT)/root/home/t/ruby/lib/ruby/site_ruby/1.8
+	#cp -p versiontype.rb $(BUILDROOT)/root/home/t/ruby/lib/ruby/site_ruby/1.8/tpkg
+	#cp -p deployer.rb $(BUILDROOT)/root/home/t/ruby/lib/ruby/site_ruby/1.8/tpkg
+	#cp -p thread_pool.rb $(BUILDROOT)/root/home/t/ruby/lib/ruby/site_ruby/1.8/tpkg
+	#find thirdparty -name .svn -prune -o -print | cpio -pdum $(BUILDROOT)/root/home/t/ruby/lib/ruby/site_ruby/1.8/tpkg
+	#tpkg --make $(BUILDROOT)
+	#rm -rf $(BUILDROOT)
 end
 

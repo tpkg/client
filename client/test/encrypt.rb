@@ -9,8 +9,7 @@
 #
 
 require 'test/unit'
-require 'tpkgtest'
-require 'tempfile'
+require File.dirname(__FILE__) + '/tpkgtest'
 
 class TpkgEncryptTests < Test::Unit::TestCase
   include TpkgTests

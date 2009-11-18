@@ -5,8 +5,7 @@
 #
 
 require 'test/unit'
-require 'tpkgtest'
-require 'tempfile'
+require File.dirname(__FILE__) + '/tpkgtest'
 
 class TpkgTarTests < Test::Unit::TestCase
   include TpkgTests

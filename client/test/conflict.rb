@@ -5,9 +5,8 @@
 #
 
 require 'test/unit'
-require 'tpkgtest'
+require File.dirname(__FILE__) + '/tpkgtest'
 require 'facter'
-require 'tempfile'
 require 'fileutils'
 
 class TpkgConflictTests < Test::Unit::TestCase
@@ -21,7 +20,7 @@ class TpkgConflictTests < Test::Unit::TestCase
   def test_conflict
     srcdir = Tempdir.new("srcdir")
     @pkgfiles = []
-    FileUtils.cp(File.join('testpkg', 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+    FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
 
     @pkgfiles <<  make_package(:change => { 'name' => 'pkgA', 'version' => '1.0' }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'], :conflicts => {'pkgB' => {}})
     @pkgfiles <<  make_package(:change => { 'name' => 'pkgB', 'version' => '1.0' }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])

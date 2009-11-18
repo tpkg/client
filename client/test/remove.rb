@@ -5,7 +5,7 @@
 #
 
 require 'test/unit'
-require 'tpkgtest'
+require File.dirname(__FILE__) + '/tpkgtest'
 require 'fileutils'
 
 class TpkgRemoveTests < Test::Unit::TestCase
@@ -24,7 +24,7 @@ class TpkgRemoveTests < Test::Unit::TestCase
     # they don't conflict
     ['a', 'b'].each do |pkgname|
       srcdir = Tempdir.new("srcdir")
-      FileUtils.cp(File.join('testpkg', 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+      FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
       FileUtils.mkdir_p(File.join(srcdir, 'reloc', 'directory'))
       File.open(File.join(srcdir, 'reloc', 'directory', pkgname), 'w') do |file|
         file.puts pkgname
@@ -90,7 +90,7 @@ class TpkgRemoveTests < Test::Unit::TestCase
     # Also, test PS-476 tpkg should chdir to package unpack directory before calling pre/post/install/remove scripts
     srcdir = Tempdir.new("srcdir")
     # Include the stock test package contents
-    system("#{Tpkg::find_tar} -C testpkg --exclude .svn -cf - . | #{Tpkg::find_tar} -C #{srcdir} -xf -")
+    system("#{Tpkg::find_tar} -C #{TESTPKGDIR} --exclude .svn -cf - . | #{Tpkg::find_tar} -C #{srcdir} -xf -")
 
     # Add some dummy file for testing relative path
     File.open(File.join(srcdir, "dummyfile"), 'w') do |file|
@@ -134,7 +134,7 @@ class TpkgRemoveTests < Test::Unit::TestCase
     
     # Test init script handling
     srcdir = Tempdir.new("srcdir")
-    FileUtils.cp(File.join('testpkg', 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+    FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
     FileUtils.mkdir_p(File.join(srcdir, 'reloc'))
     File.open(File.join(srcdir, 'reloc', 'myinit'), 'w') do |file|
       file.puts('init script')
@@ -179,7 +179,7 @@ class TpkgRemoveTests < Test::Unit::TestCase
     
     # Test crontab handling
     srcdir = Tempdir.new("srcdir")
-    FileUtils.cp(File.join('testpkg', 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+    FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
     FileUtils.mkdir_p(File.join(srcdir, 'reloc'))
     crontab_contents = '* * * * *  crontab'
     File.open(File.join(srcdir, 'reloc', 'mycrontab'), 'w') do |file|
@@ -246,7 +246,7 @@ class TpkgRemoveTests < Test::Unit::TestCase
     
     # Test external handling
     srcdir = Tempdir.new("srcdir")
-    FileUtils.cp(File.join('testpkg', 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+    FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
     extname = 'testext'
     extdata = "This is a test of an external hook\nwith multiple lines\nof data"
     pkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'externalpkg' }, :externals => { extname => { 'data' => extdata } }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
@@ -303,7 +303,7 @@ EOF
     # doesn't test a unique code path.  Rather it just serves to verify that
     # nothing breaks on removal in the face of a datafile being defined.
     srcdir = Tempdir.new("srcdir")
-    FileUtils.cp(File.join('testpkg', 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+    FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
     extname = 'testext'
     # Create the datafile
     extdata = "This is a test of an external hook\nwith multiple lines\nof data from a datafile"
@@ -365,7 +365,7 @@ EOF
     # doesn't test a unique code path.  Rather it just serves to verify that
     # nothing breaks on removal in the face of a datascript being defined.
     srcdir = Tempdir.new("srcdir")
-    FileUtils.cp(File.join('testpkg', 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+    FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
     extname = 'testext'
     # Create the datascript
     extdata = "This is a test of an external hook\nwith multiple lines\nof data from a datascript"

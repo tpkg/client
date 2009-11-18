@@ -5,9 +5,8 @@
 #
 
 require 'test/unit'
-require 'tpkgtest'
+require File.dirname(__FILE__) + '/tpkgtest'
 require 'fileutils'
-require 'tempfile'
 
 class TpkgInitScriptsTests < Test::Unit::TestCase
   include TpkgTests
@@ -22,7 +21,7 @@ class TpkgInitScriptsTests < Test::Unit::TestCase
     # properly.
     srcdir = Tempdir.new("srcdir")
     # The stock test package has a reloc directory we can use
-    system("#{Tpkg::find_tar} -C testpkg --exclude .svn -cf - . | #{Tpkg::find_tar} -C #{srcdir} -xf -")
+    system("#{Tpkg::find_tar} -C #{TESTPKGDIR} --exclude .svn -cf - . | #{Tpkg::find_tar} -C #{srcdir} -xf -")
     # Then add a root directory
     FileUtils.mkdir_p(File.join(srcdir, 'root', 'etc'))
     File.open(File.join(srcdir, 'root', 'etc', 'rootfile'), 'w') do |file|
@@ -35,7 +34,7 @@ class TpkgInitScriptsTests < Test::Unit::TestCase
   # Test init script start/stop init scripts in correct order
   def test_order
     srcdir = Tempdir.new("srcdir")
-    FileUtils.cp(File.join('testpkg', 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+    FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
     FileUtils.mkdir_p(File.join(srcdir, 'reloc'))
     tmpfile = Tempfile.new('initscripttest')
     (1..3).each do | i |

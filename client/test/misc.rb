@@ -5,8 +5,7 @@
 #
 
 require 'test/unit'
-require 'tpkgtest'
-require 'tempfile'
+require File.dirname(__FILE__) + '/tpkgtest'
 require 'fileutils'
 require 'etc'
 require 'webrick'
@@ -137,8 +136,8 @@ class TpkgMiscTests < Test::Unit::TestCase
     # also raise an error.
     srcdir = Tempdir.new("srcdir")
     FileUtils.mkdir_p(File.join(srcdir, 'root', 'home', 'tpkg'))
-    FileUtils.cp(File.join('testpkg', 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
-    FileUtils.cp(File.join('testpkg', 'reloc', 'file'), File.join(srcdir, 'root', 'home', 'tpkg'))
+    FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+    FileUtils.cp(File.join(TESTPKGDIR, 'reloc', 'file'), File.join(srcdir, 'root', 'home', 'tpkg'))
     rootpkg = make_package(:output_directory => @tempoutdir, :change => { 'version' => '4.0' }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
     conflicts = tpkg.conflicting_files(rootpkg)
     assert(!conflicts.empty?)

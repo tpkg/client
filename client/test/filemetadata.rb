@@ -4,7 +4,7 @@
 #
 
 require 'test/unit'
-require 'tpkgtest'
+require File.dirname(__FILE__) + '/tpkgtest'
 require 'fileutils'
 
 class TpkgFileMetadataTests < Test::Unit::TestCase
@@ -123,9 +123,9 @@ class TpkgFileMetadataTests < Test::Unit::TestCase
     assert_nothing_raised { tpkg.install([pkg_without_file_metadata], PASSPHRASE) }
     # Check that the files from the package ended up in the right place
     assert(File.exist?(File.join(testbase, 'file')))
-    assert_equal(IO.read(File.join('testpkg', 'reloc', 'file')), IO.read(File.join(testbase, 'file')))
+    assert_equal(IO.read(File.join(TESTPKGDIR, 'reloc', 'file')), IO.read(File.join(testbase, 'file')))
     assert(File.exist?(File.join(testbase, 'encfile')))
-    assert_equal(IO.read(File.join('testpkg', 'reloc', 'encfile')), IO.read(File.join(testbase, 'encfile')))
+    assert_equal(IO.read(File.join(TESTPKGDIR, 'reloc', 'encfile')), IO.read(File.join(testbase, 'encfile')))
     
     # verify nothing bad when user try to run -V
     assert_nothing_raised { @errors = tpkg.verify_file_metadata("pkg_without_file_metadata")}

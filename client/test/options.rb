@@ -5,7 +5,7 @@
 #
 
 require 'test/unit'
-require 'tpkgtest'
+require File.dirname(__FILE__) + '/tpkgtest'
 require 'fileutils'
 
 class TpkgOptionTests < Test::Unit::TestCase
@@ -17,7 +17,8 @@ class TpkgOptionTests < Test::Unit::TestCase
   
   def test_help
     output = nil
-    IO.popen("ruby ../tpkg --help") do |pipe|
+    # The File.join(blah) is roughly equivalent to '../tpkg'
+    IO.popen("ruby #{File.join(File.dirname(File.dirname(__FILE__)), 'tpkg')} --help") do |pipe|
       output = pipe.readlines
     end
     # Make sure at least something resembling help output is there

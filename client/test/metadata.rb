@@ -5,9 +5,8 @@
 #
 
 require 'test/unit'
-require 'tpkgtest'
+require File.dirname(__FILE__) + '/tpkgtest'
 require 'fileutils'
-require 'tempfile'
 require 'webrick'
 
 # Give ourself access to some Tpkg variables
@@ -263,7 +262,7 @@ class TpkgMetadataTests < Test::Unit::TestCase
 
   def test_init_links
     srcdir = Tempdir.new("srcdir")
-    FileUtils.cp(File.join('testpkg', 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+    FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
     FileUtils.mkdir_p(File.join(srcdir, 'reloc'))
     File.open(File.join(srcdir, 'reloc', 'myinit'), 'w') do |file|
       file.puts('init script')
@@ -296,7 +295,7 @@ class TpkgMetadataTests < Test::Unit::TestCase
   
   def test_crontab_destinations
     srcdir = Tempdir.new("srcdir")
-    FileUtils.cp(File.join('testpkg', 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+    FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
     FileUtils.mkdir_p(File.join(srcdir, 'reloc'))
     File.open(File.join(srcdir, 'reloc', 'mycrontab'), 'w') do |file|
       file.puts('crontab')
