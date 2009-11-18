@@ -47,8 +47,9 @@ require 'set'
 
 class Tpkg
   
-  VERSION = '1.15'
-
+  VERSION = 'trunk'
+  CONFIGDIR = '/etc'
+  
   POSTINSTALL_ERR = 2
   POSTREMOVE_ERR = 3
   INITSCRIPT_ERR = 4
@@ -1042,17 +1043,17 @@ class Tpkg
     http = Net::HTTP.new(uri.host, uri.port)
     if uri.scheme == 'https'
       # Eliminate the OpenSSL "using default DH parameters" warning
-      if File.exist?('/etc/tpkg/dhparams')
-        dh = OpenSSL::PKey::DH.new(IO.read('/etc/tpkg/dhparams'))
+      if File.exist?(File.join(CONFIGDIR, 'tpkg', 'dhparams'))
+        dh = OpenSSL::PKey::DH.new(IO.read(File.join(CONFIGDIR, 'tpkg', 'dhparams')))
         Net::HTTP.ssl_context_accessor(:tmp_dh_callback)
         http.tmp_dh_callback = proc { dh }
       end
       http.use_ssl = true
-      if File.exist?('/etc/tpkg/ca.pem')
-        http.ca_file = '/etc/tpkg/ca.pem'
+      if File.exist?(File.join(CONFIGDIR, 'tpkg', 'ca.pem'))
+        http.ca_file = File.join(CONFIGDIR, 'tpkg', 'ca.pem')
         http.verify_mode = OpenSSL::SSL::VERIFY_PEER
-      elsif File.directory?('/etc/tpkg/ca')
-        http.ca_path = '/etc/tpkg/ca'
+      elsif File.directory?(File.join(CONFIGDIR, 'tpkg', 'ca'))
+        http.ca_path = File.join(CONFIGDIR, 'tpkg', 'ca')
         http.verify_mode = OpenSSL::SSL::VERIFY_PEER
       end
     end
