@@ -2,13 +2,13 @@
 <!DOCTYPE tpkg SYSTEM "http://tpkg.sourceforge.net/tpkg-1.0.dtd">
 <tpkg>
   <name>tpkg</name>
-  <version>VER</version>
-  <maintainer>system.architecture@yplist.flight.yellowpages.com</maintainer>
+  <version>%VER%</version>
+  <maintainer>tpkg-users@lists.sourceforge.net</maintainer>
   <description>tpkg library</description>
-  <bugreporting>http://jira.yellowpages.com/browse/INF/component/10467</bugreporting>
+  <bugreporting>https://sourceforge.net/tracker/?group_id=245750</bugreporting>
   <dependencies>
     <dependency>
-      <name>ruby-ypc</name>
+      <name>ruby</name>
     </dependency>
     <dependency>
       <name>gem-facter</name>

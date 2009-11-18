@@ -2,7 +2,7 @@
 <!DOCTYPE tpkg SYSTEM "http://tpkg.sourceforge.net/tpkg-1.0.dtd">
 <tpkg>
   <name>tpkg-server</name>
-  <version>1.13</version>
+  <version>%VER%</version>
   <maintainer>tpkg-users@lists.sourceforge.net</maintainer>
   <description>tpkg package management and reporting server</description>
   <bugreporting>https://sourceforge.net/tracker/?group_id=245750</bugreporting>

@@ -1,5 +1,5 @@
 Package: tpkg
-Version: VER-1
+Version: %VER%-1
 Maintainer: tpkg-users@lists.sourceforge.net
 Architecture: all
 Depends: ruby, facter, lsb-release, lsb-base
