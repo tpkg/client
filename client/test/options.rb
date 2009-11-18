@@ -17,8 +17,9 @@ class TpkgOptionTests < Test::Unit::TestCase
   
   def test_help
     output = nil
-    # The File.join(blah) is roughly equivalent to '../tpkg'
-    IO.popen("ruby #{File.join(File.dirname(File.dirname(__FILE__)), 'tpkg')} --help") do |pipe|
+    # The File.join(blah) is roughly equivalent to '../bin/tpkg'
+    parentdir = File.dirname(File.dirname(__FILE__))
+    IO.popen("ruby -I #{File.join(parentdir, 'lib')} #{File.join(parentdir, 'bin', 'tpkg')} --help") do |pipe|
       output = pipe.readlines
     end
     # Make sure at least something resembling help output is there

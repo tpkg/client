@@ -35,7 +35,7 @@ def copy_tpkg_files(destdir, options={})
     if options[:ruby]
       # Change #! line
       File.open(File.join(bindir, binapp), 'w') do |newfile|
-        File.open(binapp) do |oldfile|
+        File.open(File.join('bin', binapp)) do |oldfile|
           # Modify the first line
           firstline = oldfile.gets
           # Preserve any options.  I.e. #!/usr/bin/ruby -w
@@ -46,7 +46,7 @@ def copy_tpkg_files(destdir, options={})
         end
       end
     else
-      cp(binapp, bindir, :preserve => true)
+      cp(File.join('bin', binapp), bindir, :preserve => true)
     end
     chmod(0555, File.join(bindir, binapp))
   end
@@ -58,12 +58,12 @@ def copy_tpkg_files(destdir, options={})
     libdir = File.join(destdir, 'lib')
   end
   mkdir_p(libdir)
-  libs = ['deployer.rb', 'thread_pool.rb', 'tpkg.rb', 'versiontype.rb']
+  libs = ['deployer.rb', 'file_metadata.rb', 'thread_pool.rb', 'tpkg.rb', 'versiontype.rb']
   libs.each do |lib|
-    cp(lib, libdir, :preserve => true)
+    cp(File.join('lib', lib), libdir, :preserve => true)
     chmod(0444, File.join(libdir, lib))
   end
-  # FIXME: thirdparty dir
+  # FIXME: thirdparty dir (should be optional, not needed by gem)
   
   mandir = nil
   if options[:mandir]
@@ -147,7 +147,7 @@ end
 
 # rake test
 Rake::TestTask.new do |t|
-  t.libs << "."
+  t.libs << "lib"
   t.verbose = true
   t.pattern = 'test/*.rb'
 end

@@ -1,7 +1,9 @@
 # We store these gems in our thirdparty directory. So we need to add it
 # it to the search path
+#  This one is for when everything is installed
 $:.unshift(File.join(File.dirname(__FILE__), 'thirdparty/net-ssh-2.0.11/lib'))
-$:.unshift(File.join(File.dirname(__FILE__), 'thirdparty/highline-1.5.1/lib'))
+#  And this one for when we're in the svn directory structure
+$:.unshift(File.join(File.dirname(File.dirname(__FILE__)), 'thirdparty/net-ssh-2.0.11/lib'))
 
 $debug = true
 
