@@ -9,9 +9,9 @@
 /home/t/bin/mysql -u root -e "GRANT ALL ON tpkg.* to tpkg@localhost IDENTIFIED BY PASSWORD 'password_goes_here'"
 /home/t/bin/mysql -u root -e "GRANT REPLICATION SLAVE ON *.* to repl@localhost IDENTIFIED BY PASSWORD 'password_goes_here'"
 /home/t/bin/mysql -u root -e "FLUSH PRIVILEGES"
-/home/t/bin/mysql -u root -e "set password for 'root'@'`hostname`' = 'password_goes_here'"
+/home/t/bin/mysql -u root -e "set password for root@'`hostname`' = 'password_goes_here'"
 # This will lock you out, so make sure it is your last mysql command
-/home/t/bin/mysql -u root -e "set password for 'root'@'localhost' = 'password_goes_here'"
+/home/t/bin/mysql -u root -e "set password for root@'localhost' = 'password_goes_here'"
 
 # Run rake db:migrate if appropriate
 if nv --exactget name=`hostname` --fields node_groups | grep -qs tpkg-db-admin_prod
