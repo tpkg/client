@@ -8,7 +8,14 @@ $:.unshift(File.join(File.dirname(File.dirname(__FILE__)), 'thirdparty/net-ssh-2
 $debug = true
 
 require 'thread_pool'
-require 'net/ssh'
+begin
+  # Try loading net-ssh w/o gems first so that we don't introduce a
+  # dependency on gems if it is not needed.
+  require 'net/ssh'
+rescue LoadError
+  require 'rubygems'
+  require 'net/ssh'
+end
 #require 'highline/import'
 
 class Deployer
