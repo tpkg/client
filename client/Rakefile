@@ -17,10 +17,17 @@ BUILDROOT = '/var/tmp/tpkg-client-buildroot'
 # :libdir
 # :etcdir
 # :mandir
-# :crondir (note no default here, crontab will not be copied if not specified)
-# :externalsdir (note no default here, externals will not be copied if not specified)
-# :profiledir (note no default here, profile hook will not be copied if not specified)
+# :crondir
+#   Note no default here, crontab will not be copied if not specified
+# :externalsdir
+#   Note no default here, externals will not be copied if not specified
+# :profiledir
+#   Note no default here, profile hook will not be copied if not specified
 # :ruby (#! lines in scripts will be changed to specified ruby)
+# :copythirdparty
+#   If not specified the thirdparty directory will not be copied.  The
+#   package will need to express appropriate dependencies as
+#   replacements for the libraries contained in that directory.
 # :installbase (base directory where files will end up)
 def copy_tpkg_files(destdir, options={})
   bindir = nil
@@ -58,12 +65,19 @@ def copy_tpkg_files(destdir, options={})
     libdir = File.join(destdir, 'lib')
   end
   mkdir_p(libdir)
-  libs = ['deployer.rb', 'file_metadata.rb', 'thread_pool.rb', 'tpkg.rb', 'versiontype.rb']
+  cp(File.join('lib', 'tpkg.rb'), libdir, :preserve => true)
+  chmod(0444, File.join(libdir, 'tpkg.rb'))
+  tpkglibdir = File.join(libdir, 'tpkg')
+  mkdir_p(tpkglibdir)
+  libs = ['deployer.rb', 'file_metadata.rb', 'thread_pool.rb', 'versiontype.rb']
   libs.each do |lib|
-    cp(File.join('lib', lib), libdir, :preserve => true)
-    chmod(0444, File.join(libdir, lib))
+    cp(File.join('lib', lib), tpkglibdir, :preserve => true)
+    chmod(0444, File.join(tpkglibdir, lib))
   end
-  # FIXME: thirdparty dir (should be optional, not needed by gem)
+  if options[:copythirdparty]
+    # All the nice consistent usage of FileUtils and then this...
+    system("find thirdparty -name .svn -prune -o -print | cpio -pdum #{tpkglibdir}")
+  end
   
   mandir = nil
   if options[:mandir]
@@ -182,6 +196,7 @@ task :rpm do
                   :crondir => crondir,
                   :externalsdir => externalsdir,
                   :profiledir => profiledir,
+                  :copythirdparty => true,
                   :installbase => '/')
   
   #
@@ -237,6 +252,7 @@ task :deb do
                   :etcdir => etcdir,
                   :crondir => crondir,
                   :externalsdir => externalsdir,
+                  :copythirdparty => true,
                   :installbase => '/')
   
   #
@@ -281,6 +297,7 @@ task :sysvpkg do
                   :etcdir => etcdir,
                   :externalsdir => externalsdir,
                   :profiledir => profiledir,
+                  :copythirdparty => true,
                   :ruby => '/opt/csw/bin/ruby', :installbase => '/')
   
   #
@@ -348,6 +365,7 @@ task :install, :destdir do |t, args|
                   :etcdir => Config::CONFIG['sysconfdir'],
                   # Can't find a better way to get the path to the current ruby
                   :ruby => File.join(Config::CONFIG['bindir'], Config::CONFIG['ruby_install_name']),
+                  :copythirdparty => true,
                   :installbase => '/')
 end
 
