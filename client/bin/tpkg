@@ -4,7 +4,8 @@
 ##############################################################################
 
 # Ensure we can find tpkg.rb
-$:.unshift File.dirname(__FILE__)
+#$:.unshift File.dirname(__FILE__)
+$:.unshift File.join(File.dirname(File.dirname(__FILE__)), "lib")
 
 require 'optparse'
 require 'tpkg'
@@ -78,6 +79,11 @@ end
 opts.on('--rd', '=PACKAGES', 'Similar to -r but also remove depending packages', Array) do |opt|
   @rerun_with_sudo = true
   @action = :remove_all_dep
+  @action_value = opt
+end
+opts.on('--rp', '=PACKAGES', 'Similar to -r but also remove prerequisites', Array) do |opt|
+  @rerun_with_sudo = true
+  @action = :remove_all_prereq
   @action_value = opt
 end
 opts.on('--ra', 'Remove all packages') do |opt|
@@ -320,6 +326,9 @@ when :remove
 when :remove_all_dep
   tpkg = instantiate_tpkg(@tpkg_options)
   ret_val = tpkg.remove(@action_value, {:remove_all_dep => true})
+when :remove_all_prereq
+  tpkg = instantiate_tpkg(@tpkg_options)
+  ret_val = tpkg.remove(@action_value, {:remove_all_prereq => true})
 when :verify
   result = nil
   # Verify a given .tpkg file

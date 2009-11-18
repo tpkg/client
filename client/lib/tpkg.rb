@@ -3416,6 +3416,43 @@ class Tpkg
     # and include them in our array of things to remove
     if options[:remove_all_dep]
       packages_to_remove |= get_dependents(packages_to_remove)
+    elsif options[:remove_all_prereq]
+      puts "Attemping to remove #{packages_to_remove.map do |pkg| pkg[:metadata][:filename] end} and all prerequisites."
+      # Get list of dependency prerequisites
+      prereq_mapping = get_prereq_mapping(packages_to_remove)
+      ptr = packages_to_remove | prereq_mapping.values.flatten
+      pkg_files_to_remove = ptr.map { |pkg| pkg[:metadata][:filename] }
+
+      # see if any other packages depends on the ones we're about to remove
+      # If so, we can't remove that package + any of its prerequisites
+      non_removable_pkg_files = []
+      metadata_for_installed_packages.each do |metadata|
+        next if pkg_files_to_remove.include?(metadata[:filename])
+        metadata[:dependencies].each do |req|
+          # We ignore native dependencies because there is no way a removal
+          # can break a native dependency, we don't support removing native
+          # packages.
+          if req[:type] != :native
+            iptmr = installed_packages_that_meet_requirement(req)
+            if iptmr.all? { |pkg| pkg_files_to_remove.include?(pkg[:metadata][:filename]) }
+              non_removable_pkg_files |= iptmr.map{ |pkg| pkg[:metadata][:filename]}
+              non_removable_pkg_files |= get_prerequisites(iptmr).map{ |pkg| pkg[:metadata][:filename]}
+            end
+          end
+        end
+      end
+      # Update our list of packages that we should remove.
+      packages_to_remove = {}
+      ptr.each do | pkg |
+        next if non_removable_pkg_files.include?(pkg[:metadata][:filename])
+        packages_to_remove[pkg[:metadata][:filename]] = pkg
+      end
+      packages_to_remove = packages_to_remove.values
+      if packages_to_remove.empty?
+        raise "Can't remove request package because other packages depend on it."
+      elsif !non_removable_pkg_files.empty?
+        puts "Can't remove #{non_removable_pkg_files.inspect} because other packages depend on them."
+      end
     # Check that this doesn't leave any dependencies unresolved
     elsif !options[:upgrade]
       pkg_files_to_remove = packages_to_remove.map { |pkg| pkg[:metadata][:filename] }
@@ -3915,6 +3952,38 @@ class Tpkg
       to_check |= pkgs.map { |pkg| pkg[:metadata][:filename] }
     end 
     return dependents
+  end
+
+  # Create a prerequisite mapping for the given pkgs
+  def get_prereq_mapping(pkgs)
+    prereq_mapping = {}
+    to_check = pkgs.clone
+    while pkg = to_check.pop
+      pkg[:metadata][:dependencies].each do | dep |
+        pre_req = installed_packages_that_meet_requirement(dep)
+        prereq_mapping[pkg[:metadata][:filename]] = [] if prereq_mapping[pkg[:metadata][:filename]].nil?
+        prereq_mapping[pkg[:metadata][:filename]] |= pre_req
+        to_check |= pre_req
+      end
+    end
+    return prereq_mapping
+  end
+
+  # Given a list of packages, return a list of all their prerequisite dependencies
+  # Example: If pkgA depends on pkgB, and pkgB depends on pkgC, then calling this
+  # method on pkgA will returns pkgB and pkgC
+  # Assumption: There is no cyclic dependency
+  def get_prerequisites(pkgs)
+    pre_reqs = []
+    to_check = pkgs.clone
+    while pkg = to_check.pop
+      pkg[:metadata][:dependencies].each do | dep |
+        pre_req = installed_packages_that_meet_requirement(dep)
+        pre_reqs |= pre_req
+        to_check |= pre_req
+      end
+    end
+    return pre_reqs
   end
 end
 
