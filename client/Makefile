@@ -1,3 +1,5 @@
+# Deprecated, see Rakefile
+
 BUILDROOT=/var/tmp/tpkg-buildroot
 # Grab the current version from the library
 VER=$(shell ruby -e "$$:.unshift('.'); require 'tpkg'; puts Tpkg::VERSION")
