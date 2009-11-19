@@ -3419,8 +3419,7 @@ class Tpkg
     elsif options[:remove_all_prereq]
       puts "Attemping to remove #{packages_to_remove.map do |pkg| pkg[:metadata][:filename] end} and all prerequisites."
       # Get list of dependency prerequisites
-      prereq_mapping = get_prereq_mapping(packages_to_remove)
-      ptr = packages_to_remove | prereq_mapping.values.flatten
+      ptr = packages_to_remove | get_prerequisites(packages_to_remove)
       pkg_files_to_remove = ptr.map { |pkg| pkg[:metadata][:filename] }
 
       # see if any other packages depends on the ones we're about to remove
@@ -3952,21 +3951,6 @@ class Tpkg
       to_check |= pkgs.map { |pkg| pkg[:metadata][:filename] }
     end 
     return dependents
-  end
-
-  # Create a prerequisite mapping for the given pkgs
-  def get_prereq_mapping(pkgs)
-    prereq_mapping = {}
-    to_check = pkgs.clone
-    while pkg = to_check.pop
-      pkg[:metadata][:dependencies].each do | dep |
-        pre_req = installed_packages_that_meet_requirement(dep)
-        prereq_mapping[pkg[:metadata][:filename]] = [] if prereq_mapping[pkg[:metadata][:filename]].nil?
-        prereq_mapping[pkg[:metadata][:filename]] |= pre_req
-        to_check |= pre_req
-      end
-    end
-    return prereq_mapping
   end
 
   # Given a list of packages, return a list of all their prerequisite dependencies
