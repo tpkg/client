@@ -3440,7 +3440,7 @@ class Tpkg
           end
         end
       end
-      # Update our list of packages that we should remove.
+      # Generate final list of packages that we should remove.
       packages_to_remove = {}
       ptr.each do | pkg |
         next if non_removable_pkg_files.include?(pkg[:metadata][:filename])

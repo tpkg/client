@@ -17,6 +17,55 @@ class TpkgRemoveTests < Test::Unit::TestCase
     @tempoutdir = Tempdir.new("tempoutdir")  # temp dir that will automatically get deleted at end of test run
                                              # can be used for storing packages
   end
+
+  def test_remove_dep
+    # b and c depends on a
+    # d depends on b
+    pkgfiles = []
+    pkgfiles << make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a' }, :remove => ['operatingsystem', 'architecture'])
+    pkgfiles << make_package(:output_directory => @tempoutdir, :change => { 'name' => 'b' }, :remove => ['operatingsystem', 'architecture'], :dependencies => {'a' => {}})
+    pkgfiles << make_package(:output_directory => @tempoutdir, :change => { 'name' => 'c' }, :remove => ['operatingsystem', 'architecture'], :dependencies => {'a' => {}})
+    pkgfiles << make_package(:output_directory => @tempoutdir, :change => { 'name' => 'd' }, :remove => ['operatingsystem', 'architecture'], :dependencies => {'b' => {}})
+    testbase = Tempdir.new("testbase")
+    tpkg = Tpkg.new(:base => testbase, :sources => pkgfiles)
+    assert_nothing_raised { tpkg.install(pkgfiles, PASSPHRASE) }
+
+    # a, b, c and d are installed
+    metadata = tpkg.metadata_for_installed_packages
+    assert_equal(4, metadata.length)
+
+    # removing a with :remove_all_dep option should remove b, c and d as well
+    assert_nothing_raised { tpkg.remove(['a'], {:remove_all_dep => true})}
+    metadata = tpkg.metadata_for_installed_packages
+    assert_equal(0, metadata.length)
+    FileUtils.rm_rf(testbase)
+  end
+
+  def test_remove_prereq
+    # e requires c
+    # d requires c and b
+    # c requires a
+    pkgfiles = []
+    pkgfiles << make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a' }, :remove => ['operatingsystem', 'architecture'])
+    pkgfiles << make_package(:output_directory => @tempoutdir, :change => { 'name' => 'b' }, :remove => ['operatingsystem', 'architecture'])
+    pkgfiles << make_package(:output_directory => @tempoutdir, :change => { 'name' => 'c' }, :remove => ['operatingsystem', 'architecture'], :dependencies => {'a' => {}})
+    pkgfiles << make_package(:output_directory => @tempoutdir, :change => { 'name' => 'd' }, :remove => ['operatingsystem', 'architecture'], :dependencies => {'c' => {}, 'b' => {}})
+    pkgfiles << make_package(:output_directory => @tempoutdir, :change => { 'name' => 'e' }, :remove => ['operatingsystem', 'architecture'], :dependencies => {'c' => {}})
+    testbase = Tempdir.new("testbase")
+    tpkg = Tpkg.new(:base => testbase, :sources => pkgfiles)
+    assert_nothing_raised { tpkg.install(pkgfiles, PASSPHRASE) }
+
+    # a, b, c, d and e are installed
+    metadata = tpkg.metadata_for_installed_packages
+    assert_equal(5, metadata.length)
+
+    # removing d with :remove_all_prereq option should remove d and b only and not c and a because
+    # e still depends on c
+    assert_nothing_raised { tpkg.remove(['d'], {:remove_all_prereq => true})}
+    metadata = tpkg.metadata_for_installed_packages
+    assert_equal(3, metadata.length)
+    FileUtils.rm_rf(testbase)
+  end
   
   def test_remove
     pkgfiles = []
