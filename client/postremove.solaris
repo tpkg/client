@@ -1,18 +1,9 @@
 #!/bin/sh
 
-crontab -l | /usr/xpg4/bin/grep -qs tpkg
-if [ $? = 0 ]
-then
-	crontab -l | grep -v tpkg > /tmp/root_crontab || exit 1
-	crontab /tmp/root_crontab
-	rm /tmp/root_crontab
-fi
-
-# Find where the TPKG hook is at
+# Remove the hook from /etc/profile
 start_line=`grep -n "BEGIN TPKG" /etc/profile | awk -F: '{print $1}'`
 end_line=`grep -n "END TPKG" /etc/profile | awk -F: '{print $1}'`
-
-# check that we actually got valid start and end line
+# Check that we actually got valid start and end line
 if [ $start_line ] && [ $end_line ] && [ $start_line -lt $end_line ]
 then
   tmpfile=`mktemp -t etc.profile.XXXXXX`

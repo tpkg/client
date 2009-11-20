@@ -10,118 +10,101 @@ TARBALL = File.expand_path(TARBALLFILE)
 
 BUILDROOT = '/var/tmp/tpkg-client-buildroot'
 
-# Copies the tpkg client files to destdir.  Appropriate subdirectories will be
-# composed unless specified via options.
+# Copies the tpkg client files to destdir.  If any of the dir options
+# are not specified the files that would go in that directory will not
+# be copied.
 # options:
-# :bindir
-# :libdir
-# :etcdir
-# :mandir
-# :crondir
-#   Note no default here, crontab will not be copied if not specified
-# :externalsdir
-#   Note no default here, externals will not be copied if not specified
-# :profiledir
-#   Note no default here, profile hook will not be copied if not specified
-# :ruby (#! lines in scripts will be changed to specified ruby)
-# :copythirdparty
-#   If not specified the thirdparty directory will not be copied.  The
-#   package will need to express appropriate dependencies as
-#   replacements for the libraries contained in that directory.
-# :installbase (base directory where files will end up)
+#  :bindir
+#  :libdir
+#  :etcdir
+#  :mandir
+#  :externalsdir
+#  :profiledir
+#  :ruby (#! lines in scripts will be changed to specified ruby)
+#  :copythirdparty
+#    If not specified the thirdparty directory will not be copied.  The
+#    package will need to express appropriate dependencies as
+#    replacements for the libraries contained in that directory.
 def copy_tpkg_files(destdir, options={})
-  bindir = nil
   if options[:bindir]
     bindir = File.join(destdir, options[:bindir])
-  else
-    bindir = File.join(destdir, 'bin')
-  end
-  mkdir_p(bindir)
-  binapps = ['tpkg', 'gem2tpkg']
-  binapps.each do |binapp|
-    if options[:ruby]
-      # Change #! line
-      File.open(File.join(bindir, binapp), 'w') do |newfile|
-        File.open(File.join('bin', binapp)) do |oldfile|
-          # Modify the first line
-          firstline = oldfile.gets
-          # Preserve any options.  I.e. #!/usr/bin/ruby -w
-          shebang, shebangopts = firstline.split(' ', 2)
-          newfile.puts "#!#{options[:ruby]} #{shebangopts}"
-          # Then dump in the rest of the file
-          newfile.write(oldfile.read)
+    mkdir_p(bindir)
+    binapps = ['tpkg', 'gem2tpkg']
+    binapps.each do |binapp|
+      if options[:ruby]
+        # Change #! line
+        File.open(File.join(bindir, binapp), 'w') do |newfile|
+          File.open(File.join('bin', binapp)) do |oldfile|
+            # Modify the first line
+            firstline = oldfile.gets
+            # Preserve any options.  I.e. #!/usr/bin/ruby -w
+            shebang, shebangopts = firstline.split(' ', 2)
+            newfile.puts "#!#{options[:ruby]} #{shebangopts}"
+            # Then dump in the rest of the file
+            newfile.write(oldfile.read)
+          end
         end
+      else
+        cp(File.join('bin', binapp), bindir, :preserve => true)
       end
-    else
-      cp(File.join('bin', binapp), bindir, :preserve => true)
+      chmod(0555, File.join(bindir, binapp))
     end
-    chmod(0555, File.join(bindir, binapp))
   end
   
-  libdir = nil
   if options[:libdir]
     libdir = File.join(destdir, options[:libdir])
-  else
-    libdir = File.join(destdir, 'lib')
-  end
-  mkdir_p(libdir)
-  cp(File.join('lib', 'tpkg.rb'), libdir, :preserve => true)
-  chmod(0444, File.join(libdir, 'tpkg.rb'))
-  tpkglibdir = File.join(libdir, 'tpkg')
-  mkdir_p(tpkglibdir)
-  libs = ['deployer.rb', 'file_metadata.rb', 'thread_pool.rb', 'versiontype.rb']
-  libs.each do |lib|
-    cp(File.join('lib', lib), tpkglibdir, :preserve => true)
-    chmod(0444, File.join(tpkglibdir, lib))
-  end
-  if options[:copythirdparty]
-    # All the nice consistent usage of FileUtils and then this...
-    system("find thirdparty -name .svn -prune -o -print | cpio -pdum #{tpkglibdir}")
+    mkdir_p(libdir)
+    
+    # Substitute TPKGVER into tpkg.rb
+    # Substitute proper path into CONFIGDIR in tpkg.rb if appropriate
+    File.open(File.join(libdir, 'tpkg.rb'), 'w') do |newfile|
+      IO.foreach(File.join('lib', 'tpkg.rb')) do |line|
+        if line =~ /^\s*VERSION/
+          line.sub!(/=.*/, "= '#{TPKGVER}'")
+        end
+        if options[:etcdir] && line =~ /^\s*CONFIGDIR/
+          line.sub!(/=.*/, "= #{options[:etcdir]}")
+        end
+        newfile.write(line)
+      end
+    end
+    chmod(0444, File.join(libdir, 'tpkg.rb'))
+    
+    tpkglibdir = File.join(libdir, 'tpkg')
+    mkdir_p(tpkglibdir)
+    libs = ['deployer.rb', 'file_metadata.rb', 'thread_pool.rb', 'versiontype.rb']
+    libs.each do |lib|
+      cp(File.join('lib', lib), tpkglibdir, :preserve => true)
+      chmod(0444, File.join(tpkglibdir, lib))
+    end
+    
+    if options[:copythirdparty]
+      # All the nice consistent usage of FileUtils and then this...
+      system("find thirdparty -name .svn -prune -o -print | cpio -pdum #{tpkglibdir}")
+    end
   end
   
-  mandir = nil
   if options[:mandir]
     mandir = File.join(destdir, options[:mandir])
-  else
-    mandir = File.join(destdir, 'man')
+    man1dir = File.join(mandir, 'man1')
+    mkdir_p(man1dir)
+    cp('tpkg.1', man1dir, :preserve => true)
+    chmod(0444, File.join(man1dir, 'tpkg.1'))
   end
-  man1dir = File.join(mandir, 'man1')
-  mkdir_p(man1dir)
-  cp('tpkg.1', man1dir, :preserve => true)
-  chmod(0444, File.join(man1dir, 'tpkg.1'))
   
-  etcdir = nil
-  # Start by calculating the real etc directory that will be used when the
-  # package is installed.  We need to substitute that path into the library
-  # later.
-  realetcdir = nil
   if options[:etcdir]
-    realetcdir = options[:etcdir]
-  else
-    realetcdir = '/etc'
-  end
-  # Then compose the etc directory to copy files to
-  etcdir = File.join(destdir, realetcdir)
-  mkdir_p(etcdir)
-  cp('tpkg.conf', etcdir, :preserve => true)
-  chmod(0644, File.join(etcdir, 'tpkg.conf'))
-  # All of the supporting config files go into a subdirectory
-  etctpkgdir = File.join(etcdir, 'tpkg')
-  mkdir_p(etctpkgdir)
-  etctpkgfiles = ['ca.pem', 'dhparams']
-  etctpkgfiles.each do |etctpkgfile|
-    cp(etctpkgfile, etctpkgdir, :preserve => true)
-    chmod(0644, File.join(etctpkgdir, etctpkgfile))
-  end
-  
-  # FIXME: cron is yum/redhat specific (needs to be fixed in etch too)
-  if options[:crondir]
-    crondir = File.join(destdir, options[:crondir])
-    mkdir_p(crondir)
-    # Note file renamed to 'tpkg' here.  Filename is different in the repo for
-    # clarity and to avoid conflict with the main executable.
-    cp('tpkg_cron', File.join(crondir, 'tpkg'), :preserve => true)
-    chmod(0444, File.join(crondir, 'tpkg'))
+    etcdir = File.join(destdir, options[:etcdir])
+    mkdir_p(etcdir)
+    cp('tpkg.conf', etcdir, :preserve => true)
+    chmod(0644, File.join(etcdir, 'tpkg.conf'))
+    # All of the supporting config files go into a subdirectory
+    etctpkgdir = File.join(etcdir, 'tpkg')
+    mkdir_p(etctpkgdir)
+    etctpkgfiles = ['ca.pem', 'dhparams']
+    etctpkgfiles.each do |etctpkgfile|
+      cp(etctpkgfile, etctpkgdir, :preserve => true)
+      chmod(0644, File.join(etctpkgdir, etctpkgfile))
+    end
   end
   
   if options[:externalsdir]
@@ -139,24 +122,6 @@ def copy_tpkg_files(destdir, options={})
     cp('tpkg_profile.sh', profiledir, :preserve => true)
     chmod(0755, File.join(BUILDROOT, 'tpkg_profile.sh'))
   end
-  
-  # Substitute TPKGVER into tpkg.rb
-  # Substitute proper path into CONFIGDIR in tpkg.rb if appropriate
-  newtpkgrb = File.join(libdir, 'tpkg.rb.new')
-  tpkgrb = File.join(libdir, 'tpkg.rb')
-  File.open(newtpkgrb, 'w') do |newfile|
-    IO.foreach(tpkgrb) do |line|
-      if line =~ /^\s*VERSION/
-        line.sub!(/=.*/, "= '#{TPKGVER}'")
-      end
-      if options[:installbase] && line =~ /^\s*CONFIGDIR/
-        line.sub!(/=.*/, "= #{realetcdir}")
-      end
-      newfile.write(line)
-    end
-  end
-  mv(newtpkgrb, tpkgrb)
-  chmod(0444, tpkgrb)
 end
 
 # rake test
@@ -184,8 +149,7 @@ task :rpm do
   bindir = File.join('usr', 'bin')
   libdir = File.join('usr', 'lib', 'ruby', 'site_ruby', '1.8')
   mandir = File.join('usr', 'share', 'man')
-  etcdir = File.join('etc', 'tpkg')
-  crondir = File.join('etc', 'cron.d')
+  etcdir = '/etc'
   externalsdir = File.join('home', 't', 'var', 'tpkg', 'externals')
   profiledir = File.join('etc', 'profile.d')
   copy_tpkg_files(BUILDROOT,
@@ -193,11 +157,9 @@ task :rpm do
                   :libdir => libdir,
                   :mandir => mandir,
                   :etcdir => etcdir,
-                  :crondir => crondir,
                   :externalsdir => externalsdir,
                   :profiledir => profiledir,
-                  :copythirdparty => true,
-                  :installbase => '/')
+                  :copythirdparty => true)
   
   #
   # Prep spec file
@@ -242,18 +204,15 @@ task :deb do
   bindir = File.join('usr', 'bin')
   libdir = File.join('usr', 'local', 'lib', 'site_ruby', '1.8')
   mandir = File.join('usr', 'share', 'man')
-  etcdir = File.join('etc', 'tpkg')
-  crondir = File.join('etc', 'cron.d')
+  etcdir = '/etc'
   externalsdir = File.join('home', 't', 'var', 'tpkg', 'externals')
   copy_tpkg_files(BUILDROOT,
                   :bindir => bindir,
                   :libdir => libdir,
                   :mandir => mandir,
                   :etcdir => etcdir,
-                  :crondir => crondir,
                   :externalsdir => externalsdir,
-                  :copythirdparty => true,
-                  :installbase => '/')
+                  :copythirdparty => true)
   
   #
   # Set permissions
@@ -287,7 +246,7 @@ task :sysvpkg do
   bindir = File.join('usr', 'bin')
   libdir = File.join('opt', 'csw', 'lib', 'ruby', 'site_ruby', '1.8')
   mandir = File.join('usr', 'share', 'man')
-  etcdir = File.join('etc', 'tpkg')
+  etcdir = '/etc'
   externalsdir = File.join('home', 't', 'var', 'tpkg', 'externals')
   profiledir = File.join('etc', 'profile.d')
   copy_tpkg_files(BUILDROOT,
@@ -298,7 +257,7 @@ task :sysvpkg do
                   :externalsdir => externalsdir,
                   :profiledir => profiledir,
                   :copythirdparty => true,
-                  :ruby => '/opt/csw/bin/ruby', :installbase => '/')
+                  :ruby => '/opt/csw/bin/ruby')
   
   #
   # Prep packaging files
@@ -365,8 +324,7 @@ task :install, :destdir do |t, args|
                   :etcdir => Config::CONFIG['sysconfdir'],
                   # Can't find a better way to get the path to the current ruby
                   :ruby => File.join(Config::CONFIG['bindir'], Config::CONFIG['ruby_install_name']),
-                  :copythirdparty => true,
-                  :installbase => '/')
+                  :copythirdparty => true)
 end
 
 desc 'Fetch tarball from sourceforge'
@@ -408,10 +366,12 @@ task :gem do
   #
   
   rm_rf(BUILDROOT)
-  copy_tpkg_files(BUILDROOT)
+  copy_tpkg_files(BUILDROOT,
+                  :bindir => 'bin',
+                  :libdir => 'lib')
   
   #
-  # Prep gemspec
+  # Prep gemspec (renaming to Rakefile in the process)
   #
   File.open(File.join(BUILDROOT, 'Rakefile'), 'w') do |gemspec|
     IO.foreach('gemspec') do |line|
@@ -447,16 +407,35 @@ end
 # In order to reduce confusion this package does not contain any of the
 # executables that go in the normal packages.
 task :tpkgpkg do
-  # FIXME
-	#rm -rf $(BUILDROOT)
-	#mkdir -p $(BUILDROOT)/root/home/t/ruby/lib/ruby/site_ruby/1.8/tpkg
-	#sed 's/VER/$(VER)/' tpkg.xml > $(BUILDROOT)/tpkg.xml
-	#cp -p tpkg.rb $(BUILDROOT)/root/home/t/ruby/lib/ruby/site_ruby/1.8
-	#cp -p versiontype.rb $(BUILDROOT)/root/home/t/ruby/lib/ruby/site_ruby/1.8/tpkg
-	#cp -p deployer.rb $(BUILDROOT)/root/home/t/ruby/lib/ruby/site_ruby/1.8/tpkg
-	#cp -p thread_pool.rb $(BUILDROOT)/root/home/t/ruby/lib/ruby/site_ruby/1.8/tpkg
-	#find thirdparty -name .svn -prune -o -print | cpio -pdum $(BUILDROOT)/root/home/t/ruby/lib/ruby/site_ruby/1.8/tpkg
-	#tpkg --make $(BUILDROOT)
-	#rm -rf $(BUILDROOT)
+  #
+  # Create package file structure in build root
+  #
+  
+  rm_rf(BUILDROOT)
+  copy_tpkg_files(BUILDROOT,
+                  :libdir => 'lib',
+                  :copythirdparty => true)
+  
+  #
+  # Prep tpkg.xml
+  #
+  File.open(File.join(BUILDROOT, 'tpkg.xml'), 'w') do |tpkgxml|
+    IO.foreach('tpkg.xml') do |line|
+      line.sub!('%VER%', TPKGVER)
+      tpkgxml.puts(line)
+    end
+  end
+  
+  #
+  # Build the package
+  #
+  
+  system("tpkg --make #{BUILDROOT}")
+  
+  #
+  # Cleanup
+  #
+  
+  rm_rf(BUILDROOT)
 end
 

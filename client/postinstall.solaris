@@ -1,11 +1,7 @@
 #!/bin/sh
 
-# Everything about this makes me feel dirty
-crontab -l | grep -v tpkg > /tmp/root_crontab || exit 1
-echo "0 0 * * * /opt/csw/bin/pkg-get -U > /dev/null 2>&1; /opt/csw/bin/pkg-get -u OSStpkg > /dev/null 2>&1" >> /tmp/root_crontab || exit 1
-crontab /tmp/root_crontab
-rm /tmp/root_crontab
-
+# Add a hook to /etc/profile that sources profile scripts installed by
+# packages.
 echo "# BEGIN TPKG HOOK
 for i in /etc/profile.d/*.sh ; do
     if [ -r \"\$i\" ]; then
