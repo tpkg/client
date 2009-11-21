@@ -12,7 +12,7 @@ require 'facter'
 
 # Names of packages containing ruby and gems.  Dependencies on these
 # will be added to generated packages, so that if a user installs a gem
-# tpkg will pull in ruby and gems.
+# then tpkg will pull in ruby and gems.
 RUBYDEPS = ['ruby']
 # T_RUBY_BASE = "/home/t/ruby"
 T_RUBY_BASE = "#{Tpkg::DEFAULT_BASE}/#{RUBYDEPS.first}".freeze
@@ -55,7 +55,7 @@ opts.on('--package-version', '--pv', '=PKGVER', 'Package version to use in tpkg,
   @pkgver = opt
 end
 opts.on('--extra-deps', '=EXTRADEPS', Array, 'Extra dependencies to add to the package') do |opt|
-  # Example: --extra-deps=foo,1.0,1.9999,bar,4.5,4.5,blah,,,
+  # Example: --extra-deps=foo,1.0,1.9999,bar,4.5,4.5,blah,,
   while !opt.empty?
     dep = opt.shift
     # These are optional, shift will return nil if they aren't present
@@ -68,7 +68,7 @@ opts.on('--extra-deps', '=EXTRADEPS', Array, 'Extra dependencies to add to the p
   end
 end
 opts.on('--native-deps', '=NATIVEDEPS', Array, 'Native dependencies to add to the package') do |opt|
-  # Example: --native-deps=foo,1.0,1.9999,bar,4.5,4.5,blah,,,
+  # Example: --native-deps=foo,1.0,1.9999,bar,4.5,4.5,blah,,
   while !opt.empty?
     dep = opt.shift
     # These are optional, shift will return nil if they aren't present
