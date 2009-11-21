@@ -2620,7 +2620,7 @@ class Tpkg
           # supplied by init_links results in EEXIST then try appending
           # a number to the end of the link name.
           catch :init_link_done do
-            (1..9).to_a.each do |i|
+            1.upto(9) do |i|
               begin
                 File.symlink(init_script, link + i.to_s)
                 throw :init_link_done
@@ -2662,7 +2662,7 @@ class Tpkg
             # EEXIST then try appending a number to the end of the link
             # name.
             catch :crontab_link_done do
-              (1..9).to_a.each do |i|
+              1.upto(9) do |i|
                 begin
                   File.symlink(crontab, destination[:link] + i.to_s)
                   throw :crontab_link_done
