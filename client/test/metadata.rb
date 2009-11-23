@@ -1,12 +1,10 @@
-#!/usr/bin/ruby -w
+
 
 #
 # Test tpkg's ability to handle package metadata
 #
 
-require 'test/unit'
 require File.dirname(__FILE__) + '/tpkgtest'
-require 'fileutils'
 require 'webrick'
 
 # Give ourself access to some Tpkg variables

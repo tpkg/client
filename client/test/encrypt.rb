@@ -1,4 +1,4 @@
-#!/usr/bin/ruby -w
+
 
 #
 # Test tpkg's encrypt/decrypt methods
@@ -8,7 +8,6 @@
 # the method to decrypt it or vice-versa.
 #
 
-require 'test/unit'
 require File.dirname(__FILE__) + '/tpkgtest'
 
 class TpkgEncryptTests < Test::Unit::TestCase

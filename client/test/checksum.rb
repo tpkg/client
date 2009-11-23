@@ -1,12 +1,8 @@
-#!/usr/bin/ruby -w
+require File.dirname(__FILE__) + '/tpkgtest'
 
 #
 # Test tpkg's ability to handle package checksums
 #
-
-require 'test/unit'
-require File.dirname(__FILE__) + '/tpkgtest'
-require 'fileutils'
 
 class TpkgChecksumTests < Test::Unit::TestCase
   include TpkgTests

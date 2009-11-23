@@ -1,12 +1,10 @@
-#!/usr/bin/ruby -w
+
 
 #
 # Test tpkg's ability to execute init scripts
 #
 
-require 'test/unit'
 require File.dirname(__FILE__) + '/tpkgtest'
-require 'fileutils'
 
 class TpkgInitScriptsTests < Test::Unit::TestCase
   include TpkgTests

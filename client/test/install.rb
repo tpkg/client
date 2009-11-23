@@ -1,13 +1,10 @@
-#!/usr/bin/ruby -w
+
 
 #
 # Test tpkg's ability to install packages
 #
 
-require 'test/unit'
 require File.dirname(__FILE__) + '/tpkgtest'
-require 'facter'
-require 'fileutils'
 
 class TpkgInstallTests < Test::Unit::TestCase
   include TpkgTests

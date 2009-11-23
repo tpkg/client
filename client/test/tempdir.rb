@@ -101,7 +101,6 @@ class Tempdir < Pathname #:nodoc: all
   include AutoRemoval
 
   def initialize(*args)
-    require 'fileutils'
 
     tmpname = createtmp(*args) do |tmpname|
       unless File.exist?(tmpname)

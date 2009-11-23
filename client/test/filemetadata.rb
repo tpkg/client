@@ -1,11 +1,4 @@
-#!/usr/bin/ruby -w
-
-#
-#
-
-require 'test/unit'
 require File.dirname(__FILE__) + '/tpkgtest'
-require 'fileutils'
 
 class TpkgFileMetadataTests < Test::Unit::TestCase
   include TpkgTests

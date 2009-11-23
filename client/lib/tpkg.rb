@@ -2888,7 +2888,7 @@ class Tpkg
   def check_requests(packages)
     all_requests_satisfied = true   # whether or not all requests can be satisfied
     errors = [""]
-    packages.each do |name, pkgs |
+    packages.each do |name, pkgs|
       if pkgs.empty?
         errors << ["Unable to find any packages which satisfy #{name}"]
         all_requests_satisfied = false 
@@ -2897,7 +2897,7 @@ class Tpkg
 
       request_satisfied = false # whether or not this request can be satisfied
       possible_errors = []
-      pkgs.each do | pkg |
+      pkgs.each do |pkg|
         metadata = pkg[:metadata]
         req = { :name => metadata[:name] }
         # Quick sanity check that the package can be installed on this machine.  
@@ -2985,11 +2985,11 @@ class Tpkg
   def check_for_conflicting_pkgs(pkgs_to_check)
     # loop through packages that we're interested in, check for conflict listing,
     # see if there are any conflicts among each other
-    pkgs_to_check.each do | pkg1 |
+    pkgs_to_check.each do |pkg1|
       # native package might not have conflicts defined so skip
       next if pkg1[:metadata][:conflicts].nil?
       pkg1[:metadata][:conflicts].each do | conflict |
-        pkgs_to_check.each do | pkg2 |
+        pkgs_to_check.each do |pkg2|
           if Tpkg::package_meets_requirement?(pkg2, conflict)
             raise "Package conflicts between #{pkg2.inspect} and #{pkg1.inspect}"
           end

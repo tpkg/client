@@ -1,12 +1,8 @@
-#!/usr/bin/ruby -w
-
 #
 # Tests for various methods that don't fit in anywhere else
 #
 
-require 'test/unit'
 require File.dirname(__FILE__) + '/tpkgtest'
-require 'fileutils'
 require 'etc'
 require 'webrick'
 require 'webrick/https'

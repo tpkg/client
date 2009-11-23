@@ -1,10 +1,9 @@
-#!/usr/bin/ruby -w
+
 
 #
 # Test tpkg's ability to lock/unlock the package repository
 #
 
-require 'test/unit'
 require File.dirname(__FILE__) + '/tpkgtest'
 
 class TpkgLockTests < Test::Unit::TestCase

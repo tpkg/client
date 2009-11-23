@@ -1,10 +1,9 @@
-#!/usr/bin/ruby -w
+
 
 #
 # Test tpkg's query features
 #
 
-require 'test/unit'
 require File.dirname(__FILE__) + '/tpkgtest'
 
 class TpkgQueryTests < Test::Unit::TestCase

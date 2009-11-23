@@ -1,12 +1,8 @@
-#!/usr/bin/ruby -w
-
 #
 # Test tpkg's ability to upgrade packages
 #
 
-require 'test/unit'
 require File.dirname(__FILE__) + '/tpkgtest'
-require 'fileutils'
 
 class TpkgDowngradeTests < Test::Unit::TestCase
   include TpkgTests

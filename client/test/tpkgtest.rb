@@ -1,12 +1,15 @@
 #
 # Module of code shared by all of the tpkg test cases
 #
-# Roughly ../thirdparty and ../lib
-$:.unshift(File.join(File.dirname(__FILE__), '..', 'thirdparty'))
-$:.unshift(File.join(File.dirname(__FILE__), '..', 'lib'))
+
+$:.unshift(File.join(File.dirname(File.dirname(__FILE__)), 'thirdparty'))
+$:.unshift(File.join(File.dirname(File.dirname(__FILE__)), 'lib'))
+require 'test/unit'
+require 'fileutils'
 require 'tpkg'
 require File.dirname(__FILE__) + '/tempdir'
 require 'tempfile'
+require 'facter'
 
 Tpkg::set_debug(true) if ENV['debug']
 

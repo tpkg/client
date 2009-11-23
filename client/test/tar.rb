@@ -1,10 +1,9 @@
-#!/usr/bin/ruby -w
+
 
 #
 # Test tpkg's basic tar functionality
 #
 
-require 'test/unit'
 require File.dirname(__FILE__) + '/tpkgtest'
 
 class TpkgTarTests < Test::Unit::TestCase

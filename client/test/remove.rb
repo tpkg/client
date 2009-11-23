@@ -1,12 +1,10 @@
-#!/usr/bin/ruby -w
+
 
 #
 # Test tpkg's ability to remove packages
 #
 
-require 'test/unit'
 require File.dirname(__FILE__) + '/tpkgtest'
-require 'fileutils'
 
 class TpkgRemoveTests < Test::Unit::TestCase
   include TpkgTests

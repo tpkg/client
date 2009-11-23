@@ -1,12 +1,10 @@
-#!/usr/bin/ruby -w
+
 
 #
 # Test tpkg's ability to unpack packages
 #
 
-require 'test/unit'
 require File.dirname(__FILE__) + '/tpkgtest'
-require 'fileutils'
 
 class TpkgUnpackTests < Test::Unit::TestCase
   include TpkgTests

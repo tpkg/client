@@ -1,12 +1,10 @@
-#!/usr/bin/ruby -w
+
 
 #
 # Test tpkg command line options
 #
 
-require 'test/unit'
 require File.dirname(__FILE__) + '/tpkgtest'
-require 'fileutils'
 
 class TpkgOptionTests < Test::Unit::TestCase
   include TpkgTests

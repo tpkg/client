@@ -1,13 +1,8 @@
-#!/usr/bin/ruby -w
-
 #
 # Test tpkg's ability to resolve dependencies
 #
 
-require 'test/unit'
 require File.dirname(__FILE__) + '/tpkgtest'
-require 'facter'
-require 'fileutils'
 
 class TpkgDependencyTests < Test::Unit::TestCase
   include TpkgTests

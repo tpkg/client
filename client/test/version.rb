@@ -1,11 +1,10 @@
-#!/usr/bin/ruby -w
+
 
 #
 # Test the Version class
 #
 
-require 'test/unit'
-$: << '..'
+require File.dirname(__FILE__) + '/tpkgtest'
 require 'versiontype'
 
 class VersionTests < Test::Unit::TestCase
