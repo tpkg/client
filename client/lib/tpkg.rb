@@ -2357,7 +2357,7 @@ class Tpkg
     conflicting_files = {}
     files.each do | file |
       if file =~ /^#{rel_root_dir}/
-        possible_conflicting_file = "{@file_system_root}/#{file[rel_root_dir.length ..-1]}"
+        possible_conflicting_file = "#{@file_system_root}/#{file[rel_root_dir.length ..-1]}"
       elsif file =~ /^#{rel_reloc_dir}/
         possible_conflicting_file = "#{@base}/#{file[rel_reloc_dir.length + 1..-1]}"
       end
