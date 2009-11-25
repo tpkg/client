@@ -275,9 +275,9 @@ task :sysvpkg do
     prototype.puts("i pkginfo=./pkginfo")
     cp('depend', 'solbuild/depend')
     prototype.puts("i depend=./depend")
-    cp('postinstall', 'solbuild/postinstall')
+    cp('postinstall.solaris', 'solbuild/postinstall')
     prototype.puts("i postinstall=./postinstall")
-    cp('postremove', 'solbuild/postremove')
+    cp('postremove.solaris', 'solbuild/postremove')
     prototype.puts("i postremove=./postremove")
     # The tail +2 removes the first line, which is the base directory
     # and doesn't need to be included in the package.
