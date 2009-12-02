@@ -29,7 +29,7 @@ def copy_tpkg_files(destdir, options={})
   if options[:bindir]
     bindir = File.join(destdir, options[:bindir])
     mkdir_p(bindir)
-    binapps = ['tpkg', 'gem2tpkg']
+    binapps = ['tpkg', 'cpan2tpkg', 'gem2tpkg']
     binapps.each do |binapp|
       if options[:ruby]
         # Change #! line

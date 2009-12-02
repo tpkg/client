@@ -12,7 +12,7 @@ spec = Gem::Specification.new do |s|
   s.platform = Gem::Platform::RUBY
   s.required_ruby_version = '>=1.8'
   s.files	= Dir['**/**']
-  s.executables = [ 'tpkg', 'gem2tpkg' ]
+  s.executables = [ 'tpkg', 'cpan2tpkg', 'gem2tpkg' ]
 end
 Rake::GemPackageTask.new(spec).define
 

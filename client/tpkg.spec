@@ -13,6 +13,7 @@ tpkg client
 %files
 %defattr(-,root,root)
 /usr/bin/tpkg
+/usr/bin/cpan2tpkg
 /usr/bin/gem2tpkg
 /usr/lib/ruby/site_ruby/1.8/tpkg
 /usr/lib/ruby/site_ruby/1.8/tpkg.rb
