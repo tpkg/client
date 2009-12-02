@@ -1,5 +1,3 @@
-
-
 #
 # Test tpkg's ability to make packages
 #
@@ -13,29 +11,23 @@ class TpkgMakeTests < Test::Unit::TestCase
     Tpkg::set_prompt(false)
     
     @tar = Tpkg::find_tar
-  end
-  
-  def make_pkgdir
-    pkgdir = Tempdir.new("pkgdir")
-    system("#{@tar} -C #{TESTPKGDIR} --exclude .svn --exclude tpkg-nofiles.xml --exclude tpkg-dir-default.xml -cf - . | #{@tar} -C #{pkgdir} -xf -")
+    
+    @pkgdir = Tempdir.new("pkgdir")
+    system("#{@tar} -C #{TESTPKGDIR} --exclude .svn --exclude tpkg-nofiles.xml --exclude tpkg-dir-default.xml -cf - . | #{@tar} -C #{@pkgdir} -xf -")
     # Set special permissions on a file so that we can verify they are
     # preserved
-    File.chmod(0400, File.join(pkgdir, 'reloc', 'file'))
-    @srcmode = File.stat(File.join(pkgdir, 'reloc', 'file')).mode
-    @srcmtime = File.stat(File.join(pkgdir, 'reloc', 'file')).mtime
+    File.chmod(0400, File.join(@pkgdir, 'reloc', 'file'))
+    @srcmode = File.stat(File.join(@pkgdir, 'reloc', 'file')).mode
+    @srcmtime = File.stat(File.join(@pkgdir, 'reloc', 'file')).mtime
     # Insert a directory and symlink so that we can verify they are
     # properly included in the package
-    Dir.mkdir(File.join(pkgdir, 'reloc', 'directory'))
-    File.symlink('linktarget', File.join(pkgdir, 'reloc', 'directory', 'link'))
-    pkgdir
+    Dir.mkdir(File.join(@pkgdir, 'reloc', 'directory'))
+    File.symlink('linktarget', File.join(@pkgdir, 'reloc', 'directory', 'link'))
   end
-
-  # This method now takes in a cleanup block. This is necessary
-  # because before calling this method, we create package file and dir, which
-  # might not get clean up if there exceptions raised in this method. Therefore,
-  # we need to catch the exception here (if there is any), and then always do
-  # the clean up job
+  
   def verify_pkg(pkgfile)
+    workdir = Tempdir.new("workdir")
+    # Use an ensure block to make sure we cleanup workdir
     begin
       assert(!pkgfile.nil? && pkgfile.kind_of?(String) && !pkgfile.empty?, 'make_package returned package filename')
       assert(File.exist?(pkgfile), 'make_package returned package filename that exists')
@@ -45,7 +37,6 @@ class TpkgMakeTests < Test::Unit::TestCase
       assert_nothing_raised('checksum verify') { Tpkg::verify_package_checksum(pkgfile) }
     
       # Unpack the package
-      workdir = Tempdir.new("workdir")
       assert(system("#{@tar} -C #{workdir} -xf #{pkgfile}"), 'unpack package')
       # Packages consist of directory containing checksum.xml and a tpkg.tar
       # with the rest of the package contents.  Ensure that the package
@@ -87,191 +78,189 @@ class TpkgMakeTests < Test::Unit::TestCase
       decrypted_contents = IO.read(File.join(workdir, 'testpkg-1.0-1', 'tpkg', 'reloc', 'precryptfile'))
       unencrypted_contents = IO.read(File.join(TESTPKGDIR, 'reloc', 'precryptfile.plaintext'))
       assert_equal(unencrypted_contents, decrypted_contents, testname)
-    rescue  => e
-      raise e
     ensure
-      # Cleanup
       FileUtils.rm_rf(workdir)
     end
   end
   
-  def test_make
+  def test_make_required_fields
+    # Verify that you can't make a package without one of the required fields
+    Tpkg::REQUIRED_FIELDS.each do |r|
+      testname = "make package without required field #{r}"
+      File.open(File.join(@pkgdir, 'tpkg.xml'), 'w') do |pkgxmlfile|
+        IO.foreach(File.join(TESTPKGDIR, 'tpkg-nofiles.xml')) do |line|
+          if line !~ /^\s*<#{r}>/
+            pkgxmlfile.print(line)
+          end
+        end
+      end
+      assert_raise(RuntimeError, testname) { Tpkg.make_package(@pkgdir, PASSPHRASE) }
+    end
+    # Verify that you can't make a package with one of the required fields empty
+    Tpkg::REQUIRED_FIELDS.each do |r|
+      testname = "make package with empty required field #{r}"
+      File.open(File.join(@pkgdir, 'tpkg.xml'), 'w') do |pkgxmlfile|
+        IO.foreach(File.join(TESTPKGDIR, 'tpkg-nofiles.xml')) do |line|
+          line.sub!(/^(\s*<#{r}>).*(<\/#{r}>.*)/, '\1\2')
+          pkgxmlfile.print(line)
+        end
+      end
+      assert_raise(RuntimeError, testname) { Tpkg.make_package(@pkgdir, PASSPHRASE) }
+    end
+  end
+  
+  def test_make_optional_fields
+    # Verify that you can make a package without the optional fields
+    testname = 'make package without optional fields'
+    pkgfile = nil
+    File.open(File.join(@pkgdir, 'tpkg.xml'), 'w') do |pkgxmlfile|
+      IO.foreach(File.join(TESTPKGDIR, 'tpkg-nofiles.xml')) do |line|
+        if line =~ /^<?xml/ || line =~ /^<!DOCTYPE/ || line =~ /^<\/?tpkg>/
+          # XML headers and document root
+          pkgxmlfile.print(line)
+        elsif Tpkg::REQUIRED_FIELDS.any? { |r| line =~ /^\s*<\/?#{r}>/ }
+          # Include just the required fields
+          pkgxmlfile.print(line)
+        end
+      end
+    end
+    assert_nothing_raised(testname) { pkgfile = Tpkg.make_package(@pkgdir, PASSPHRASE) }
+    FileUtils.rm_rf(pkgfile)
+  end
+  
+  def test_make_nonexistent_file
+    # Insert a non-existent file into tpkg.xml and verify that it throws
+    # an exception
+    testname = 'make package with non-existent file'
+    File.open(File.join(@pkgdir, 'tpkg.xml'), 'w') do |pkgxmlfile|
+      IO.foreach(File.join(TESTPKGDIR, 'tpkg-nofiles.xml')) do |line|
+        # Insert our files entry right before the end of the file
+        if line =~ /^\s*<\/tpkg>/
+          pkgxmlfile.puts('<files>')
+          pkgxmlfile.puts('  <file>')
+          pkgxmlfile.puts('    <path>does-not-exist</path>')
+          pkgxmlfile.puts('  </file>')
+          pkgxmlfile.puts('</files>')
+        end
+        pkgxmlfile.print(line)
+      end
+    end
+    assert_raise(RuntimeError, testname) { Tpkg.make_package(@pkgdir, PASSPHRASE) }
+  end
+  
+  def test_make_nil_passphrase
+    # Pass a nil passphrase with a package that requests encryption,
+    # verify that it throws an exception
+    testname = 'make package with encryption but nil passphrase'
+    File.open(File.join(@pkgdir, 'tpkg.xml'), 'w') do |pkgxmlfile|
+      IO.foreach(File.join(TESTPKGDIR, 'tpkg-nofiles.xml')) do |line|
+        # Insert our files entry right before the end of the file
+        if line =~ /^\s*<\/tpkg>/
+          pkgxmlfile.puts('<files>')
+          pkgxmlfile.puts('  <file>')
+          pkgxmlfile.puts('    <path>encfile</path>')
+          pkgxmlfile.puts('    <encrypt/>')
+          pkgxmlfile.puts('  </file>')
+          pkgxmlfile.puts('</files>')
+        end
+        pkgxmlfile.print(line)
+      end
+    end
+    FileUtils.cp(File.join(TESTPKGDIR, 'reloc', 'encfile'), File.join(@pkgdir, 'reloc'))
+    assert_raise(RuntimeError, testname) { Tpkg.make_package(@pkgdir, nil) }
+  end
+  
+  def test_make_bad_precrypt
+    # Include an unencrypted file flagged as precrypt=true,
+    # verify that it throws an exception
+    testname = 'make package with plaintext precrypt'
+    File.open(File.join(@pkgdir, 'tpkg.xml'), 'w') do |pkgxmlfile|
+      IO.foreach(File.join(TESTPKGDIR, 'tpkg-nofiles.xml')) do |line|
+        # Insert our files entry right before the end of the file
+        if line =~ /^\s*<\/tpkg>/
+          pkgxmlfile.puts('<files>')
+          pkgxmlfile.puts('  <file>')
+          pkgxmlfile.puts('    <path>precryptfile</path>')
+          pkgxmlfile.puts('    <encrypt precrypt="true"/>')
+          pkgxmlfile.puts('  </file>')
+          pkgxmlfile.puts('</files>')
+        end
+        pkgxmlfile.print(line)
+      end
+    end
+    FileUtils.cp(File.join(TESTPKGDIR, 'reloc', 'precryptfile.plaintext'), File.join(@pkgdir, 'reloc', 'precryptfile'))
+    assert_raise(RuntimeError, testname) { Tpkg.make_package(@pkgdir, nil) }
+  end
+  
+  def test_make_already_exists
+    # Try to make a package where the output file already exists, verify that it is overwritten
+    pkgfile = File.join(Dir::tmpdir, 'testpkg-1.0-1.tpkg')
+    existing_contents = 'Hello world'
+    File.open(pkgfile, 'w') do |file|
+      file.puts existing_contents
+    end
+    FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(@pkgdir, 'tpkg.xml'))
+    assert_nothing_raised { Tpkg.make_package(@pkgdir, PASSPHRASE) }
+    assert_not_equal(existing_contents, IO.read(pkgfile))
+    FileUtils.rm_f(pkgfile)
+    # It would be nice to test that if the user is prompted and answers no that the file is not overwritten
+  end
+  
+  def test_make_full_path
+    # Test using a full path to the package directory
+    pkgfile = nil
+    assert_nothing_raised { pkgfile = Tpkg.make_package(@pkgdir, PASSPHRASE) }
     begin
-      # Verify that you can't make a package without one of the required fields
-      required = ['name', 'version', 'maintainer']
-      required.each do |r|
-        testname = "make package without required field #{r}"
-        pkgdir = Tempdir.new("pkgdir")
-        File.open(File.join(pkgdir, 'tpkg.xml'), 'w') do |pkgxmlfile|
-          IO.foreach(File.join(TESTPKGDIR, 'tpkg-nofiles.xml')) do |line|
-            if line !~ /^\s*<#{r}>/
-              pkgxmlfile.print(line)
-            end
-          end
-        end
-        assert_raise(RuntimeError, testname) { Tpkg.make_package(pkgdir, PASSPHRASE) }
-        FileUtils.rm_rf(pkgdir)
-      end
-      # Verify that you can't make a package with one of the required fields empty
-      required.each do |r|
-        testname = "make package with empty required field #{r}"
-        pkgdir = Tempdir.new("pkgdir")
-        File.open(File.join(pkgdir, 'tpkg.xml'), 'w') do |pkgxmlfile|
-          IO.foreach(File.join(TESTPKGDIR, 'tpkg-nofiles.xml')) do |line|
-            line.sub!(/^(\s*<#{r}>).*(<\/#{r}>.*)/, '\1\2')
-            pkgxmlfile.print(line)
-          end
-        end
-        assert_raise(RuntimeError, testname) { Tpkg.make_package(pkgdir, PASSPHRASE) }
-        FileUtils.rm_rf(pkgdir)
-      end
-    
-      # Verify that you can make a package without the optional fields
-      testname = 'make package without optional fields'
-      pkgfile = nil
-      pkgdir = Tempdir.new("pkgdir")
-      File.open(File.join(pkgdir, 'tpkg.xml'), 'w') do |pkgxmlfile|
-        IO.foreach(File.join(TESTPKGDIR, 'tpkg-nofiles.xml')) do |line|
-          if line =~ /^<?xml/ || line =~ /^<!DOCTYPE/ || line =~ /^<\/?tpkg>/
-            # XML headers and document root
-            pkgxmlfile.print(line)
-          elsif required.any? { |r| line =~ /^\s*<\/?#{r}>/ }
-            # Include just the required fields
-            pkgxmlfile.print(line)
-          end
-        end
-      end
-      assert_nothing_raised(testname) { pkgfile = Tpkg.make_package(pkgdir, PASSPHRASE) }
-      FileUtils.rm_rf(pkgdir)
-      FileUtils.rm_rf(pkgfile)
-      
-      # Insert a non-existent file into tpkg.xml and verify that it throws
-      # an exception
-      testname = 'make package with non-existent file'
-      pkgdir = Tempdir.new("pkgdir")
-      File.open(File.join(pkgdir, 'tpkg.xml'), 'w') do |pkgxmlfile|
-        IO.foreach(File.join(TESTPKGDIR, 'tpkg-nofiles.xml')) do |line|
-          # Insert our files entry right before the end of the file
-          if line =~ /^\s*<\/tpkg>/
-            pkgxmlfile.puts('<files>')
-            pkgxmlfile.puts('  <file>')
-            pkgxmlfile.puts('    <path>does-not-exist</path>')
-            pkgxmlfile.puts('  </file>')
-            pkgxmlfile.puts('</files>')
-          end
-          pkgxmlfile.print(line)
-        end
-      end
-      assert_raise(RuntimeError, testname) { Tpkg.make_package(pkgdir, PASSPHRASE) }
-      FileUtils.rm_rf(pkgdir)
-    
-      # Pass a nil passphrase with a package that requests encryption,
-      # verify that it throws an exception
-      testname = 'make package with encryption but nil passphrase'
-      pkgdir = Tempdir.new("pkgdir")
-      File.open(File.join(pkgdir, 'tpkg.xml'), 'w') do |pkgxmlfile|
-        IO.foreach(File.join(TESTPKGDIR, 'tpkg-nofiles.xml')) do |line|
-          # Insert our files entry right before the end of the file
-          if line =~ /^\s*<\/tpkg>/
-            pkgxmlfile.puts('<files>')
-            pkgxmlfile.puts('  <file>')
-            pkgxmlfile.puts('    <path>encfile</path>')
-            pkgxmlfile.puts('    <encrypt/>')
-            pkgxmlfile.puts('  </file>')
-            pkgxmlfile.puts('</files>')
-          end
-          pkgxmlfile.print(line)
-        end
-      end
-      Dir.mkdir(File.join(pkgdir, 'reloc'))
-      FileUtils.cp(File.join(TESTPKGDIR, 'reloc', 'encfile'), File.join(pkgdir, 'reloc'))
-      assert_raise(RuntimeError, testname) { Tpkg.make_package(pkgdir, nil) }
-      FileUtils.rm_rf(pkgdir)
-      
-      # Include an unencrypted file flagged as precrypt=true,
-      # verify that it throws an exception
-      testname = 'make package with plaintext precrypt'
-      pkgdir = Tempdir.new("pkgdir")
-      File.open(File.join(pkgdir, 'tpkg.xml'), 'w') do |pkgxmlfile|
-        IO.foreach(File.join(TESTPKGDIR, 'tpkg-nofiles.xml')) do |line|
-          # Insert our files entry right before the end of the file
-          if line =~ /^\s*<\/tpkg>/
-            pkgxmlfile.puts('<files>')
-            pkgxmlfile.puts('  <file>')
-            pkgxmlfile.puts('    <path>precryptfile</path>')
-            pkgxmlfile.puts('    <encrypt precrypt="true"/>')
-            pkgxmlfile.puts('  </file>')
-            pkgxmlfile.puts('</files>')
-          end
-          pkgxmlfile.print(line)
-        end
-      end
-      Dir.mkdir(File.join(pkgdir, 'reloc'))
-      FileUtils.cp(File.join(TESTPKGDIR, 'reloc', 'precryptfile.plaintext'), File.join(pkgdir, 'reloc', 'precryptfile'))
-      assert_raise(RuntimeError, testname) { Tpkg.make_package(pkgdir, nil) }
-      FileUtils.rm_rf(pkgdir)
-      
-      # Try to make a package where the output file already exists, verify that it is overwritten
-      pkgfile = File.join(Dir::tmpdir, 'testpkg-1.0-1.tpkg')
-      existing_contents = 'Hello world'
-      File.open(pkgfile, 'w') do |file|
-        file.puts existing_contents
-      end
-      pkgdir = Tempdir.new("pkgdir")
-      FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(pkgdir, 'tpkg.xml'))
-      assert_nothing_raised { Tpkg.make_package(pkgdir, PASSPHRASE) }
-      assert_not_equal(existing_contents, IO.read(pkgfile))
-      FileUtils.rm_f(pkgfile)
-      FileUtils.rm_rf(pkgdir)
-      # It would be nice to test that if the user is prompted and answers no that the file is not overwritten
-      
-      # Test using a full path to the package directory
-      pkgfile = nil
-      pkgdir = make_pkgdir
-      assert_nothing_raised { pkgfile = Tpkg.make_package(pkgdir, PASSPHRASE) }
       verify_pkg(pkgfile)
-      FileUtils.rm_rf(pkgdir)
-      FileUtils.rm_f(pkgfile)
-    
-      # Test using a relative path to the directory
-      pkgfile = nil
-      pkgdir = make_pkgdir
-      pwd = Dir.pwd
-      Dir.chdir(File.dirname(pkgdir))
-      assert_nothing_raised { pkgfile = Tpkg.make_package(File.basename(pkgdir), PASSPHRASE) }
-      pkgfile = File.join(Dir.pwd, pkgfile)
-      Dir.chdir(pwd)
-      verify_pkg(pkgfile)
-      FileUtils.rm_rf(pkgdir)
-      FileUtils.rm_f(pkgfile)
-      
-      # Test from within the directory, passing '.' to make_package
-      pkgfile = nil
-      pkgdir = make_pkgdir
-      pwd = Dir.pwd
-      Dir.chdir(pkgdir)
-      assert_nothing_raised { pkgfile = Tpkg.make_package('.', PASSPHRASE) }
-      pkgfile = File.join(Dir.pwd, pkgfile)
-      Dir.chdir(pwd)
-      verify_pkg(pkgfile)
-      FileUtils.rm_rf(pkgdir)
-      FileUtils.rm_f(pkgfile)
-      
-      # Test using a callback to supply the passphrase
-      callback = lambda { PASSPHRASE }
-      pkgfile = nil
-      pkgdir = make_pkgdir
-      assert_nothing_raised { pkgfile = Tpkg.make_package(pkgdir, callback) }
-      verify_pkg(pkgfile)
-      FileUtils.rm_rf(pkgdir)
-      FileUtils.rm_f(pkgfile)
     ensure
-      FileUtils.rm_rf(pkgdir) if defined?pkgdir
-      FileUtils.rm_f(pkgfile) if defined?pkgfile
+      FileUtils.rm_f(pkgfile)
+    end
+  end
+  
+  def test_make_relative_path
+    # Test using a relative path to the directory
+    pkgfile = nil
+    pwd = Dir.pwd
+    Dir.chdir(File.dirname(@pkgdir))
+    assert_nothing_raised { pkgfile = Tpkg.make_package(File.basename(@pkgdir), PASSPHRASE) }
+    pkgfile = File.join(Dir.pwd, pkgfile)
+    Dir.chdir(pwd)
+    begin
+      verify_pkg(pkgfile)
+    ensure
+      FileUtils.rm_f(pkgfile)
+    end
+  end
+  
+  def test_make_dot_path
+    # Test from within the directory, passing '.' to make_package
+    pkgfile = nil
+    pwd = Dir.pwd
+    Dir.chdir(@pkgdir)
+    assert_nothing_raised { pkgfile = Tpkg.make_package('.', PASSPHRASE) }
+    pkgfile = File.join(Dir.pwd, pkgfile)
+    Dir.chdir(pwd)
+    begin
+      verify_pkg(pkgfile)
+    ensure
+      FileUtils.rm_f(pkgfile)
+    end
+  end
+  
+  def test_make_passphrase_callback
+    # Test using a callback to supply the passphrase
+    callback = lambda { PASSPHRASE }
+    pkgfile = nil
+    assert_nothing_raised { pkgfile = Tpkg.make_package(@pkgdir, callback) }
+    begin
+      verify_pkg(pkgfile)
+    ensure
+      FileUtils.rm_f(pkgfile)
     end
   end
   
   def teardown
+    FileUtils.rm_rf(@pkgdir)
   end
 end
 
