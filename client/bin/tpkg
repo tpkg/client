@@ -307,7 +307,11 @@ ret_val = 0
 case @action
 when :make
   pkgfile = Tpkg::make_package(@action_value, passphrase_callback)
-  puts "Package is #{pkgfile}"
+  if pkgfile
+    puts "Package is #{pkgfile}"
+  else
+    puts "Package build aborted or failed"
+  end
 when :extract
   Tpkg::extract_metadata(@action_value)
 when :install
