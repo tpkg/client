@@ -1,0 +1,348 @@
+#!/usr/bin/perl
+
+use warnings;
+use strict;
+
+use Getopt::Long;
+use CPAN;
+use Config;
+# According to the Changes file for EU::I this is the earliest version
+# that supports all of the ExtUtils::Installed->new() parameters we use.
+use ExtUtils::Installed 1.41_03;
+use File::Temp qw(tempdir);
+use File::Find;      # find
+use File::Path;      # mkpath
+use File::Basename;  # basename, dirname
+use File::Copy;      # copy
+use File::Spec;      # catdir, catfile, etc.
+use Storable qw(dclone);
+
+sub usage
+{
+	die <<EOF;
+Usage: cpan2tpkg
+    [--version version]
+       Version of module to install
+    [--package-version version]
+       Package version to use in tpkg, defaults to 1
+    [--extra-deps foo,1.0,1.9999,bar,4.5,4.5,blah,,,]
+       Extra dependencies to add to the package
+    [--native-deps foo,1.0,1.9999,bar,4.5,4.5,blah,,,]
+       Native dependencies to add to the package
+    [--help]
+       Show this message
+
+All options can be shortened to anything that's unique.
+EOF
+}
+
+my $modver;
+my $pkgver = 1;
+my %extradeps = ();
+my $extradepsopts = '';
+my %nativedeps = ();
+my $nativedepsopts = '';
+my $help;
+
+my $getopt = GetOptions(
+	'version=s' => \$modver,
+	'package-version=s' => \$pkgver,
+	'extra-deps=s' => \$extradepsopts,
+	'native-deps=s' => \$nativedepsopts,
+	'help' => \$help);
+
+my $module = shift @ARGV;
+
+usage() if (!$getopt);
+usage() if ($help);
+usage() if (!$module);
+
+my @extradepsopts = split(/,/, $extradepsopts);
+while (scalar @extradepsopts)
+{
+	my $dep = shift @extradepsopts;
+	# These are optional, shift will return undef if they aren't present
+	# and we'll handle that properly when creating tpkg.xml
+	my $depminver = shift @extradepsopts;
+	my $depmaxver = shift @extradepsopts;
+	$extradeps{$dep} = {};
+	$extradeps{$dep}{minimum_version} = $depminver;
+	$extradeps{$dep}{maximum_version} = $depmaxver;
+}
+my @nativedepsopts = split(/,/, $nativedepsopts);
+while (scalar @nativedepsopts)
+{
+	my $dep = shift @nativedepsopts;
+	# These are optional, shift will return undef if they aren't present
+	# and we'll handle that properly when creating tpkg.xml
+	my $depminver = shift @nativedepsopts;
+	my $depmaxver = shift @nativedepsopts;
+	$nativedeps{$dep} = {};
+	$nativedeps{$dep}{minimum_version} = $depminver;
+	$nativedeps{$dep}{maximum_version} = $depmaxver;
+}
+
+# FIXME, pause for confirmation?
+printf "Running under $^X, version %vd\n", $^V;
+# Getting the major and minor versions out of $^X looks like it should be
+# more straighforward according to the documentation, but the structure of
+# $^X is different between Perl 5.8 and 5.10 and despite a few hours of
+# trying I'm not smart enough to sort it out.
+# Example $] from perl 5.8.8:  5.008008
+my ($major, my $minorpatch) = split(/\./, $]);
+my ($minor, $patch) = unpack('A3A3', $minorpatch);
+# Force conversion to number so that 010 becomes 10, etc.
+my $majornum = $major + 0;
+my $minornum = $minor + 0;
+my $majorminor = "$majornum$minornum";
+my $majordotminor = "$majornum.$minornum";
+
+# FIXME: distribute MyConfig.pm?
+# MyConfig.pm needs all sorts of OS-specific stuff (paths to make, gzip,
+# etc.) so distributing it would be a pain.  For now we don't, and thus
+# force the user to do their own CPAN configuration.  In Perl 5.10
+# that's fairly painless.
+
+my $modobj = CPAN::Shell->expand('Module', $module);
+if (!$modobj)
+{
+	die "Unable to find $module or something went wrong\n";
+}
+
+# Set install location to temp directory
+# There are two installers that modules might use to install themselves
+# (ExtUtils::MakeMaker or Module::Build), so we have to set two different
+# options to cover both possiblities.
+my $workdir = tempdir(CLEANUP => 1);
+print "Working directory: $workdir\n";
+# http://perldoc.perl.org/ExtUtils/MakeMaker.html#DESTDIR
+CPAN::Shell->o('conf', 'makepl_arg', "DESTDIR=$workdir");
+# http://perldoc.perl.org/Module/Build.html#INSTALL-PATHS
+CPAN::Shell->o('conf', 'mbuildpl_arg', "--destdir=$workdir");
+
+# FIXME: desired?
+#CPAN::Shell->o('conf', 'prerequisites_policy', "ask");
+
+# Install the module
+$modobj->install;
+
+# It is not nearly as straightforward as one might wish to get
+# ExtUtils::Installed to inspect only a specified directory structure and not
+# include system library directories. EU::I wants to look at a couple of
+# system directories from $Config, any directories in the PERL5LIB environment
+# variable, and any extra directories you pass it. You can work around the
+# system directories from $Config by passing EU::I your own modified $Config
+# via the config_override parameter. You can also empty out $ENV[PERL5LIB].
+# And that just leaves it searching the extra directories you pass it via the
+# extra_libs parameter. To further complicate matters EU::I searches the
+# directories in @INC when asked for the version of an installed module, but
+# allows you to customize that via the inc_override parameter.
+my @incwork;
+foreach my $incdir (@INC)
+{
+	push(@incwork, File::Spec->catdir($workdir, $incdir));
+}
+@incwork = sort(@incwork);
+# Lie to ExtUtils::Installed about the two directories from %Config it
+# cares about so that it only searches our working directory and no
+# system directories.
+my %myconfig = %{dclone(\%Config)};
+$myconfig{archlibexp} = File::Spec->catdir($workdir, $Config{archlibexp});
+$myconfig{sitearchexp} = File::Spec->catdir($workdir, $Config{sitearchexp});
+# EU::I searches PERL5LIB as well, so clear that out
+$ENV{PERL5LIB} = '';
+my $extinst = ExtUtils::Installed->new(
+	config_override=>\%myconfig,
+	inc_override=>\@incwork,
+	extra_libs=>\@incwork);
+
+print "Installed modules to be packaged (except Perl):\n";
+print join(', ', $extinst->modules), "\n";
+
+# Inspect temp directory and package each installed module
+foreach my $name ($extinst->modules)
+{
+	next if ($name eq 'Perl');
+	print "Packaging $name\n";
+	my $dashname = $name;
+	$dashname =~ s/::/-/g;
+	my $ver = $extinst->version($name);
+	print "Module version is $ver\n";
+	my %deps = ();
+	my $mod = CPAN::Shell->expand('Module', $name);
+	# Looks like newer versions of CPAN.pm have a CPAN::Module::distribution()
+	# method.  What I'm using here is a little hacky but works, so I
+	# don't think it is worth forcing users to use a newer version.
+	my $dist = CPAN::Shell->expand('Distribution', $mod->{RO}{CPAN_FILE});
+	# The docs say you have to call make before prereq_pm is available
+	$dist->make;
+	# If there are any pre-reqs capture those
+	if ($dist->prereq_pm)
+	{
+		# Older versions return a basic {module name => min version} structure
+		# Newer versions seperate build-time dependencies (build_requires)
+		# from run-time dependencies (requires), each of which has the
+		# {name=>minver} format.
+		my %prereqs = %{$dist->prereq_pm};
+		if (exists $prereqs{requires})
+		{
+			# If we got back the newer format we want to pull out the run-time
+			# requirements. If there are no run-time requirements then
+			# $prereqs{requires} will be undef.
+			if ($prereqs{requires})
+			{
+				%prereqs = %{$prereqs{requires}};
+			}
+			else
+			{
+				%prereqs = ();
+			}
+		}
+		foreach my $dep (keys %prereqs)
+		{
+			# Skip dependencies on core modules
+			my $depmod = CPAN::Shell->expand('Module', $dep);
+			# This is a bit of an indirect way to identify core modules
+			# but the only way I can figure out.  Core stuff gets
+			# installed with perl into /home/t/perl-version, CPAN
+			# modules into /home/t/lib/perl5/site_perl.  The "d" in
+			# dslip_status has "s" as one of it's possible values,
+			# meaning "Standard, supplied with Perl 5" according to the
+			# docs.  However, that doesn't seem to be set reliably.
+			if ($depmod->inst_file =~ m,/home/t/perl,)
+			{
+				print "Prereq $dep is a core module, skipping\n";
+				next;
+			}
+			
+			my $dashdep = $dep;
+			$dashdep =~ s/::/-/g;
+			$deps{$dashdep} = {};
+			if ($prereqs{$dep} ne '0')
+			{
+				$deps{$dashdep}{minimum_version} = $prereqs{$dep};
+			}
+		}
+	}
+	my $tpkgdir = tempdir(CLEANUP =>1);
+	print "Packaging into $tpkgdir\n";
+	mkdir("$tpkgdir/root");
+	my $nativefile;
+	foreach my $packlistfile ($extinst->files($name))
+	{
+		chomp($packlistfile);
+		# Chop off $workdir
+		$packlistfile =~ s/^$workdir//;
+		# Make directory tree in $tpkgdir
+		mkpath("$tpkgdir/root/" . dirname($packlistfile));
+		# Copy file
+		copy("$workdir/$packlistfile", "$tpkgdir/root/$packlistfile");
+		if ($packlistfile =~ quotemeta($Config{archname}))
+		{
+			print "Package contains native files\n";
+			$nativefile = 1;
+		}
+	}
+	# Create tpkg.xml
+	open(my $xmlfh, '>', "$tpkgdir/tpkg.xml") or die;
+	print $xmlfh '<?xml version="1.0" encoding="UTF-8"?>', "\n";
+	print $xmlfh '<!DOCTYPE tpkg SYSTEM "http://tpkg.sourceforge.net/tpkg-1.0.dtd">', "\n";
+	print $xmlfh '<tpkg>', "\n";
+	print $xmlfh "  <name>cpan-perl$majorminor-$dashname</name>", "\n";
+	print $xmlfh "  <version>$ver</version>", "\n";
+	print $xmlfh "  <package_version>$pkgver</package_version>", "\n";
+	print $xmlfh '  <maintainer>cpan2tpkg</maintainer>', "\n";
+	# If the package has native code then it needs to be flagged as
+	# specific to the OS and architecture
+	if ($nativefile)
+	{
+		my $os;
+		my $arch;
+		open(my $tpkgqefh, '-|', 'tpkg --qe') or die;
+		while(my $tpkgqeline = <$tpkgqefh>)
+		{
+			chomp($tpkgqeline);
+			if ($tpkgqeline =~ /^Operating System: (.*)/)
+			{
+				$os = $1;
+			}
+			elsif ($tpkgqeline =~ /^Architecture: (.*)/)
+			{
+				$arch = $1;
+			}
+		}
+		close($tpkgqefh);
+		if (!$os || !$arch)
+		{
+			die "Unable to read OS and architecture from tpkg --qe";
+		}
+		# Packages built on Red Hat should work on CentOS and
+		# vice-versa
+		if ($os =~ /RedHat-(.*)/)
+		{
+			$os = $os . ",CentOS-$1";
+		}
+		elsif ($os =~ /CentOS-(.*)/)
+		{
+			$os = $os . ",RedHat-$1";
+		}
+		print $xmlfh "  <operatingsystem>$os</operatingsystem>", "\n";
+		print $xmlfh "  <architecture>$arch</architecture>", "\n";
+	}
+	# Insert appropriate dependencies into the package
+	print $xmlfh '  <dependencies>', "\n";
+	foreach my $dep (keys %deps)
+	{
+		print $xmlfh '    <dependency>', "\n";
+		print $xmlfh "      <name>cpan-perl$majorminor-$dep</name>", "\n";
+		if ($deps{$dep}{minimum_version})
+		{
+			print $xmlfh "      <minimum_version>$deps{$dep}{minimum_version}</minimum_version>", "\n";
+		}
+		if ($deps{$dep}{maximum_version})
+		{
+			print $xmlfh "      <maximum_version>$deps{$dep}{maximum_version}</maximum_version>", "\n";
+		}
+		print $xmlfh '    </dependency>', "\n";
+	}
+	foreach my $extradep (keys %extradeps)
+	{
+		print $xmlfh '    <dependency>', "\n";
+		print $xmlfh "      <name>$extradep</name>", "\n";
+		if ($extradeps{$extradep}{minimum_version})
+		{
+			print $xmlfh "      <minimum_version>$extradeps{$extradep}{minimum_version}</minimum_version>", "\n";
+		}
+		if ($extradeps{$extradep}{maximum_version})
+		{
+		print $xmlfh "      <maximum_version>$extradeps{$extradep}{maximum_version}</maximum_version>", "\n";
+		}
+		print $xmlfh '    </dependency>', "\n";
+	}
+	foreach my $nativedep (keys %nativedeps)
+	{
+		print $xmlfh '    <dependency>', "\n";
+		print $xmlfh "      <name>$nativedep</name>", "\n";
+		if ($nativedeps{$nativedep}{minimum_version})
+		{
+			print $xmlfh "      <minimum_version>$nativedeps{$nativedep}{minimum_version}</minimum_version>", "\n";
+		}
+		if ($nativedeps{$nativedep}{maximum_version})
+		{
+			print $xmlfh "      <maximum_version>$nativedeps{$nativedep}{maximum_version}</maximum_version>", "\n";
+		}
+		print $xmlfh '      <native/>', "\n";
+		print $xmlfh '    </dependency>', "\n";
+	}
+	# Insert an appropriate dependency on Perl itself
+	print $xmlfh '    <dependency>', "\n";
+	print $xmlfh "      <name>perl</name>", "\n";
+	print $xmlfh "      <minimum_version>", sprintf("%vd", $^V), "</minimum_version>", "\n";
+	print $xmlfh "      <maximum_version>$majordotminor.9999</maximum_version>", "\n";
+	print $xmlfh '    </dependency>', "\n";
+	print $xmlfh '  </dependencies>', "\n";
+	print $xmlfh '</tpkg>', "\n";
+	# Build package
+	system("tpkg --make $tpkgdir");
+}
+
