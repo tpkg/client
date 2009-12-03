@@ -11,7 +11,7 @@ class TpkgChecksumTests < Test::Unit::TestCase
     Tpkg::set_prompt(false)
     
     # Make up our regular test package
-    @pkgfile = make_package
+    @pkgfile = make_package(:remove => ['operatingsystem', 'architecture'])
   end
   
   # The processing of creating and storing checksums during the package

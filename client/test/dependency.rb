@@ -315,7 +315,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
     # We should end up with a-1.0, b-1.0 (the specific one, not the generic
     # one), c-1.2 and d-1.2
     assert_equal(4, solution_packages.length)
-    good = ['a-1.0-1.tpkg', 'b-1.0-1.tpkg', 'c-1.2-1.tpkg', 'd-1.2-1.tpkg']
+    good = ['a-1.0-1.tpkg', "b-1.0-1-#{Tpkg.get_os.downcase.gsub(/[^\w]/, '')}.tpkg", 'c-1.2-1.tpkg', 'd-1.2-1.tpkg']
     solution_packages.each { |pkg| assert(good.any? { |g| pkg[:source].include?(g) }) }
     FileUtils.rm_rf(testbase)
     
@@ -412,9 +412,8 @@ class TpkgDependencyTests < Test::Unit::TestCase
     
     # We should end up with a-1.0, b-1.0 (the specific one, not the generic
     # one), c-1.2 and d-1.2
-    puts solution.inspect
     assert_equal(4, solution.length)
-    good = ['a-1.0-1.tpkg', 'b-1.0-1.tpkg', 'c-1.2-1.tpkg', 'd-1.2-1.tpkg']
+    good = ['a-1.0-1.tpkg', "b-1.0-1-#{Tpkg.get_os.downcase.gsub(/[^\w]/, '')}.tpkg", 'c-1.2-1.tpkg', 'd-1.2-1.tpkg']
     solution.each { |pkg| assert(good.any? { |g| pkg[:source].include?(g) }) }
     
     FileUtils.rm_rf(testbase)

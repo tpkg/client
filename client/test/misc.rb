@@ -20,7 +20,7 @@ class TpkgMiscTests < Test::Unit::TestCase
   
   def test_package_toplevel_directory
     # Verify normal operation
-    assert_equal('testpkg-1.0-1', Tpkg::package_toplevel_directory(@pkgfile))
+    assert_equal('testpkg-1.0-1-os-architecture', Tpkg::package_toplevel_directory(@pkgfile))
     # Verify that it fails on a bogus package due to the unexpected
     # directory structure
     boguspkg = Tempfile.new('tpkgtest')

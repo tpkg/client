@@ -188,6 +188,11 @@ class Tpkg
     true
   end
   
+  # Cleans up a string to make it suitable for use in a filename
+  def self.clean_for_filename(dirtystring)
+    dirtystring.downcase.gsub(/[^\w]/, '')
+  end
+  
   # Makes a package from a directory containing the files to put into the package
   REQUIRED_FIELDS = ['name', 'version', 'maintainer']
   def self.make_package(pkgsrcdir, passphrase=nil)
@@ -226,6 +231,10 @@ class Tpkg
       
       # Open the main package config file
       tpkg_xml = REXML::Document.new(File.open(File.join(tpkgdir, 'tpkg.xml')))
+      metadata = metadata_xml_to_hash(tpkg_xml)
+      # FIXME: The code below is a mix of checking tpkg_xml directly and using
+      # metadata.  Should be updated to just use metadata.  (The code using
+      # tpkg_xml largely predates metadata_xml_to_hash)
       
       # Raise an exception if any required fields are not in tpkg.xml or empty
       # This doesn't serve any real purpose (since a user could make a package
@@ -239,7 +248,7 @@ class Tpkg
           raise "Required field #{reqfield} is empty"
         end
       end
-     
+      
       filemetadata_xml = get_filemetadata_from_directory(tpkgdir) 
       file = File.new(File.join(tpkgdir, "file_metadata.xml"), "w")      
       filemetadata_xml.write(file)
@@ -278,13 +287,44 @@ class Tpkg
         raise "Package name cannot contain whitespace. Consider changing \"#{name}\" to \"#{name.gsub(/\s+/, "_")}\"."
       end
       version = tpkg_xml.elements['/tpkg/version'].text
-      packageversion = nil
+      package_filename = "#{name}-#{version}"
       if tpkg_xml.elements['/tpkg/package_version'] && !tpkg_xml.elements['/tpkg/package_version'].text.empty?
         packageversion = tpkg_xml.elements['/tpkg/package_version'].text
-      end
-      package_filename = "#{name}-#{version}"
-      if packageversion
         package_filename << "-#{packageversion}"
+      end
+      if !metadata[:operatingsystem].empty?
+        if metadata[:operatingsystem].length == 1
+          package_filename << "-#{clean_for_filename(metadata[:operatingsystem].first)}"
+        else
+          operatingsystems = metadata[:operatingsystem].dup
+          # Genericize any equivalent operating systems
+          # FIXME: more generic handling of equivalent OSs is probably called for
+          operatingsystems.each do |os|
+            os.sub!('CentOS', 'RedHat')
+          end
+          firstname = operatingsystems.first.split('-').first
+          firstversion = operatingsystems.first.split('-').last
+          if operatingsystems.all? { |os| os == operatingsystems.first }
+            # After genericizing all OSs are the same
+            package_filename << "-#{clean_for_filename(operatingsystems.first)}"
+          elsif operatingsystems.all? { |os| os =~ /#{firstname}-/ }
+            # All of the OSs have the same name, just different versions.  It
+            # may not be perfect, but name the package after the OS without a
+            # version.  I.e. if the package specifies RedHat-4,RedHat-5 then
+            # name it "redhat". It might be confusing when it won't install on
+            # RedHat-3, but it seems better to me than naming it "multios".
+            package_filename << "-#{clean_for_filename(firstname)}"
+          else
+            package_filename << "-multios"
+          end
+        end
+      end
+      if !metadata[:architecture].empty?
+        if metadata[:architecture].length == 1
+          package_filename << "-#{clean_for_filename(metadata[:architecture].first)}"
+        else
+          package_filename << "-multiarch"
+        end
       end
       package_directory = File.join(workdir, package_filename)
       Dir.mkdir(package_directory)
@@ -470,8 +510,12 @@ class Tpkg
     metadata_hash[:filename] = metadata_xml.root.attributes['filename']
     metadata_hash[:xml] = metadata_xml
     REQUIRED_FIELDS.each do |reqfield|
-      metadata_hash[reqfield.to_sym] =
-        metadata_xml.elements["/tpkg/#{reqfield}"].text
+      if metadata_xml.elements["/tpkg/#{reqfield}"]
+        metadata_hash[reqfield.to_sym] =
+          metadata_xml.elements["/tpkg/#{reqfield}"].text
+      else
+        raise "Required field #{reqfield} not present in XML"
+      end
     end
     [:package_version, :description, :bugreporting].each do |optfield|
       if metadata_xml.elements["/tpkg/#{optfield.to_s}"]

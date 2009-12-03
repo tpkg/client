@@ -35,47 +35,48 @@ class TpkgMakeTests < Test::Unit::TestCase
       # Verify checksum.xml
       #  We test verify_package_checksum in checksum.rb to make sure it works
       assert_nothing_raised('checksum verify') { Tpkg::verify_package_checksum(pkgfile) }
-    
+      
       # Unpack the package
       assert(system("#{@tar} -C #{workdir} -xf #{pkgfile}"), 'unpack package')
+      unpackdir = File.join(workdir, 'testpkg-1.0-1-os-architecture')
       # Packages consist of directory containing checksum.xml and a tpkg.tar
       # with the rest of the package contents.  Ensure that the package
       # contains the right files and nothing else.
-      assert(File.exist?(File.join(workdir, 'testpkg-1.0-1', 'checksum.xml')), 'checksum.xml in package')
-      tpkgfile = File.join(workdir, 'testpkg-1.0-1', 'tpkg.tar')
+      assert(File.exist?(File.join(unpackdir, 'checksum.xml')), 'checksum.xml in package')
+      tpkgfile = File.join(unpackdir, 'tpkg.tar')
       assert(File.exist?(tpkgfile), 'tpkg.tar in package')
       assert_equal(3, Dir.entries(workdir).length, 'nothing else in package top level')
-      assert_equal(4, Dir.entries(File.join(workdir, 'testpkg-1.0-1')).length, 'nothing else in package directory')
+      assert_equal(4, Dir.entries(unpackdir).length, 'nothing else in package directory')
       # Now unpack the tarball with the rest of the package contents
-      assert(system("#{@tar} -C #{File.join(workdir, 'testpkg-1.0-1')} -xf #{File.join(workdir, 'testpkg-1.0-1', 'tpkg.tar')}"), 'unpack tpkg.tar')
+      assert(system("#{@tar} -C #{unpackdir} -xf #{File.join(unpackdir, 'tpkg.tar')}"), 'unpack tpkg.tar')
     
       # Verify that tpkg.xml and our various test files were included in the
       # package
-      assert(File.exist?(File.join(workdir, 'testpkg-1.0-1', 'tpkg', 'tpkg.xml')), 'tpkg.xml in package')
-      assert(File.directory?(File.join(workdir, 'testpkg-1.0-1', 'tpkg', 'reloc')), 'reloc in package')
-      assert_equal(5, Dir.entries(File.join(workdir, 'testpkg-1.0-1', 'tpkg')).length, 'nothing else in tpkg directory') # ., .., reloc|root, tpkg.xml, file_metadata.xml
-      assert(File.exist?(File.join(workdir, 'testpkg-1.0-1', 'tpkg', 'reloc', 'file')), 'generic file in package')
-      assert(File.directory?(File.join(workdir, 'testpkg-1.0-1', 'tpkg', 'reloc', 'directory')), 'directory in package')
-      assert(File.symlink?(File.join(workdir, 'testpkg-1.0-1', 'tpkg', 'reloc', 'directory', 'link')), 'link in package')
+      assert(File.exist?(File.join(unpackdir, 'tpkg', 'tpkg.xml')), 'tpkg.xml in package')
+      assert(File.directory?(File.join(unpackdir, 'tpkg', 'reloc')), 'reloc in package')
+      assert_equal(5, Dir.entries(File.join(unpackdir, 'tpkg')).length, 'nothing else in tpkg directory') # ., .., reloc|root, tpkg.xml, file_metadata.xml
+      assert(File.exist?(File.join(unpackdir, 'tpkg', 'reloc', 'file')), 'generic file in package')
+      assert(File.directory?(File.join(unpackdir, 'tpkg', 'reloc', 'directory')), 'directory in package')
+      assert(File.symlink?(File.join(unpackdir, 'tpkg', 'reloc', 'directory', 'link')), 'link in package')
       # Verify that permissions and modification timestamps were preserved
-      dstmode = File.stat(File.join(workdir, 'testpkg-1.0-1', 'tpkg', 'reloc', 'file')).mode
+      dstmode = File.stat(File.join(unpackdir, 'tpkg', 'reloc', 'file')).mode
       assert_equal(@srcmode, dstmode, 'mode preserved')
-      dstmtime = File.stat(File.join(workdir, 'testpkg-1.0-1', 'tpkg', 'reloc', 'file')).mtime
+      dstmtime = File.stat(File.join(unpackdir, 'tpkg', 'reloc', 'file')).mtime
       assert_equal(@srcmtime, dstmtime, 'mtime preserved')
     
       # Verify that the file we specified should be encrypted was encrypted
       testname = 'encrypted file is encrypted'
-      encrypted_contents = IO.read(File.join(workdir, 'testpkg-1.0-1', 'tpkg', 'reloc', 'encfile'))
+      encrypted_contents = IO.read(File.join(unpackdir, 'tpkg', 'reloc', 'encfile'))
       unencrypted_contents = IO.read(File.join(TESTPKGDIR, 'reloc', 'encfile'))
       assert_not_equal(unencrypted_contents, encrypted_contents, testname)
       testname = 'encrypted file can be decrypted'
-      Tpkg::decrypt('testpkg', File.join(workdir, 'testpkg-1.0-1', 'tpkg', 'reloc', 'encfile'), PASSPHRASE)
-      decrypted_contents = IO.read(File.join(workdir, 'testpkg-1.0-1', 'tpkg', 'reloc', 'encfile'))
+      Tpkg::decrypt('testpkg', File.join(unpackdir, 'tpkg', 'reloc', 'encfile'), PASSPHRASE)
+      decrypted_contents = IO.read(File.join(unpackdir, 'tpkg', 'reloc', 'encfile'))
       assert_equal(unencrypted_contents, decrypted_contents, testname)
       # Verify that the precrypt file can still be decrypted
       testname = 'precrypt file can be decrypted'
-      Tpkg::decrypt('testpkg', File.join(workdir, 'testpkg-1.0-1', 'tpkg', 'reloc', 'precryptfile'), PASSPHRASE)
-      decrypted_contents = IO.read(File.join(workdir, 'testpkg-1.0-1', 'tpkg', 'reloc', 'precryptfile'))
+      Tpkg::decrypt('testpkg', File.join(unpackdir, 'tpkg', 'reloc', 'precryptfile'), PASSPHRASE)
+      decrypted_contents = IO.read(File.join(unpackdir, 'tpkg', 'reloc', 'precryptfile'))
       unencrypted_contents = IO.read(File.join(TESTPKGDIR, 'reloc', 'precryptfile.plaintext'))
       assert_equal(unencrypted_contents, decrypted_contents, testname)
     ensure
@@ -257,6 +258,106 @@ class TpkgMakeTests < Test::Unit::TestCase
     ensure
       FileUtils.rm_f(pkgfile)
     end
+  end
+  
+  def test_make_osarch_names
+    # Test that make_package properly names packages that are specific to
+    # particular operating systems or architectures.
+    pkgfile = nil
+    
+    # The default tpkg.xml is tied to OS "OS" and architecture "Architecture"
+    assert_nothing_raised { pkgfile = Tpkg.make_package(@pkgdir, PASSPHRASE) }
+    FileUtils.rm_f(pkgfile)
+    assert_match(/testpkg-1.0-1-os-architecture.tpkg/, pkgfile)
+    
+    # Add another OS
+    File.open(File.join(@pkgdir, 'tpkg.xml'), 'w') do |pkgxmlfile|
+      IO.foreach(File.join(TESTPKGDIR, 'tpkg-nofiles.xml')) do |line|
+        if line =~ /operatingsystem/
+          line << "<operatingsystem>otheros</operatingsystem>\n"
+        end
+        pkgxmlfile.print(line)
+      end
+    end
+    assert_nothing_raised { pkgfile = Tpkg.make_package(@pkgdir, PASSPHRASE) }
+    FileUtils.rm_f(pkgfile)
+    assert_match(/testpkg-1.0-1-multios-architecture.tpkg/, pkgfile)
+    
+    # Add another architecture
+    File.open(File.join(@pkgdir, 'tpkg.xml'), 'w') do |pkgxmlfile|
+      IO.foreach(File.join(TESTPKGDIR, 'tpkg-nofiles.xml')) do |line|
+        if line =~ /architecture/
+          line << "<architecture>otherarch</architecture>\n"
+        end
+        pkgxmlfile.print(line)
+      end
+    end
+    assert_nothing_raised { pkgfile = Tpkg.make_package(@pkgdir, PASSPHRASE) }
+    FileUtils.rm_f(pkgfile)
+    assert_match(/testpkg-1.0-1-os-multiarch.tpkg/, pkgfile)
+    
+    # Remove the OS
+    File.open(File.join(@pkgdir, 'tpkg.xml'), 'w') do |pkgxmlfile|
+      IO.foreach(File.join(TESTPKGDIR, 'tpkg-nofiles.xml')) do |line|
+        if line !~ /operatingsystem/
+          pkgxmlfile.print(line)
+        end
+      end
+    end
+    assert_nothing_raised { pkgfile = Tpkg.make_package(@pkgdir, PASSPHRASE) }
+    FileUtils.rm_f(pkgfile)
+    assert_match(/testpkg-1.0-1-architecture.tpkg/, pkgfile)
+    
+    # Remove the architecture
+    File.open(File.join(@pkgdir, 'tpkg.xml'), 'w') do |pkgxmlfile|
+      IO.foreach(File.join(TESTPKGDIR, 'tpkg-nofiles.xml')) do |line|
+        if line !~ /architecture/
+          pkgxmlfile.print(line)
+        end
+      end
+    end
+    assert_nothing_raised { pkgfile = Tpkg.make_package(@pkgdir, PASSPHRASE) }
+    FileUtils.rm_f(pkgfile)
+    assert_match(/testpkg-1.0-1-os.tpkg/, pkgfile)
+    
+    # Set OS to a set of Red Hat variants, they get special treatment
+    File.open(File.join(@pkgdir, 'tpkg.xml'), 'w') do |pkgxmlfile|
+      IO.foreach(File.join(TESTPKGDIR, 'tpkg-nofiles.xml')) do |line|
+        if line =~ /operatingsystem/
+          line = "<operatingsystem>RedHat-5,CentOS-5</operatingsystem>\n"
+        end
+        pkgxmlfile.print(line)
+      end
+    end
+    assert_nothing_raised { pkgfile = Tpkg.make_package(@pkgdir, PASSPHRASE) }
+    FileUtils.rm_f(pkgfile)
+    assert_match(/testpkg-1.0-1-redhat5-architecture.tpkg/, pkgfile)
+    
+    # Red Hat variants with different versions
+    File.open(File.join(@pkgdir, 'tpkg.xml'), 'w') do |pkgxmlfile|
+      IO.foreach(File.join(TESTPKGDIR, 'tpkg-nofiles.xml')) do |line|
+        if line =~ /operatingsystem/
+          line = "<operatingsystem>RedHat-5,CentOS-5,RedHat-4</operatingsystem>\n"
+        end
+        pkgxmlfile.print(line)
+      end
+    end
+    assert_nothing_raised { pkgfile = Tpkg.make_package(@pkgdir, PASSPHRASE) }
+    FileUtils.rm_f(pkgfile)
+    assert_match(/testpkg-1.0-1-redhat-architecture.tpkg/, pkgfile)
+    
+    # Same OS with different versions
+    File.open(File.join(@pkgdir, 'tpkg.xml'), 'w') do |pkgxmlfile|
+      IO.foreach(File.join(TESTPKGDIR, 'tpkg-nofiles.xml')) do |line|
+        if line =~ /operatingsystem/
+          line = "<operatingsystem>Solaris-5.8,Solaris-5.9</operatingsystem>\n"
+        end
+        pkgxmlfile.print(line)
+      end
+    end
+    assert_nothing_raised { pkgfile = Tpkg.make_package(@pkgdir, PASSPHRASE) }
+    FileUtils.rm_f(pkgfile)
+    assert_match(/testpkg-1.0-1-solaris-architecture.tpkg/, pkgfile)
   end
   
   def teardown
