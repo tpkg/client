@@ -36,6 +36,7 @@ All options can be shortened to anything that's unique.
 EOF
 }
 
+# FIXME: we're not actually using $modver, we're just letting CPAN installed the latest available version
 my $modver;
 my $pkgver = 1;
 my %extradeps = ();
@@ -239,7 +240,6 @@ foreach my $name ($extinst->modules)
 		copy("$workdir/$packlistfile", "$tpkgdir/root/$packlistfile");
 		if ($packlistfile =~ quotemeta($Config{archname}))
 		{
-			print "Package contains native files\n";
 			$nativefile = 1;
 		}
 	}
