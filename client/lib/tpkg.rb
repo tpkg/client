@@ -232,30 +232,14 @@ class Tpkg
       # Open the main package config file
       tpkg_xml = REXML::Document.new(File.open(File.join(tpkgdir, 'tpkg.xml')))
       metadata = metadata_xml_to_hash(tpkg_xml)
-      # FIXME: The code below is a mix of checking tpkg_xml directly and using
-      # metadata.  Should be updated to just use metadata.  (The code using
-      # tpkg_xml largely predates metadata_xml_to_hash)
       
-      # Raise an exception if any required fields are not in tpkg.xml or empty
-      # This doesn't serve any real purpose (since a user could make a package
-      # through other means), it just helps warn the user that they're making
-      # a bad package.
-      REQUIRED_FIELDS.each do |reqfield|
-        if !tpkg_xml.elements["/tpkg/#{reqfield}"]
-          raise "Required field #{reqfield} not found"
-        elsif !tpkg_xml.elements["/tpkg/#{reqfield}"].text ||
-              tpkg_xml.elements["/tpkg/#{reqfield}"].text.empty?
-          raise "Required field #{reqfield} is empty"
-        end
-      end
-      
-      filemetadata_xml = get_filemetadata_from_directory(tpkgdir) 
-      file = File.new(File.join(tpkgdir, "file_metadata.xml"), "w")      
+      filemetadata_xml = get_filemetadata_from_directory(tpkgdir)
+      file = File.new(File.join(tpkgdir, "file_metadata.xml"), "w")
       filemetadata_xml.write(file)
       file.close
       
-      tpkg_xml.elements.each('/tpkg/files/file') do |tpkgfile|
-        tpkg_path = tpkgfile.elements['path'].text
+      metadata[:files].each do |tpkgfile|
+        tpkg_path = tpkgfile[:path]
         working_path = nil
         if tpkg_path[0,1] == File::SEPARATOR
           working_path = File.join(tpkgdir, 'root', tpkg_path)
@@ -264,32 +248,31 @@ class Tpkg
         end
         # Raise an exception if any files listed in tpkg.xml can't be found
         if !File.exist?(working_path) && !File.symlink?(working_path)
-          raise "File #{tpkgfile.elements['path'].text} referenced in tpkg.xml but not found"
+          raise "File #{tpkg_path} referenced in tpkg.xml but not found"
         end
         
         # Encrypt any files marked for encryption
-        if tpkgfile.elements['encrypt']
-          if tpkgfile.elements['encrypt'].attribute('precrypt') &&
-             tpkgfile.elements['encrypt'].attribute('precrypt').value == 'true'
+        if tpkgfile[:encrypt]
+          if tpkgfile[:encrypt][:precrypt]
             verify_precrypt_file(working_path)
           else
             if passphrase.nil?
               raise "Package requires encryption but supplied passphrase is nil"
             end
-            encrypt(tpkg_xml.elements['/tpkg/name'].text, working_path, passphrase)
+            encrypt(metadata[:name], working_path, passphrase)
           end
         end
       end
       
       # Make up a final filename and directory name for the package
-      name = tpkg_xml.elements['/tpkg/name'].text
+      name = metadata[:name]
       if name =~ /\s/
         raise "Package name cannot contain whitespace. Consider changing \"#{name}\" to \"#{name.gsub(/\s+/, "_")}\"."
       end
-      version = tpkg_xml.elements['/tpkg/version'].text
+      version = metadata[:version]
       package_filename = "#{name}-#{version}"
-      if tpkg_xml.elements['/tpkg/package_version'] && !tpkg_xml.elements['/tpkg/package_version'].text.empty?
-        packageversion = tpkg_xml.elements['/tpkg/package_version'].text
+      if metadata[:package_version]
+        packageversion = metadata[:package_version]
         package_filename << "-#{packageversion}"
       end
       if !metadata[:operatingsystem].empty?
@@ -510,7 +493,8 @@ class Tpkg
     metadata_hash[:filename] = metadata_xml.root.attributes['filename']
     metadata_hash[:xml] = metadata_xml
     REQUIRED_FIELDS.each do |reqfield|
-      if metadata_xml.elements["/tpkg/#{reqfield}"]
+      if metadata_xml.elements["/tpkg/#{reqfield}"] &&
+         metadata_xml.elements["/tpkg/#{reqfield}"].text
         metadata_hash[reqfield.to_sym] =
           metadata_xml.elements["/tpkg/#{reqfield}"].text
       else
