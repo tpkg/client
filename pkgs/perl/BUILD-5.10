@@ -1,23 +1,53 @@
 #!/sbin/sh
 
 PKG=perl
+# If you update the version be sure to add the old version to PREVIOUS
+# below.
 VER=5.10.1
-PKGVER=1
+MAJORVER=5.10
+PKGVER=2
+PREVIOUS="5.10.0"
 OSMAJOR=`facter | grep lsbmajdistrelease | cut -d' ' -f3`
 ARCH=`facter hardwaremodel`
-
-rm -rf $PKG-$VER || exit 1
-tar zxvf $PKG-$VER.tar.gz || exit 1
-cd $PKG-$VER || exit 1
 if [ $ARCH = 'i686' ]
 then
 	# Only turn this on if building on a 32 bit box
 	use64bitint='-Duse64bitint '
 fi
+
+rm -rf $PKG-$VER || exit 1
+tar zxvf $PKG-$VER.tar.gz || exit 1
+cd $PKG-$VER || exit 1
+# I haven't figured out a better way to get the archname that Perl will decide
+# to use.
+sh Configure -dE $use64bitint || exit 1
+archname=`sh -c '. config.sh; echo $archname'`
+if [ -z "$archname" ]
+then
+	echo "Calculating archname failed" >&2
+	exit 1
+fi
+rm config.sh || exit 1
+if [ -n "$PREVIOUS" ]
+then
+	for prev in $PREVIOUS
+	do
+		inc_version_list="$inc_version_list $prev/$archname $prev"
+	done
+else
+	inc_version_list="none"
+fi
+# Our prefix includes 'perl' so Configure uses a simplified directory
+# structure.  Unfortunately we want the "unsimplified" structure for the
+# sitelib directory, which means we have to specify it ourselves.
 sh Configure \
 	-de \
-	-Dprefix=/home/t/perl-$VER \
+	-Dprefix=/home/t/perl-$MAJORVER \
+	-Dsiteprefix=/home/t \
+	-Dsitelib=/home/t/lib/perl5/site_perl/$VER \
+	-Dinc_version_list="$inc_version_list" \
 	$use64bitint \
+	-Dperladmin=tpkg-users@lists.sourceforge.net \
 	|| exit 1
 make || exit 1
 pkgdir=`mktemp -d -t tpkg.XXXXXX` || exit 1
@@ -30,9 +60,14 @@ cat ../../tpkg.xml | \
 	grep -v files > $pkgdir/tpkg.xml
 # Install
 make install DESTDIR=$pkgdir/root || exit 1
-# Remove /home/t/bin/perl, we'll have some mechanism for folks to decide
-# which perl they want to be the default.
-#rm $pkgdir/root/home/t/bin/perl || exit 1
+# Make directories in the package for supported previous versions so
+# that it is obvious to users what's available to them.  In particular
+# the @INC list displayed by perl -V only includes directories that
+# exist.
+for prev in $PREVIOUS
+do
+	mkdir -p $pkgdir/root/home/t/lib/perl5/site_perl/$prev/$archname
+done
 # Make package
 tpkg --make $pkgdir || exit 1
 # Rename the package to reflect OS and arch
