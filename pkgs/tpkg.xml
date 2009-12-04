@@ -4,7 +4,7 @@
   <name>NAME</name>
   <version>VERSION</version>
   <package_version>PKGVER</package_version>
-  <maintainer>system.architecture@yplist.flight.yellowpages.com</maintainer>
+  <maintainer>tpkg-users@lists.sourceforge.net</maintainer>
   <operatingsystem>OS</operatingsystem>
   <architecture>ARCH</architecture>
   <files>
