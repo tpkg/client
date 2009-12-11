@@ -1673,6 +1673,47 @@ class Tpkg
         # We could either poke around in the ports tree (if installed), or
         # try to recreate the URL "pkg_add -r" would use and pull a
         # directory listing.
+      elsif Tpkg::get_os =~ /Darwin/
+        if File.exist?('/opt/local/bin/port')
+          puts "available_native_packages running '/opt/local/bin/port installed #{pkgname}'" if @@debug
+          IO.popen("/opt/local/bin/port installed #{pkgname}") do |pipe|
+            pipe.each_line do |line|
+              next if line =~ /The following ports are currently installed/
+              next if line =~ /None of the specified ports are installed/
+              next if line !~ /\(active\)/
+              name, version = line.split(' ')
+              version.sub!(/^@/, '')
+              # Remove variant names
+              version.sub!(/\+.*/, '')
+              # Remove the _number that is always listed on installed ports,
+              # presumably some sort of differentiator if multiple copies of
+              # the same port version are installed.
+              version.sub!(/_\d+$/, '')
+              package_version = nil
+              pkg = pkg_for_native_package(name, version, package_version, :native_installed)
+              native_packages << pkg
+            end
+          end
+          if !$?.success?
+            raise "available_native_packages error running port"
+          end
+          puts "available_native_packages running '/opt/local/bin/port list #{pkgname}'" if @@debug
+          IO.popen("/opt/local/bin/port list #{pkgname}") do |pipe|
+            pipe.each_line do |line|
+              name, version = line.split(' ')
+              version.sub!(/^@/, '')
+              package_version = nil
+              pkg = pkg_for_native_package(name, version, package_version, :native_available)
+              native_packages << pkg
+            end
+          end
+          if !$?.success?
+            raise "available_native_packages error running port"
+          end
+        else
+          # Fink support would be nice
+          raise "No supported native package tool available on #{Tpkg::get_os}"
+        end
       else
         puts "Unknown value for OS: #{Tpkg::get_os}"
       end
@@ -3176,6 +3217,25 @@ class Tpkg
           end
           puts "Running 'pkg_add -r #{pkgname}' to install native package" if @@debug
           system("pkg_add -r #{pkgname}")
+        elsif Tpkg::get_os =~ /Darwin/
+          if File.exist?('/opt/local/bin/port')
+            name = pkg[:metadata][:name]
+            # MacPorts doesn't support installing a specific version (AFAIK)
+            if pkg[:metadata][:version]
+              warn "Ignoring version with MacPorts"
+            end
+            # Nor does it have a concept of a package version
+            if pkg[:metadata][:package_version]
+              warn "Ignoring package version with MacPorts"
+            end
+            # Just for consistency with the code for other platforms
+            pkgname = name
+            puts "Running '/opt/local/bin/port install #{pkgname}' to install native package" if @@debug
+            system("/opt/local/bin/port install #{pkgname}")
+          else
+            # Fink support would be nice
+            raise "No supported native package tool available on #{Tpkg::get_os}"
+          end
         else
           raise "No native package installation support for #{Tpkg::get_os}"
         end
@@ -3358,6 +3418,25 @@ class Tpkg
           system("pkg_delete #{name}")
           system("pkg_add -r #{pkgname}")
           has_updates = true
+        elsif Tpkg::get_os =~ /Darwin/
+          if File.exist?('/opt/local/bin/port')
+            name = pkg[:metadata][:name]
+            # MacPorts doesn't support installing a specific version (AFAIK)
+            if pkg[:metadata][:version]
+              warn "Ignoring version with MacPorts"
+            end
+            # Nor does it have a concept of a package version
+            if pkg[:metadata][:package_version]
+              warn "Ignoring package version with MacPorts"
+            end
+            # Just for consistency with the code for other platforms
+            pkgname = name
+            puts "Running '/opt/local/bin/port upgrade #{pkgname}' to upgrade native package" if @@debug
+            system("/opt/local/bin/port upgrade #{pkgname}")
+          else
+            # Fink support would be nice
+            raise "No supported native package tool available on #{Tpkg::get_os}"
+          end
         else
           raise "No native package upgrade support for #{Tpkg::get_os}"
         end
