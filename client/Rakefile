@@ -72,7 +72,7 @@ def copy_tpkg_files(destdir, options={})
     
     tpkglibdir = File.join(libdir, 'tpkg')
     mkdir_p(tpkglibdir)
-    libs = ['deployer.rb', 'file_metadata.rb', 'thread_pool.rb', 'versiontype.rb']
+    libs = ['deployer.rb', 'metadata.rb', 'thread_pool.rb', 'versiontype.rb']
     libs.each do |lib|
       cp(File.join('lib', lib), tpkglibdir, :preserve => true)
       chmod(0444, File.join(tpkglibdir, lib))

@@ -42,8 +42,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
     #
     
     pkgfile = make_package(:output_directory => @tempoutdir, :remove => ['operatingsystem', 'architecture'])
-    metadata_xml = Tpkg::metadata_from_package(pkgfile)
-    metadata = Tpkg::metadata_xml_to_hash(metadata_xml)
+    metadata = Tpkg::metadata_from_package(pkgfile)
     pkg = { :metadata => metadata, :source => pkgfile }
     req = { :name => 'testpkg' }
     
@@ -106,8 +105,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
 
     # More complicated test for PS-375
     pkgfile = make_package(:output_directory => @tempoutdir, :change => {'version' => '2.3', 'package_version' => '2' }, :remove => ['operatingsystem', 'architecture'])
-    metadata_xml = Tpkg::metadata_from_package(pkgfile)
-    metadata = Tpkg::metadata_xml_to_hash(metadata_xml)
+    metadata = Tpkg::metadata_from_package(pkgfile)
     pkg = { :metadata => metadata, :source => pkgfile }
     req = { :name => 'testpkg' }
     # version number is not equal to min or max version. So we don't care if min/max package version satisfied or not
@@ -148,88 +146,77 @@ class TpkgDependencyTests < Test::Unit::TestCase
     
     # Package with no OS specified
     pkgfile = make_package(:output_directory => @tempoutdir, :remove => ['operatingsystem'], :change => {'architecture' => Facter['hardwaremodel'].value})
-    metadata_xml = Tpkg::metadata_from_package(pkgfile)
-    metadata = Tpkg::metadata_xml_to_hash(metadata_xml)
+    metadata = Tpkg::metadata_from_package(pkgfile)
     pkg = { :metadata => metadata, :source => pkgfile }
     assert(Tpkg::package_meets_requirement?(pkg, req))
     FileUtils.rm_f(pkgfile)
     
     # Package with one matching OS
     pkgfile = make_package(:output_directory => @tempoutdir, :change => {'operatingsystem' => Tpkg::get_os, 'architecture' => Facter['hardwaremodel'].value})
-    metadata_xml = Tpkg::metadata_from_package(pkgfile)
-    metadata = Tpkg::metadata_xml_to_hash(metadata_xml)
+    metadata = Tpkg::metadata_from_package(pkgfile)
     pkg = { :metadata => metadata, :source => pkgfile }
     assert(Tpkg::package_meets_requirement?(pkg, req))
     FileUtils.rm_f(pkgfile)
     
     # Package with a matching OS in a list of OSs
     pkgfile = make_package(:output_directory => @tempoutdir, :change => {'operatingsystem' => "RedHat,CentOS,#{Tpkg::get_os},FreeBSD,Solaris", 'architecture' => Facter['hardwaremodel'].value})
-    metadata_xml = Tpkg::metadata_from_package(pkgfile)
-    metadata = Tpkg::metadata_xml_to_hash(metadata_xml)
+    metadata = Tpkg::metadata_from_package(pkgfile)
     pkg = { :metadata => metadata, :source => pkgfile }
     assert(Tpkg::package_meets_requirement?(pkg, req))
     FileUtils.rm_f(pkgfile)
     
     # Package with one non-matching OS
     pkgfile = make_package(:output_directory => @tempoutdir, :change => {'operatingsystem' => 'bogus_os', 'architecture' => Facter['hardwaremodel'].value})
-    metadata_xml = Tpkg::metadata_from_package(pkgfile)
-    metadata = Tpkg::metadata_xml_to_hash(metadata_xml)
+    metadata = Tpkg::metadata_from_package(pkgfile)
     pkg = { :metadata => metadata, :source => pkgfile }
     assert(!Tpkg::package_meets_requirement?(pkg, req))
     FileUtils.rm_f(pkgfile)
     
     # Package with a list of non-matching OSs
     pkgfile = make_package(:output_directory => @tempoutdir, :change => {'operatingsystem' => 'bogus_os1,bogus_os2', 'architecture' => Facter['hardwaremodel'].value})
-    metadata_xml = Tpkg::metadata_from_package(pkgfile)
-    metadata = Tpkg::metadata_xml_to_hash(metadata_xml)
+    metadata = Tpkg::metadata_from_package(pkgfile)
     pkg = { :metadata => metadata, :source => pkgfile }
     assert(!Tpkg::package_meets_requirement?(pkg, req))
     FileUtils.rm_f(pkgfile)
     
     # Package with no architecture specified
     pkgfile = make_package(:output_directory => @tempoutdir, :remove => ['architecture'], :change => {'operatingsystem' => Tpkg::get_os })
-    metadata_xml = Tpkg::metadata_from_package(pkgfile)
-    metadata = Tpkg::metadata_xml_to_hash(metadata_xml)
+    metadata = Tpkg::metadata_from_package(pkgfile)
     pkg = { :metadata => metadata, :source => pkgfile }
     assert(Tpkg::package_meets_requirement?(pkg, req))
     FileUtils.rm_f(pkgfile)
     
     # Package with one matching architecture
     pkgfile = make_package(:output_directory => @tempoutdir, :change => {'operatingsystem' => Tpkg::get_os, 'architecture' => Facter['hardwaremodel'].value})
-    metadata_xml = Tpkg::metadata_from_package(pkgfile)
-    metadata = Tpkg::metadata_xml_to_hash(metadata_xml)
+    metadata = Tpkg::metadata_from_package(pkgfile)
     pkg = { :metadata => metadata, :source => pkgfile }
     assert(Tpkg::package_meets_requirement?(pkg, req))
     FileUtils.rm_f(pkgfile)
     
     # Package with a matching architecture in a list of architectures
     pkgfile = make_package(:output_directory => @tempoutdir, :change => {'operatingsystem' => Tpkg::get_os, 'architecture' => "i386,x86_64,#{Facter['hardwaremodel'].value},sparc,powerpc"})
-    metadata_xml = Tpkg::metadata_from_package(pkgfile)
-    metadata = Tpkg::metadata_xml_to_hash(metadata_xml)
+    metadata = Tpkg::metadata_from_package(pkgfile)
     pkg = { :metadata => metadata, :source => pkgfile }
     assert(Tpkg::package_meets_requirement?(pkg, req))
     FileUtils.rm_f(pkgfile)
     
     # Package with one non-matching architecture
     pkgfile = make_package(:output_directory => @tempoutdir, :change => {'operatingsystem' => Tpkg::get_os, 'architecture' => 'bogus_arch'})
-    metadata_xml = Tpkg::metadata_from_package(pkgfile)
-    metadata = Tpkg::metadata_xml_to_hash(metadata_xml)
+    metadata = Tpkg::metadata_from_package(pkgfile)
     pkg = { :metadata => metadata, :source => pkgfile }
     assert(!Tpkg::package_meets_requirement?(pkg, req))
     FileUtils.rm_f(pkgfile)
     
     # Package with a list of non-matching architectures
     pkgfile = make_package(:output_directory => @tempoutdir, :change => {'operatingsystem' => Tpkg::get_os, 'architecture' => 'bogus_arch1,bogus_arch2'})
-    metadata_xml = Tpkg::metadata_from_package(pkgfile)
-    metadata = Tpkg::metadata_xml_to_hash(metadata_xml)
+    metadata = Tpkg::metadata_from_package(pkgfile)
     pkg = { :metadata => metadata, :source => pkgfile }
     assert(!Tpkg::package_meets_requirement?(pkg, req))
     FileUtils.rm_f(pkgfile)
 
     # Package with operatingsystem and arch specified as regex
     pkgfile = make_package(:output_directory => @tempoutdir, :change => {'operatingsystem' => 'RedHat|CentOS|Fedora|Debian|Ubuntu|Solaris|FreeBSD|Darwin',  'architecture' => "i386|x86_64|#{Facter['hardwaremodel'].value}|sparc|powerpc"})
-    metadata_xml = Tpkg::metadata_from_package(pkgfile)
-    metadata = Tpkg::metadata_xml_to_hash(metadata_xml)
+    metadata = Tpkg::metadata_from_package(pkgfile)
     pkg = { :metadata => metadata, :source => pkgfile }
     assert(Tpkg::package_meets_requirement?(pkg, req))
   end
@@ -315,7 +302,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
     # We should end up with a-1.0, b-1.0 (the specific one, not the generic
     # one), c-1.2 and d-1.2
     assert_equal(4, solution_packages.length)
-    good = ['a-1.0-1.tpkg', "b-1.0-1-#{Tpkg.clean_for_filename(Tpkg.get_os)}.tpkg", 'c-1.2-1.tpkg', 'd-1.2-1.tpkg']
+    good = ['a-1.0-1.tpkg', "b-1.0-1-#{Metadata.clean_for_filename(Tpkg.get_os)}.tpkg", 'c-1.2-1.tpkg', 'd-1.2-1.tpkg']
     solution_packages.each { |pkg| assert(good.any? { |g| pkg[:source].include?(g) }) }
     FileUtils.rm_rf(testbase)
     
@@ -413,7 +400,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
     # We should end up with a-1.0, b-1.0 (the specific one, not the generic
     # one), c-1.2 and d-1.2
     assert_equal(4, solution.length)
-    good = ['a-1.0-1.tpkg', "b-1.0-1-#{Tpkg.clean_for_filename(Tpkg.get_os)}.tpkg", 'c-1.2-1.tpkg', 'd-1.2-1.tpkg']
+    good = ['a-1.0-1.tpkg', "b-1.0-1-#{Metadata.clean_for_filename(Tpkg.get_os)}.tpkg", 'c-1.2-1.tpkg', 'd-1.2-1.tpkg']
     solution.each { |pkg| assert(good.any? { |g| pkg[:source].include?(g) }) }
     
     FileUtils.rm_rf(testbase)
@@ -443,8 +430,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
     
     # Check an invalid solution
     xpkgfile = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'x' }, :dependencies => {'y' => {}}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
-    metadata_xml = Tpkg::metadata_from_package(xpkgfile)
-    metadata = Tpkg::metadata_xml_to_hash(metadata_xml)
+    metadata = Tpkg::metadata_from_package(xpkgfile)
     xpkg = {:metadata => metadata}
     solution[:pkgs] << xpkg
     assert_nothing_raised { result = tpkg.check_solution(solution, requirements, packages, core_packages, number_of_possible_solutions_checked) }

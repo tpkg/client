@@ -50,7 +50,7 @@ class TpkgInitScriptsTests < Test::Unit::TestCase
     testbase = File.join(testroot, 'home', 'tpkg')
     FileUtils.mkdir_p(testbase)
     tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [pkg])
-    metadata  = Tpkg::metadata_xml_to_hash(Tpkg::metadata_from_package(pkg))
+    metadata  = Tpkg::metadata_from_package(pkg)
     begin
       tpkg.install([pkg], PASSPHRASE)
       tpkg.init_links(metadata).each do |link, init_script|

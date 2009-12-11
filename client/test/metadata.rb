@@ -35,16 +35,15 @@ class TpkgMetadataTests < Test::Unit::TestCase
   
   def test_metadata_from_package
     metadata = Tpkg::metadata_from_package(@pkgfile)
-    assert_equal('testpkg', metadata.elements['/tpkg/name'].text, 'metadata_from_package name')
-    assert_equal('1.0', metadata.elements['/tpkg/version'].text, 'metadata_from_package version')
-    assert_equal(File.basename(@pkgfile), metadata.root.attributes['filename'], 'metadata_from_package filename attribute')
+    assert_equal('testpkg', metadata[:name], 'metadata_from_package name')
+    assert_equal('1.0', metadata[:version], 'metadata_from_package version')
+    assert_equal(File.basename(@pkgfile), metadata[:filename], 'metadata_from_package filename attribute')
   end
 
   def test_metadata_xml_to_hash
     pkgfile = make_package(:output_directory => @tempoutdir, :dependencies => {'testpkg2' => {'minimum_version' => '1.0', 'maximum_version' => '3.0', 'minimum_package_version' => '1.5', 'maximum_package_version' => '2.5'}, 'testpkg3' => {}})
-    metadata_xml = Tpkg::metadata_from_package(pkgfile)
     metadata = nil
-    assert_nothing_raised { metadata = Tpkg::metadata_xml_to_hash(metadata_xml) }
+    assert_nothing_raised { metadata = Tpkg::metadata_from_package(pkgfile)}
     assert_equal('testpkg', metadata[:name])
     assert_equal('1.0', metadata[:version])
     assert_equal('1', metadata[:package_version])
@@ -70,13 +69,13 @@ class TpkgMetadataTests < Test::Unit::TestCase
     # Check that the array fields are handled properly
     os = ['os1', 'os2', 'os3']
     pkgfile = make_package(:change => {'name' => 'ostest', 'operatingsystem' => os.join(',')})
-    metadata = Tpkg::metadata_xml_to_hash(Tpkg::metadata_from_package(pkgfile))
+    metadata = Tpkg::metadata_from_package(pkgfile)
     assert_equal(os, metadata[:operatingsystem])
     FileUtils.rm_f(pkgfile)
     
     arch = ['arch1', 'arch2', 'arch3']
     pkgfile = make_package(:change => {'name' => 'archtest', 'architecture' => arch.join(',')})
-    metadata = Tpkg::metadata_xml_to_hash(Tpkg::metadata_from_package(pkgfile))
+    metadata = Tpkg::metadata_from_package(pkgfile)
     assert_equal(arch, metadata[:architecture])
     FileUtils.rm_f(pkgfile)
     
@@ -84,15 +83,16 @@ class TpkgMetadataTests < Test::Unit::TestCase
   end
   
   def test_metadata_from_directory
-    metadatas = Tpkg::metadata_from_directory(@pkgdir)
-    assert_equal(1, metadatas.length, 'metadata_from_directory number of results')
-    assert_equal('testpkg', metadatas.first.elements['/tpkg/name'].text, 'metadata_from_directory name')
-    assert_equal('1.0', metadatas.first.elements['/tpkg/version'].text, 'metadata_from_directory version')
-    assert_equal(File.basename(@pkgfile), metadatas.first.root.attributes['filename'], 'metadata_from_directory filename attribute')
+    metadata = Tpkg::metadata_from_directory(@pkgdir)
+    assert_equal(1, metadata.length, 'metadata_from_directory number of results')
+    assert_equal('testpkg', metadata.first[:name], 'metadata_from_directory name')
+    assert_equal('1.0', metadata.first[:version], 'metadata_from_directory version')
+    assert_equal(File.basename(@pkgfile), metadata.first[:filename], 'metadata_from_directory filename attribute')
   end
   
   def test_extract_metadata
     assert_nothing_raised('extract_metadata') { Tpkg::extract_metadata(@pkgdir) }
+    # TODO: remove this once we don't generate metadata.xml anymore
     assert(File.file?(File.join(@pkgdir, 'metadata.xml')), 'extract_metadata metadata file')
     assert_equal(0644, File.stat(File.join(@pkgdir, 'metadata.xml')).mode & 07777, 'extract_metadata metadata file permissions')
     metadata_xml = nil
@@ -100,6 +100,14 @@ class TpkgMetadataTests < Test::Unit::TestCase
     assert_equal(1, metadata_xml.elements.to_a('/tpkg_metadata/tpkg/name').size, 'extract_metadata name count')
     assert_equal('testpkg', metadata_xml.elements['/tpkg_metadata/tpkg/name'].text, 'extract_metadata name')
     assert_equal(File.basename(@pkgfile), metadata_xml.elements['/tpkg_metadata/tpkg'].attributes['filename'], 'extract_metadata filename attribute')
+
+    # YAML stuff
+    assert(File.file?(File.join(@pkgdir, 'metadata.yml')), 'extract_metadata metadata file')
+    assert_equal(0644, File.stat(File.join(@pkgdir, 'metadata.yml')).mode & 07777, 'extract_metadata metadata file permissions')
+    metadata_contents = File.read(File.join(@pkgdir, 'metadata.yml'))
+    metadata = Metadata::get_pkgs_metadata_from_yml_doc(metadata_contents)
+    assert_equal(1, metadata['testpkg'].size, 'extract_metadata name and count')
+    assert_equal(File.basename(@pkgfile), metadata['testpkg'].first[:filename], 'extract_metadata filename attribute')
   end
   
   def test_prep_metadata
@@ -128,9 +136,9 @@ class TpkgMetadataTests < Test::Unit::TestCase
     # @metadata is missing the XML headers (XML version and DTD).
     # Someday we should fix that, in the meantime check that they look
     # similar by checking the name element.
-    assert_equal(Tpkg::metadata_from_package(@pkgfile).elements['/tpkg/name'].text, REXML::Document.new(tpkg.metadata['testpkg'].first[:metadata]).elements['/tpkg/name'].text)
+    assert_equal(Tpkg::metadata_from_package(@pkgfile)[:name], tpkg.metadata['testpkg'].first[:name])
     assert_equal(1, tpkg.metadata['testpkg2'].length)
-    assert_equal(Tpkg::metadata_from_package(pkgfile2).elements['/tpkg/name'].text, REXML::Document.new(tpkg.metadata['testpkg2'].first[:metadata]).elements['/tpkg/name'].text)
+    assert_equal(Tpkg::metadata_from_package(pkgfile2)[:name], tpkg.metadata['testpkg2'].first[:name])
     pkgs = tpkg.metadata.collect {|m| m[1]}.flatten
     assert_equal(2, pkgs.length)
     FileUtils.rm_rf(testbase)
@@ -139,6 +147,7 @@ class TpkgMetadataTests < Test::Unit::TestCase
     # server hierarchy
     Dir.mkdir(File.join(@pkgdir, 'testdir'))
     FileUtils.mv(File.join(@pkgdir, 'metadata.xml'), File.join(@pkgdir, 'testdir', 'metadata.xml'))
+    FileUtils.mv(File.join(@pkgdir, 'metadata.yml'), File.join(@pkgdir, 'testdir', 'metadata.yml'))
     # With a trailing / on the URL
     testbase = Tempdir.new("testbase")
     tpkg = Tpkg.new(:base => testbase, :sources => [source + 'testdir/'])
@@ -189,24 +198,17 @@ class TpkgMetadataTests < Test::Unit::TestCase
 
     assert_nothing_raised { tpkg.load_available_packages('testpkg') }
     assert_equal(1, tpkg.available_packages['testpkg'].length)
-    # The two hashes are functionally identical, but the saved copy of
-    # the XML in the two is not the same object, so they can't be
-    # compared without first removing the XML entry.
-    expected = Tpkg::metadata_xml_to_hash(Tpkg::metadata_from_package(@pkgfile))
-    expected.delete(:xml)
+    expected = Tpkg::metadata_from_package(@pkgfile)
     actual = tpkg.available_packages['testpkg'].first[:metadata]
-    actual.delete(:xml)
-    assert_equal(expected, actual)
+    assert_equal(expected.hash, actual.hash)
     pkgs = tpkg.available_packages.collect {|m| m[1]}.flatten
     assert_equal(1, pkgs.length)
 
     assert_nothing_raised { tpkg.load_available_packages('testpkg2') }
     assert_equal(1, tpkg.available_packages['testpkg2'].length)
-    expected = Tpkg::metadata_xml_to_hash(Tpkg::metadata_from_package(pkgfile2))
-    expected.delete(:xml)
+    expected = Tpkg::metadata_from_package(pkgfile2)
     actual = tpkg.available_packages['testpkg2'].first[:metadata]
-    actual.delete(:xml)
-    assert_equal(expected, actual)
+    assert_equal(expected.hash, actual.hash)
     pkgs = tpkg.available_packages.collect {|m| m[1]}.flatten
     assert_equal(2, pkgs.length)
 
@@ -272,8 +274,8 @@ class TpkgMetadataTests < Test::Unit::TestCase
     testbase = File.join(testroot, 'home', 'tpkg')
     FileUtils.mkdir_p(testbase)
     tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [pkg])
-    metadata  = Tpkg::metadata_xml_to_hash(Tpkg::metadata_from_package(pkg))
-    metadata2 = Tpkg::metadata_xml_to_hash(Tpkg::metadata_from_package(pkg2))
+    metadata  = Tpkg::metadata_from_package(pkg)
+    metadata2 = Tpkg::metadata_from_package(pkg2)
     begin
       links = tpkg.init_links(metadata)
       assert(links.length >= 1)
@@ -304,7 +306,7 @@ class TpkgMetadataTests < Test::Unit::TestCase
     testbase = File.join(testroot, 'home', 'tpkg')
     FileUtils.mkdir_p(testbase)
     tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [pkg])
-    metadata = Tpkg::metadata_xml_to_hash(Tpkg::metadata_from_package(pkg))
+    metadata = Tpkg::metadata_from_package(pkg)
     begin
       destinations = tpkg.crontab_destinations(metadata)
       assert(destinations.length >= 1)

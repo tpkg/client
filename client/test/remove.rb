@@ -196,8 +196,8 @@ class TpkgRemoveTests < Test::Unit::TestCase
     testbase2 = File.join(testroot, 'home', 'tpkg2')
     FileUtils.mkdir_p(testbase2)
     tpkg2 = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg2'), :sources => [pkg,pkg2])
-    metadata = Tpkg::metadata_xml_to_hash(Tpkg::metadata_from_package(pkg))
-    metadata2 = Tpkg::metadata_xml_to_hash(Tpkg::metadata_from_package(pkg2))
+    metadata = Tpkg::metadata_from_package(pkg)
+    metadata2 = Tpkg::metadata_from_package(pkg2)
     begin
       tpkg.install([pkg], PASSPHRASE)
       tpkg2.install([pkg2], PASSPHRASE)
@@ -242,8 +242,8 @@ class TpkgRemoveTests < Test::Unit::TestCase
     testbase = File.join(testroot, 'home', 'tpkg2')
     FileUtils.mkdir_p(testbase2)
     tpkg2 = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg2'), :sources => [pkg2])
-    metadata = Tpkg::metadata_xml_to_hash(Tpkg::metadata_from_package(pkg))
-    metadata2 = Tpkg::metadata_xml_to_hash(Tpkg::metadata_from_package(pkg2))
+    metadata = Tpkg::metadata_from_package(pkg)
+    metadata2 = Tpkg::metadata_from_package(pkg2)
     begin
       tpkg.install([pkg], PASSPHRASE)
       tpkg2.install([pkg2], PASSPHRASE)

@@ -44,6 +44,7 @@ require 'open3'          # Open3
 require 'versiontype'    # Version
 require 'deployer'
 require 'set'
+require 'metadata'
 
 class Tpkg
   
@@ -188,11 +189,6 @@ class Tpkg
     true
   end
   
-  # Cleans up a string to make it suitable for use in a filename
-  def self.clean_for_filename(dirtystring)
-    dirtystring.downcase.gsub(/[^\w]/, '')
-  end
-  
   # Makes a package from a directory containing the files to put into the package
   REQUIRED_FIELDS = ['name', 'version', 'maintainer']
   def self.make_package(pkgsrcdir, passphrase=nil)
@@ -229,16 +225,28 @@ class Tpkg
       # code (tar) ever touch the user's files.
       system("#{find_tar} -C #{pkgsrcdir} -cf - . | #{find_tar} -C #{tpkgdir} -xpf -") || raise("Package content copy failed")
       
-      # Open the main package config file
-      tpkg_xml = REXML::Document.new(File.open(File.join(tpkgdir, 'tpkg.xml')))
-      metadata = metadata_xml_to_hash(tpkg_xml)
-      
-      filemetadata_xml = get_filemetadata_from_directory(tpkgdir)
-      file = File.new(File.join(tpkgdir, "file_metadata.xml"), "w")
-      filemetadata_xml.write(file)
-      file.close
-      
-      metadata[:files].each do |tpkgfile|
+      if File.exists?(File.join(tpkgdir, 'tpkg.yml'))
+        metadata_text = File.read(File.join(tpkgdir, 'tpkg.yml'))
+        metadata = Metadata.new(metadata_text, 'yml')
+      elsif File.exists?(File.join(tpkgdir, 'tpkg.xml'))
+        metadata_text = File.read(File.join(tpkgdir, 'tpkg.xml'))
+        metadata = Metadata.new(metadata_text, 'xml')
+      else
+        raise 'Your source directory does not contain the metadata configuration file.'
+      end
+
+      metadata.verify_required_fields
+
+      # file_metadata.yml hold information for files that are installed
+      # by the package. For example, checksum, path, relocatable or not, etc.
+      File.open(File.join(tpkgdir, "file_metadata.bin"), "w") do |file|
+        filemetadata = get_filemetadata_from_directory(tpkgdir)
+        Marshal::dump(filemetadata.hash, file)
+#        YAML::dump(filemetadata.hash, file)  
+      end
+
+      # Check all the files are there as specified in the metadata config file
+      metadata[:files][:files].each do |tpkgfile|
         tpkg_path = tpkgfile[:path]
         working_path = nil
         if tpkg_path[0,1] == File::SEPARATOR
@@ -246,14 +254,14 @@ class Tpkg
         else
           working_path = File.join(tpkgdir, 'reloc', tpkg_path)
         end
-        # Raise an exception if any files listed in tpkg.xml can't be found
+        # Raise an exception if any files listed in tpkg.yml can't be found
         if !File.exist?(working_path) && !File.symlink?(working_path)
-          raise "File #{tpkg_path} referenced in tpkg.xml but not found"
+          raise "File #{tpkg_path} referenced in tpkg.yml but not found"
         end
-        
+
         # Encrypt any files marked for encryption
         if tpkgfile[:encrypt]
-          if tpkgfile[:encrypt][:precrypt]
+          if tpkgfile[:encrypt] == 'precrypt'
             verify_precrypt_file(working_path)
           else
             if passphrase.nil?
@@ -262,53 +270,9 @@ class Tpkg
             encrypt(metadata[:name], working_path, passphrase)
           end
         end
-      end
-      
-      # Make up a final filename and directory name for the package
-      name = metadata[:name]
-      if name =~ /\s/
-        raise "Package name cannot contain whitespace. Consider changing \"#{name}\" to \"#{name.gsub(/\s+/, "_")}\"."
-      end
-      version = metadata[:version]
-      package_filename = "#{name}-#{version}"
-      if metadata[:package_version]
-        packageversion = metadata[:package_version]
-        package_filename << "-#{packageversion}"
-      end
-      if !metadata[:operatingsystem].empty?
-        if metadata[:operatingsystem].length == 1
-          package_filename << "-#{clean_for_filename(metadata[:operatingsystem].first)}"
-        else
-          operatingsystems = metadata[:operatingsystem].dup
-          # Genericize any equivalent operating systems
-          # FIXME: more generic handling of equivalent OSs is probably called for
-          operatingsystems.each do |os|
-            os.sub!('CentOS', 'RedHat')
-          end
-          firstname = operatingsystems.first.split('-').first
-          firstversion = operatingsystems.first.split('-').last
-          if operatingsystems.all? { |os| os == operatingsystems.first }
-            # After genericizing all OSs are the same
-            package_filename << "-#{clean_for_filename(operatingsystems.first)}"
-          elsif operatingsystems.all? { |os| os =~ /#{firstname}-/ }
-            # All of the OSs have the same name, just different versions.  It
-            # may not be perfect, but name the package after the OS without a
-            # version.  I.e. if the package specifies RedHat-4,RedHat-5 then
-            # name it "redhat". It might be confusing when it won't install on
-            # RedHat-3, but it seems better to me than naming it "multios".
-            package_filename << "-#{clean_for_filename(firstname)}"
-          else
-            package_filename << "-multios"
-          end
-        end
-      end
-      if !metadata[:architecture].empty?
-        if metadata[:architecture].length == 1
-          package_filename << "-#{clean_for_filename(metadata[:architecture].first)}"
-        else
-          package_filename << "-multiarch"
-        end
-      end
+      end unless metadata[:files].nil? or metadata[:files][:files].nil?
+
+      package_filename = metadata.generate_package_filename
       package_directory = File.join(workdir, package_filename)
       Dir.mkdir(package_directory)
       pkgfile = File.join(File.dirname(pkgsrcdir), package_filename + '.tpkg')
@@ -379,6 +343,42 @@ class Tpkg
   end
 
   def self.get_filemetadata_from_directory(tpkgdir)
+    filemetadata = {}
+    root_dir = File.join(tpkgdir, "root")
+    reloc_dir = File.join(tpkgdir, "reloc")
+    files = []
+
+    Find.find(root_dir, reloc_dir) do |f|
+      next if !File.exist?(f)
+      relocatable = false
+
+      # check if it's from root dir or reloc dir
+      if f =~ /^#{root_dir}/
+        short_fn = f[root_dir.length ..-1]
+      else
+        short_fn = f[reloc_dir.length + 1..-1]
+        relocatable = true
+      end
+
+      next if short_fn.nil? or short_fn.empty?
+
+      file = {}
+      file[:path] = short_fn
+      file[:relocatable] = relocatable
+
+      # only do checksum for file
+      if File.file?(f)
+        digest = Digest::SHA256.hexdigest(File.read(f))
+        file[:checksum] = {:algorithm => "SHA256", :digests => [{:value => digest}]}
+      end
+      files << file
+    end
+    filemetadata['files'] = files
+    #return FileMetadata.new(YAML::dump(filemetadata),'yml')
+    return FileMetadata.new(Marshal::dump(filemetadata),'bin')
+  end
+
+  def self.get_xml_filemetadata_from_directory(tpkgdir)
     filemetadata_xml = REXML::Document.new
     filemetadata_xml << REXML::Element.new('files')
 
@@ -466,9 +466,41 @@ class Tpkg
       end
     end
   end
-  
+
   # Extracts and returns the metadata from a package file
   def self.metadata_from_package(package_file)
+    topleveldir = package_toplevel_directory(package_file)
+    # Verify checksum
+    verify_package_checksum(package_file)
+    # Extract and parse tpkg.xml
+    metadata = nil
+    ['yml','xml'].each do |format|
+      file = File.join('tpkg', "tpkg.#{format}")
+
+      # use popen3 instead of popen because popen display stderr when there's an error such as
+      # tpkg.yml not being there, which is something we want to ignore since old tpkg doesn't 
+      # have tpkg.yml file
+      stdin, stdout, stderr = Open3.popen3("#{find_tar} -xf #{package_file} -O #{File.join(topleveldir, 'tpkg.tar')} | #{find_tar} -xf - -O #{file}") 
+      filecontent = stdout.read
+      if filecontent.nil? or filecontent.empty?
+        next
+      else
+        metadata = Metadata.new(filecontent, format)
+        break
+      end
+    end
+    unless metadata
+      raise "Failed to extract metadata from #{package_file}"
+    end
+
+    # Insert an attribute on the root element with the package filename
+    metadata[:filename] = File.basename(package_file)
+    return metadata
+  end
+ 
+  # TODO: To be deprecated 
+  # Extracts and returns the metadata from a package file
+  def self.xml_metadata_from_package(package_file)
     topleveldir = package_toplevel_directory(package_file)
     # Verify checksum
     verify_package_checksum(package_file)
@@ -480,231 +512,18 @@ class Tpkg
     if !$?.success?
       raise "Extracting tpkg.xml from #{package_file} failed"
     end
+
     # Insert an attribute on the root element with the package filename
     tpkg_xml.root.attributes['filename'] = File.basename(package_file)
+
     # Return
-    tpkg_xml
+    return tpkg_xml
   end
 
-  # Extracts the data out of the metadata XML document into a hash for
-  # faster access.
-  def self.metadata_xml_to_hash(metadata_xml)
-    metadata_hash = {}
-    metadata_hash[:filename] = metadata_xml.root.attributes['filename']
-    metadata_hash[:xml] = metadata_xml
-    REQUIRED_FIELDS.each do |reqfield|
-      if metadata_xml.elements["/tpkg/#{reqfield}"] &&
-         metadata_xml.elements["/tpkg/#{reqfield}"].text
-        metadata_hash[reqfield.to_sym] =
-          metadata_xml.elements["/tpkg/#{reqfield}"].text
-      else
-        raise "Required field #{reqfield} not present in XML"
-      end
-    end
-    [:package_version, :description, :bugreporting].each do |optfield|
-      if metadata_xml.elements["/tpkg/#{optfield.to_s}"]
-        metadata_hash[optfield] =
-          metadata_xml.elements["/tpkg/#{optfield.to_s}"].text
-      end
-    end
-    [:operatingsystem, :architecture].each do |arrayfield|
-      array = []
-      # In the tpkg design docs I wrote that the user would specify
-      # multiple OSs or architectures by specifying the associated XML
-      # element more than once:
-      # <tpkg>
-      # <operatingsystem>RedHat-4</operatingsystem>
-      # <operatingsystem>CentOS-4</operatingsystem>
-      # </tpkg>
-      # However, I wrote the initial code and built my initial packages
-      # using comma separated values in a single instance of the
-      # element:
-      # <tpkg>
-      # <operatingsystem>RedHat-4,CentOS-4</operatingsystem>
-      # </tpkg>
-      # So we support both.
-      metadata_xml.elements.each("/tpkg/#{arrayfield.to_s}") do |af|
-        array.concat(af.text.split(/\s*,\s*/))
-      end
-      metadata_hash[arrayfield] = array
-    end
-    
-    deps = []
-    metadata_xml.elements.each('/tpkg/dependencies/dependency') do |depxml|
-      dep = {}
-      dep[:name] = depxml.elements['name'].text
-      [:allowed_versions, :minimum_version, :maximum_version,
-       :minimum_package_version, :maximum_package_version].each do |depfield|
-        if depxml.elements[depfield.to_s]
-          dep[depfield] = depxml.elements[depfield.to_s].text
-        end
-      end
-      if depxml.elements['native']
-        dep[:type] = :native
-      end
-      deps << dep
-    end
-    metadata_hash[:dependencies] = deps
-
-    conflicts = []
-    metadata_xml.elements.each('/tpkg/conflicts/conflict') do |conflictxml|
-      conflict = {}
-      conflict[:name] = conflictxml.elements['name'].text
-      [:minimum_version, :maximum_version,
-       :minimum_package_version, :maximum_package_version].each do |conflictfield|
-        if conflictxml.elements[conflictfield.to_s]
-          conflict[conflictfield] = conflictxml.elements[conflictfield.to_s].text
-        end
-      end
-      if conflictxml.elements['native']
-        conflict[:type] = :native
-      end
-      conflicts << conflict
-    end
-    metadata_hash[:conflicts] = conflicts
-    
-    externals = []
-    metadata_xml.elements.each('/tpkg/externals/external') do |extxml|
-      external = {}
-      external[:name] = extxml.elements['name'].text
-      if extxml.elements['data']
-        external[:data] = extxml.elements['data'].text
-      elsif extxml.elements['datafile']
-        # We don't have access to the package contents here, so we just save
-        # the name of the file and leave it up to others to read the file
-        # when the package contents are available.
-        external[:datafile] = extxml.elements['datafile'].text
-      elsif extxml.elements['datascript']
-        # We don't have access to the package contents here, so we just save
-        # the name of the script and leave it up to others to run the script
-        # when the package contents are available.
-        external[:datascript] = extxml.elements['datascript'].text
-      end
-      externals << external
-    end
-    metadata_hash[:externals] = externals
-    
-    file_defaults = {}
-    if metadata_xml.elements['/tpkg/files/file_defaults/posix']
-      posix = {}
-      if metadata_xml.elements['/tpkg/files/file_defaults/posix/owner']
-        owner =
-          metadata_xml.elements['/tpkg/files/file_defaults/posix/owner'].text
-#        posix[:owner] = Tpkg::lookup_uid(owner)
-        posix[:owner] = owner
-     
-      end
-      gid = nil
-      if metadata_xml.elements['/tpkg/files/file_defaults/posix/group']
-        group =
-          metadata_xml.elements['/tpkg/files/file_defaults/posix/group'].text
-#	posix[:group] = Tpkg::lookup_gid(group)
-        posix[:group] = group
-      end
-      perms = nil
-      if metadata_xml.elements['/tpkg/files/file_defaults/posix/perms']
-        perms =
-          metadata_xml.elements['/tpkg/files/file_defaults/posix/perms'].text
-        posix[:perms] = perms.oct
-      end
-      file_defaults[:posix] = posix
-    end
-    metadata_hash[:file_defaults] = file_defaults
- 
-    dir_defaults = {}
-    if metadata_xml.elements['/tpkg/files/dir_defaults/posix']
-      posix = {}
-      if metadata_xml.elements['/tpkg/files/dir_defaults/posix/owner']
-        owner =
-          metadata_xml.elements['/tpkg/files/dir_defaults/posix/owner'].text
-#        posix[:owner] = Tpkg::lookup_uid(owner)
-        posix[:owner] = owner
-      end
-      gid = nil
-      if metadata_xml.elements['/tpkg/files/dir_defaults/posix/group']
-        group =
-          metadata_xml.elements['/tpkg/files/dir_defaults/posix/group'].text
-        #posix[:group] = Tpkg::lookup_gid(group)
-        posix[:group] = group
-      end
-      perms = nil
-      if metadata_xml.elements['/tpkg/files/dir_defaults/posix/perms']
-        perms =
-          metadata_xml.elements['/tpkg/files/dir_defaults/posix/perms'].text
-        posix[:perms] = perms.oct
-      end
-      dir_defaults[:posix] = posix
-    end
-    metadata_hash[:dir_defaults] = dir_defaults
-    
-    files = []
-    metadata_xml.elements.each('/tpkg/files/file') do |filexml|
-      file = {}
-      file[:path] = filexml.elements['path'].text
-      if filexml.elements['encrypt']
-        encrypt = {}
-        if filexml.elements['encrypt'].attribute('precrypt') &&
-           filexml.elements['encrypt'].attribute('precrypt').value == 'true'
-          encrypt[:precrypt] = true
-        end
-        file[:encrypt] = encrypt
-      end
-      if filexml.elements['init']
-        init = {}
-        if filexml.elements['init/start']
-          init[:start] = filexml.elements['init/start'].text
-        end
-        if filexml.elements['init/levels']
-          if filexml.elements['init/levels'].text
-            # Split '234' into ['2','3','4'], for example
-            init[:levels] = filexml.elements['init/levels'].text.split(//)
-          else
-            # If the element is empty in the XML (<levels/> or
-            # <levels></levels>) then we get nil back from the .text
-            # call, interpret that as no levels
-            init[:levels] = []
-          end
-        end
-        file[:init] = init
-      end
-      if filexml.elements['crontab']
-        crontab = {}
-        if filexml.elements['crontab/user']
-          crontab[:user] = filexml.elements['crontab/user'].text
-        end
-        file[:crontab] = crontab
-      end
-      if filexml.elements['posix']
-        posix = {}
-        if filexml.elements['posix/owner']
-          owner = filexml.elements['posix/owner'].text
-          #posix[:owner] = Tpkg::lookup_uid(owner)
-          posix[:owner] = owner
-        end
-        gid = nil
-        if filexml.elements['posix/group']
-          group = filexml.elements['posix/group'].text
-          #posix[:group] = Tpkg::lookup_gid(group)
-          posix[:group] = group
-        end
-        perms = nil
-        if filexml.elements['posix/perms']
-          perms = filexml.elements['posix/perms'].text
-          posix[:perms] = perms.oct
-        end
-        file[:posix] = posix
-      end
-      files << file
-    end
-    metadata_hash[:files] = files
-    
-    metadata_hash
-  end
-  
+  # TODO: To be deprecated
   # Extracts and returns the metadata from a directory of package files
-  def self.metadata_from_directory(directory)
+  def self.xml_metadata_from_directory(directory)
     metadata = []
-
     # if metadata.xml already exists, then go ahead and
     # parse it
     existing_metadata_file = File.join(directory, 'metadata.xml')
@@ -721,30 +540,76 @@ class Tpkg
     # in the given directory. Reuse existing metadata if possible.
     Dir.glob(File.join(directory, '*.tpkg')) do |pkg|
       if existing_metadata[File.basename(pkg)]
-        metadata << existing_metadata[File.basename(pkg)] 
+        metadata << existing_metadata[File.basename(pkg)]
       else
-        metadata << metadata_from_package(pkg).root
+        xml = xml_metadata_from_package(pkg)
+        metadata << xml.root
       end
     end
-    metadata
+
+    return metadata
+  end
+  
+  # Extracts and returns the metadata from a directory of package files
+  def self.metadata_from_directory(directory)
+    metadata = []
+
+    # if metadata.xml already exists, then go ahead and
+    # parse it
+    existing_metadata_file = File.join(directory, 'metadata.yml')
+    existing_metadata = {}
+
+    if File.exists?(existing_metadata_file)
+      metadata_contents = File.read(File.join(directory, 'metadata.yml'))
+      Metadata::get_pkgs_metadata_from_yml_doc(metadata_contents, existing_metadata)
+    end
+
+    # Populate the metadata array with metadata for all of the packages
+    # in the given directory. Reuse existing metadata if possible.
+    Dir.glob(File.join(directory, '*.tpkg')) do |pkg|
+      if existing_metadata[File.basename(pkg)]
+        metadata << existing_metadata[File.basename(pkg)]
+      else
+        metadata_yml = metadata_from_package(pkg)
+        metadata << metadata_yml
+      end
+    end
+
+    return metadata
   end
   
   # Extracts the metadata from a directory of package files and saves it
   # to metadata.xml in that directory
-  def self.extract_metadata(directory)
-    metadata = metadata_from_directory(directory)
-    # Combine all of the individual metadata files into one XML document
-    metadata_xml = REXML::Document.new
-    metadata_xml << REXML::Element.new('tpkg_metadata')
-    metadata.each do |md|
-      metadata_xml.root << md
+  def self.extract_metadata(directory, dest=nil)
+    dest = directory if dest.nil?
+    backward_compatible = true
+
+    # If we still want to support metadata.xml
+    if backward_compatible
+      metadata_xml = xml_metadata_from_directory(directory)
+      # Combine all of the individual metadata files into one XML document
+      metadata = REXML::Document.new
+      metadata << REXML::Element.new('tpkg_metadata')
+      metadata_xml.each do |md|
+        metadata.root << md
+      end
+      # And write that out to metadata.xml
+      metadata_tmpfile = Tempfile.new('metadata.xml', directory)
+      metadata.write(metadata_tmpfile)
+      metadata_tmpfile.close
+      File.chmod(0644, metadata_tmpfile.path)
+      File.rename(metadata_tmpfile.path, File.join(dest, 'metadata.xml'))
     end
-    # And write that out to metadata.xml
-    metadata_tmpfile = Tempfile.new('metadata.xml', directory)
-    metadata_xml.write(metadata_tmpfile)
+
+    metadata = metadata_from_directory(directory)
+    # And write that out to metadata.yml
+    metadata_tmpfile = Tempfile.new('metadata.yml', dest)
+    metadata.each do | metadata |
+      YAML::dump(metadata.hash, metadata_tmpfile)  
+    end
     metadata_tmpfile.close
     File.chmod(0644, metadata_tmpfile.path)
-    File.rename(metadata_tmpfile.path, File.join(directory, 'metadata.xml'))
+    File.rename(metadata_tmpfile.path, File.join(dest, 'metadata.yml'))
   end
   
   # Haven't found a Ruby method for creating temporary directories,
@@ -1102,13 +967,13 @@ class Tpkg
     # First, look inside installed dir to see if we can find the request package. This is to support
     # request that uses package filename rather than package name
     if installed_dir && File.exists?(File.join(installed_dir, request))
-      metadata_xml = Tpkg::metadata_from_package(File.join(installed_dir, request))
-      req[:name] = metadata_xml.elements['/tpkg/name'].text
-      req[:minimum_version] = metadata_xml.elements['/tpkg/version'].text
-      req[:maximum_version] = metadata_xml.elements['/tpkg/version'].text
-      if metadata_xml.elements['/tpkg/package_version']
-        req[:minimum_package_version] = metadata_xml.elements['/tpkg/package_version'].text 
-        req[:maximum_package_version] = metadata_xml.elements['/tpkg/package_version'].text
+      metadata = Tpkg::metadata_from_package(File.join(installed_dir, request))
+      req[:name] = metadata[:name]
+      req[:minimum_version] = metadata[:version].to_s
+      req[:maximum_version] = metadata[:version].to_s
+      if metadata[:package_version] && !metadata[:package_version].to_s.empty? 
+        req[:minimum_package_version] = metadata[:package_version].to_s
+        req[:maximum_package_version] = metadata[:package_version].to_s
       end
     elsif parts.length > 2 && parts[-2] =~ /^[\d\.]/ && parts[-1] =~ /^[\d\.]/
       package_version = parts.pop
@@ -1318,35 +1183,27 @@ class Tpkg
       metadata = {}
       @sources.each do |source|
         if File.file?(source)
-          metadata_xml = Tpkg::metadata_from_package(source)
-          name = metadata_xml.elements['/tpkg/name'].text
+          metadata_yml = Tpkg::metadata_from_package(source)
+          metadata_yml.source = source
+          name = metadata_yml[:name]
           metadata[name] = [] if !metadata[name]
-          # Less than ideal that we'll have to re-parse this XML again
-          # later if this package needs to be considered, but an
-          # individual package source isn't likely to be too common.  Need
-          # to think later if there's a way to structure things so that
-          # this isn't necessary.
-          metadata[name] << { :metadata => metadata_xml.to_s,
-                              :source => source }
+          metadata[name] << metadata_yml
         elsif File.directory?(source)
-          if !File.exists?(File.join(source, 'metadata.xml'))
-            warn "Warning: the source directory #{source} has no metadata.xml file. Try running tpkg -x #{source} first."
+          if !File.exists?(File.join(source, 'metadata.yml'))
+            warn "Warning: the source directory #{source} has no metadata.yml file. Try running tpkg -x #{source} first."
             next
           end
-          tpkg_metadata = REXML::Document.new(File.open(File.join(source, 'metadata.xml')))
-          tpkg_metadata.elements.each('/tpkg_metadata/tpkg') do |metadata_xml|
-            name = metadata_xml.elements['name'].text
-            metadata[name] = [] if !metadata[name]
-            metadata[name] << { :metadata => metadata_xml.to_s,
-                                :source => source }
-          end
+
+          metadata_contents = File.read(File.join(source, 'metadata.yml'))
+          Metadata::get_pkgs_metadata_from_yml_doc(metadata_contents, metadata, source)
         else
-          uri = URI.join(source, 'metadata.xml')
+          # TODO: change to look for metadata.yml first
+          uri = URI.join(source, 'metadata.yml')
           http = Tpkg::gethttp(uri)
           
           # Calculate the path to the local copy of the metadata for this URI
           localdir = source_to_local_directory(source)
-          localpath = File.join(localdir, 'metadata.xml')
+          localpath = File.join(localdir, 'metadata.yml')
           localdate = nil
           if File.exist?(localpath)
             localdate = File.mtime(localpath)
@@ -1393,19 +1250,7 @@ class Tpkg
           else
             metadata_contents = IO.read(localpath)
           end
-          
-          # At this stage we just break up the metadata.xml document into
-          # per-package chunks and save them for further parsing later.
-          # This allows us to parse the whole metadata.xml just once, and
-          # saves us from having to further parse and convert the
-          # per-package chunks until if/when they are needed.
-          tpkg_metadata = REXML::Document.new(metadata_contents)
-          tpkg_metadata.elements.each('/tpkg_metadata/tpkg') do |metadata_xml|
-            name = metadata_xml.elements['name'].text
-            metadata[name] = [] if !metadata[name]
-            metadata[name] << { :metadata => metadata_xml.to_s,
-                                :source => source }
-          end
+          Metadata::get_pkgs_metadata_from_yml_doc(metadata_contents, metadata, source)
         end
       end
       @metadata = metadata
@@ -1434,28 +1279,25 @@ class Tpkg
       if !@available_packages[name]
         packages = []
         if @metadata[name]
-          @metadata[name].each do |metadata_hash|
-            metadata_xml = REXML::Document.new(metadata_hash[:metadata])
-            metadata = Tpkg::metadata_xml_to_hash(metadata_xml)
-            packages << { :metadata => metadata,
-                          :source => metadata_hash[:source] }
+          @metadata[name].each do |metadata_obj|
+            packages << { :metadata => metadata_obj,
+                          :source => metadata_obj.source }
           end
         end
         @available_packages[name] = packages
+
         if @@debug
           puts "Loaded #{@available_packages[name].size} available packages for #{name}"
         end
       end
     else
       # Load all packages
-      @metadata.each do |pkgname, metadata_hashes|
+      @metadata.each do |pkgname, metadata_objs|
         if !@available_packages[pkgname]
           packages = []
-          metadata_hashes.each do |metadata_hash|
-            metadata_xml = REXML::Document.new(metadata_hash[:metadata])
-            metadata = Tpkg::metadata_xml_to_hash(metadata_xml)
-            packages << { :metadata => metadata,
-                          :source => metadata_hash[:source] }
+          metadata_objs.each do |metadata_obj|
+            packages << { :metadata => metadata_obj,
+                          :source => metadata_obj.source }
           end
           @available_packages[pkgname] = packages
         end
@@ -1753,10 +1595,14 @@ class Tpkg
           package_metadata_dir =
             File.join(@metadata_directory,
                       File.basename(entry, File.extname(entry)))
-          metadata_file = File.join(package_metadata_dir, "tpkg.xml")
+          metadata_file = File.join(package_metadata_dir, "tpkg.yml")
           m = nil
           if File.exists?(metadata_file)
-            m = REXML::Document.new(File.open(metadata_file))
+            metadata_text = File.read(metadata_file)
+            m = Metadata.new(metadata_text, 'yml')
+          elsif File.exists?(File.join(package_metadata_dir, "tpkg.xml"))
+            metadata_text = File.read(File.join(package_metadata_dir, "tpkg.xml"))
+            m = Metadata.new(metadata_text, 'xml')
           # No cached metadata found, we have to extract it ourselves
           # and save it for next time
           else
@@ -1765,14 +1611,14 @@ class Tpkg
             begin
               FileUtils.mkdir_p(package_metadata_dir)
               File.open(metadata_file, "w") do |file|
-                file.write(m)
+                YAML::dump(m.hash, file)
               end
             rescue Errno::EACCES
               raise if Process.euid == 0
             end
           end
           metadata[entry] = { :timestamp => timestamp,
-                              :metadata => Tpkg::metadata_xml_to_hash(m) }
+                              :metadata => m }
         end
       end
     end
@@ -1795,19 +1641,25 @@ class Tpkg
   
   # Returns a hash of file_metadata for installed packages
   def file_metadata_for_installed_packages
-    file_metadata = {}
+    ret = {}
 
     if File.directory?(@metadata_directory)
       Dir.foreach(@metadata_directory) do |entry|
         next if entry == '.' || entry == '..' 
-        file = File.join(@metadata_directory, entry, "file_metadata.xml")
-        if File.exists? file
-          file_metadata_xml = REXML::Document.new(File.open(file)) 
-          file_metadata[file_metadata_xml.root.attributes["package_file"]] = file_metadata_xml
+        if File.exists?(File.join(@metadata_directory, entry, "file_metadata.bin"))
+          file = File.join(@metadata_directory, entry, "file_metadata.bin")
+          file_metadata = FileMetadata.new(File.read(file), 'bin')
+        elsif File.exists?(File.join(@metadata_directory, entry, "file_metadata.yml"))
+          file = File.join(@metadata_directory, entry, "file_metadata.yml")
+          file_metadata = FileMetadata.new(File.read(file), 'yml')
+        elsif File.exists?(File.join(@metadata_directory, entry, "file_metadata.xml"))
+          file = File.join(@metadata_directory, entry, "file_metadata.xml")
+          file_metadata = FileMetadata.new(File.read(file), 'xml')
         end
+        ret[file_metadata[:package_file]] = file_metadata
       end
     end
-    return file_metadata
+    ret
   end
 
   # Returns an array of packages which meet the given requirement
@@ -2252,7 +2104,11 @@ class Tpkg
   # package and the entry for that file from the metadata
   def init_scripts(metadata)
     init_scripts = {}
-    metadata[:files].each do |tpkgfile|
+    # don't do anything unless we have to
+    unless metadata[:files] && metadata[:files][:files]
+      return init_scripts
+    end
+    metadata[:files][:files].each do |tpkgfile|
       if tpkgfile[:init]
         tpkg_path = tpkgfile[:path]
         installed_path = nil
@@ -2263,7 +2119,7 @@ class Tpkg
         end
         init_scripts[installed_path] = tpkgfile
       end
-    end
+    end 
     init_scripts
   end
   
@@ -2297,8 +2153,8 @@ class Tpkg
               Tpkg::get_os =~ /Solaris/
           init_directory = File.join(@file_system_root, 'etc')
         end
-        levels.each do |level|
-          links[File.join(init_directory, "rc#{level}.d", 'S' + start + File.basename(installed_path))] = installed_path
+        levels.to_s.each do |level|
+          links[File.join(init_directory, "rc#{level}.d", 'S' + start.to_s + File.basename(installed_path))] = installed_path
         end
       elsif Tpkg::get_os =~ /FreeBSD/
         init_directory = File.join(@file_system_root, 'usr', 'local', 'etc', 'rc.d') 
@@ -2318,7 +2174,13 @@ class Tpkg
   # package and where they need to be installed on the system
   def crontab_destinations(metadata)
     destinations = {}
-    metadata[:files].each do |tpkgfile|
+
+    # Don't do anything unless we have to
+    unless metadata[:files] && metadata[:files][:files]
+      return destinations
+    end
+
+    metadata[:files][:files].each do |tpkgfile|
       if tpkgfile[:crontab]
         tpkg_path = tpkgfile[:path]
         installed_path = nil
@@ -2398,8 +2260,7 @@ class Tpkg
   # calling this method.
   def unpack(package_file, passphrase=nil, options={})
     ret_val = 0
-    metadata_xml = Tpkg::metadata_from_package(package_file)
-    metadata = Tpkg::metadata_xml_to_hash(metadata_xml)
+    metadata = Tpkg::metadata_from_package(package_file)
     
     # Unpack files in a temporary directory
     # I'd prefer to unpack on the fly so that the user doesn't need to
@@ -2487,7 +2348,7 @@ class Tpkg
       if !options[:externals_to_skip] || !options[:externals_to_skip].include?(external)
         run_external(metadata[:filename], :install, external[:name], external[:data])
       end
-    end
+    end if metadata[:externals]
     
     # Since we're stuck with unpacking to a temporary folder take
     # advantage of that to handle permissions, ownership and decryption
@@ -2498,16 +2359,16 @@ class Tpkg
     default_gid = 0
     default_perms = nil
 
-    if metadata[:file_defaults]
-      if metadata[:file_defaults][:posix]
-        if metadata[:file_defaults][:posix][:owner]
-          default_uid = Tpkg::lookup_uid(metadata[:file_defaults][:posix][:owner])
+    if metadata[:files] && metadata[:files][:file_defaults]
+      if metadata[:files][:file_defaults][:posix]
+        if metadata[:files][:file_defaults][:posix][:owner]
+          default_uid = Tpkg::lookup_uid(metadata[:files][:file_defaults][:posix][:owner])
         end
-        if metadata[:file_defaults][:posix][:group]
-          default_gid = Tpkg::lookup_gid(metadata[:file_defaults][:posix][:group])
+        if metadata[:files][:file_defaults][:posix][:group]
+          default_gid = Tpkg::lookup_gid(metadata[:files][:file_defaults][:posix][:group])
         end
-        if metadata[:file_defaults][:posix][:perms]
-          default_perms = metadata[:file_defaults][:posix][:perms]
+        if metadata[:files][:file_defaults][:posix][:perms]
+          default_perms = metadata[:files][:file_defaults][:posix][:perms]
         end
       end
     end
@@ -2517,16 +2378,16 @@ class Tpkg
     default_dir_gid = default_gid
     default_dir_perms = 0755
 
-    if metadata[:dir_defaults]
-      if metadata[:dir_defaults][:posix]
-        if metadata[:dir_defaults][:posix][:owner]
-          default_dir_uid = Tpkg::lookup_uid(metadata[:dir_defaults][:posix][:owner])
+    if metadata[:files] && metadata[:files][:dir_defaults]
+      if metadata[:files][:dir_defaults][:posix]
+        if metadata[:files][:dir_defaults][:posix][:owner]
+          default_dir_uid = Tpkg::lookup_uid(metadata[:files][:dir_defaults][:posix][:owner])
         end
-        if metadata[:dir_defaults][:posix][:group]
-          default_dir_gid = Tpkg::lookup_gid(metadata[:dir_defaults][:posix][:group])
+        if metadata[:files][:dir_defaults][:posix][:group]
+          default_dir_gid = Tpkg::lookup_gid(metadata[:files][:dir_defaults][:posix][:group])
         end
-        if metadata[:dir_defaults][:posix][:perms]
-          default_dir_perms = metadata[:dir_defaults][:posix][:perms]
+        if metadata[:files][:dir_defaults][:posix][:perms]
+          default_dir_perms = metadata[:files][:dir_defaults][:posix][:perms]
         end
       end
     end
@@ -2564,7 +2425,7 @@ class Tpkg
     end
     
     # Handle any decryption and ownership/permissions on specific files
-    metadata[:files].each do |tpkgfile|
+    metadata[:files][:files].each do |tpkgfile|
       tpkg_path = tpkgfile[:path]
       working_path = nil
       if tpkg_path[0,1] == File::SEPARATOR
@@ -2633,7 +2494,7 @@ class Tpkg
           checksums_of_decrypted_files[File.expand_path(tpkg_path)] = digest 
         end
       end
-    end
+    end if metadata[:files] && metadata[:files][:files]
 
     # We should get the perms, gid, uid stuff here since all the files
     # have been set up correctly
@@ -2813,35 +2674,36 @@ class Tpkg
     package_name = File.basename(package_file, File.extname(package_file))
     package_metadata_dir = File.join(@metadata_directory, package_name)
     FileUtils.mkdir_p(package_metadata_dir)
-    metadata_file = File.new(File.join(package_metadata_dir, "tpkg.xml"), "w")
-    metadata[:xml].write(metadata_file)
+    metadata_file = File.new(File.join(package_metadata_dir, "tpkg.yml"), "w")
+    metadata.write(metadata_file)
     metadata_file.close    
-    # Save file_metadata.xml for this pkg
-    file_metadata = File.join(workdir, 'tpkg', 'file_metadata.xml') 
-    if !File.exist?(file_metadata)
-      warn "Warning: package #{File.basename(package_file)} does not include file_metadata.xml"
-    else
-      FileUtils.cp(file_metadata, package_metadata_dir)
-      # update file_metadata.xml with perms, owner and group
-      file_metadata_xml = REXML::Document.new(File.open(file_metadata))
-      file_metadata_xml.root.attributes['package_file'] = File.basename(package_file)
-      file_metadata_xml.elements.each("files/file") do | file_ele |
-        acl = files_info[file_ele.elements["path"].text] || ""
-        acl.each do | key, value |
-          ele = file_ele.add_element(key)
-          ele.add_text(value.to_s)
-        end
-        digest = checksums_of_decrypted_files[File.expand_path(file_ele.elements["path"].text)]
+
+    # Save file_metadata.yml for this pkg
+    if File.exist?(File.join(workdir, 'tpkg', 'file_metadata.bin'))
+      file_metadata = FileMetadata.new(File.read(File.join(workdir, 'tpkg', 'file_metadata.bin')), 'bin')
+    elsif File.exist?(File.join(workdir, 'tpkg', 'file_metadata.yml'))
+      file_metadata = FileMetadata.new(File.read(File.join(workdir, 'tpkg', 'file_metadata.yml')), 'yml')
+    elsif File.exists?(File.join(workdir, 'tpkg', 'file_metadata.xml'))
+      file_metadata = FileMetadata.new(File.read(File.join(workdir, 'tpkg', 'file_metadata.xml')), 'xml')
+    end
+    if file_metadata
+      file_metadata[:package_file] = File.basename(package_file)
+      file_metadata[:files].each do |file|
+        acl = files_info[file[:path]] 
+        file.merge!(acl) unless acl.nil?
+        digest = checksums_of_decrypted_files[File.expand_path(file[:path])]
         if digest
-          digest_ele = file_ele.elements["checksum/digest"]
-          digest_ele.add_attribute("encrypted", "true")
-          digest_ele = file_ele.elements["checksum"].add_element("digest", {"decrypted" => "true"})
-          digest_ele.add_text(digest)
+          digests = file[:checksum][:digests]
+          digests[0][:encrypted] = true
+          digests[1] = {:decrypted => true, :value => digest}
         end
       end
-      file = File.open(File.join(package_metadata_dir, "file_metadata.xml"), "w")
-      file_metadata_xml.write(file)
+      
+      file = File.open(File.join(package_metadata_dir, "file_metadata.bin"), "w")
+      Marshal.dump(file_metadata.hash, file)
       file.close
+    else
+      warn "Warning: package #{File.basename(package_file)} does not include file_metadata information."
     end
 
     # Copy the package file to the directory for installed packages
@@ -2922,8 +2784,7 @@ class Tpkg
         if File.file?(request)
           puts "parse_requests treating request as a file" if @@debug
           localpath = request
-          metadata_xml = Tpkg::metadata_from_package(request)
-          metadata = Tpkg::metadata_xml_to_hash(metadata_xml)
+          metadata = Tpkg::metadata_from_package(request)
           source = request
         else
           puts "parse_requests treating request as a URI" if @@debug
@@ -2932,8 +2793,7 @@ class Tpkg
           source = File.dirname(request) + '/' # dirname chops off the / at the end, we need it in order to be compatible with URI.join
           pkgfile = File.basename(request)
           localpath = download(source, pkgfile, Tpkg::tempdir('download'))
-          metadata_xml = Tpkg::metadata_from_package(localpath)
-          metadata = Tpkg::metadata_xml_to_hash(metadata_xml)
+          metadata = Tpkg::metadata_from_package(localpath)
           # Cleanup temp download dir
           FileUtils.rm_rf(localpath)
         end
@@ -2982,7 +2842,7 @@ class Tpkg
             possible_errors << "  Requested package #{metadata[:filename]} depends on #{depreq.inspect}, no packages that satisfy that dependency are available"
             dep_satisfied = false
           end
-        end
+        end if metadata[:dependencies]
         request_satisfied = true if dep_satisfied
       end
       if !request_satisfied
@@ -3002,8 +2862,7 @@ class Tpkg
   CHECK_UPGRADE = 2
   CHECK_REMOVE  = 3
   def conflicting_files(package_file, mode=CHECK_INSTALL)
-    metadata_xml = Tpkg::metadata_from_package(package_file)
-    metadata = Tpkg::metadata_xml_to_hash(metadata_xml)
+    metadata = Tpkg::metadata_from_package(package_file)
     pkgname = metadata[:name]
     
     conflicts = {}
@@ -3127,7 +2986,7 @@ class Tpkg
     requirements = []
     packages = {}
     lock
-    
+
     parse_requests(requests, requirements, packages)
     check_requests(packages)
     core_packages = []
@@ -3315,7 +3174,7 @@ class Tpkg
         metadata_for_installed_packages.each do | metadata |
           metadata[:dependencies].each do | dep |
             if dep[:name] == req[:name]
-              additional_requirements << metadata
+              additional_requirements << metadata.hash
             end
           end
         end
@@ -3538,7 +3397,7 @@ class Tpkg
           # We ignore native dependencies because there is no way a removal
           # can break a native dependency, we don't support removing native
           # packages.
-          if req[:type] != :native
+          if req[:type] != :native && req[:type] != :native_installed
             iptmr = installed_packages_that_meet_requirement(req)
             if iptmr.all? { |pkg| pkg_files_to_remove.include?(pkg[:metadata][:filename]) }
               non_removable_pkg_files |= iptmr.map{ |pkg| pkg[:metadata][:filename]}
@@ -3550,6 +3409,7 @@ class Tpkg
       # Generate final list of packages that we should remove.
       packages_to_remove = {}
       ptr.each do | pkg |
+        next if pkg[:source] == :native or pkg[:source] == :native_installed
         next if non_removable_pkg_files.include?(pkg[:metadata][:filename])
         packages_to_remove[pkg[:metadata][:filename]] = pkg
       end
@@ -3568,12 +3428,13 @@ class Tpkg
           # We ignore native dependencies because there is no way a removal
           # can break a native dependency, we don't support removing native
           # packages.
+          # FIXME: Should we also consider :native_installed?
           if req[:type] != :native
             if installed_packages_that_meet_requirement(req).all? { |pkg| pkg_files_to_remove.include?(pkg[:metadata][:filename]) }
               raise "Package #{metadata[:filename]} depends on #{req[:name]}"
             end
           end
-        end
+        end if metadata[:dependencies]
       end
     end
     
@@ -3716,7 +3577,7 @@ class Tpkg
         if !options[:externals_to_skip] || !options[:externals_to_skip].include?(external)
           run_external(pkg[:metadata][:filename], :remove, external[:name], external[:data])
         end
-      end
+      end if pkg[:metadata][:externals]
       
       # Remove files
       files_to_remove = conflicting_files(package_file, CHECK_REMOVE)
@@ -3798,46 +3659,52 @@ class Tpkg
       checksum_xml = nil
 
       # get file_metadata.xml from the installed package
-      file_metadata = File.join(@metadata_directory, package_full_name, 'file_metadata.xml')
-      if File.exist?(file_metadata)
-        file_metadata_xml = REXML::Document.new(File.open(file_metadata))
+      file_metadata_bin = File.join(@metadata_directory, package_full_name, 'file_metadata.bin')
+      file_metadata_yml = File.join(@metadata_directory, package_full_name, 'file_metadata.yml')
+      file_metadata_xml = File.join(@metadata_directory, package_full_name, 'file_metadata.xml')
+      if File.exist?(file_metadata_bin)
+        file_metadata = FileMetadata.new(File.read(file_metadata_bin), 'bin')
+      elsif File.exist?(file_metadata_yml)
+        file_metadata = FileMetadata.new(File.read(file_metadata_yml), 'yml')
+      elsif File.exist?(file_metadata_xml)
+        file_metadata = FileMetadata.new(File.read(file_metadata_xml), 'xml')
       else 
         errors = []
-        errors << "Can't find file_metadata.xml file. Most likely this is because the package was created before the verify feature was added"
+        errors << "Can't find file_metadata.xml or file_metadata.yml file. Most likely this is because the package was created before the verify feature was added"
         results[package_file] = errors
         return results
       end
 
       # verify installed files match their checksum 
-      file_metadata_xml.elements.each('/files/file') do |file|
+      file_metadata[:files].each do |file|
         errors = []   
         gid_expected, uid_expected, perms_expected, chksum_expected = nil
-        fp = file.elements["path"].text
+        fp = file[:path]
 
         # get expected checksum. For files that were encrypted, we're interested in the
         # checksum of the decrypted version 
-        if file.elements["checksum"]
-          chksum_expected = file.elements["checksum"].elements["digest"].text
-          file.elements.each("checksum/digest") do | digest_ele |
-            if digest_ele.attributes["decrypted"]
-              chksum_expected = digest_ele.text
+        if file[:checksum]
+          chksum_expected = file[:checksum][:digests].first[:value]
+          file[:checksum][:digests].each do | digest |
+            if digest[:decrypted] == true
+              chksum_expected = digest[:value].to_s
             end
           end
         end
 
         # get expected acl values
-        if file.elements["uid"]
-          uid_expected = file.elements["uid"].text.to_i
+        if file[:uid]
+          uid_expected = file[:uid].to_i
         end
-        if file.elements["gid"]
-          gid_expected = file.elements["gid"].text.to_i
+        if file[:gid]
+          gid_expected = file[:gid].to_i
         end
-        if file.elements["perms"]
-          perms_expected = file.elements["perms"].text
+        if file[:perms]
+          perms_expected = file[:perms].to_s
         end 
 
         # normalize file path
-        if file.attributes["relocatable"] == "true"
+        if file[:relocatable] == true
           fp = File.join(@base, fp)
         else
           fp = File.join(@file_system_root, fp)
@@ -3861,7 +3728,7 @@ class Tpkg
         end
 
         if !chksum_expected.nil? && !chksum_actual.nil? && chksum_expected != chksum_actual
-          errors << "Checksum doesn't match"
+          errors << "Checksum doesn't match (Expected: #{chksum_expected}, Actual: #{chksum_actual}"
         end 
 
         if !uid_expected.nil? && !uid_actual.nil? && uid_expected != uid_actual
@@ -3991,18 +3858,14 @@ class Tpkg
     end
   end
 
+  # TODO: update server side to accept yaml data
   def send_update_to_server
-    # put all the packages xml metadata inside a <packages> tag
-    xml = "<packages>"
-    metadata_for_installed_packages.each do | metadata |
-     xml += metadata[:xml].root.to_s
-    end
-    xml += "</packages>"
-
+    metadata = metadata_for_installed_packages.collect{|metadata| metadata.hash}
+    yml = YAML.dump(metadata)
     begin
       update_uri =  URI.parse("#{@report_server}")
       http = Tpkg::gethttp(update_uri)
-      request = {"xml"=>URI.escape(xml), "client"=>Facter['fqdn'].value}
+      request = {"yml"=>URI.escape(yml), "client"=>Facter['fqdn'].value}
       post = Net::HTTP::Post.new(update_uri.path)
       post.set_form_data(request)
       response = http.request(post)
@@ -4068,6 +3931,7 @@ class Tpkg
     pre_reqs = []
     to_check = pkgs.clone
     while pkg = to_check.pop
+      next if pkg[:metadata][:dependencies].nil?
       pkg[:metadata][:dependencies].each do | dep |
         pre_req = installed_packages_that_meet_requirement(dep)
         pre_reqs |= pre_req

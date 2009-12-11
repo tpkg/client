@@ -98,9 +98,9 @@ class TpkgMiscTests < Test::Unit::TestCase
   end
   
   def test_clean_for_filename
-    assert_equal('redhat5', Tpkg.clean_for_filename('RedHat-5'))
-    assert_equal('i386', Tpkg.clean_for_filename('i386'))
-    assert_equal('x86_64', Tpkg.clean_for_filename('x86_64'))
+    assert_equal('redhat5', Metadata.clean_for_filename('RedHat-5'))
+    assert_equal('i386', Metadata.clean_for_filename('i386'))
+    assert_equal('x86_64', Metadata.clean_for_filename('x86_64'))
   end
   
   def test_normalize_paths

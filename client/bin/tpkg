@@ -400,7 +400,7 @@ when :query_installed
 when :query_info
   metadatas = nil
   if File.exist?(@action_value)
-    metadatas = [Tpkg::metadata_xml_to_hash(Tpkg::metadata_from_package(@action_value))]
+    metadatas = [Tpkg::metadata_from_package(@action_value)]
   else
     tpkg = instantiate_tpkg(@tpkg_options)
     metadatas = []

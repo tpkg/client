@@ -18,14 +18,15 @@ class TpkgFileMetadataTests < Test::Unit::TestCase
 
     assert_nothing_raised { tpkg.install([@pkgfile], PASSPHRASE) }
    
-    # check that we can get read file_metadata.xml for the newly installed package
+    # check that we can get read file_metadata for the newly installed package
     assert_nothing_raised { @file_metadata = tpkg.file_metadata_for_installed_packages[File.basename(@pkgfile)]}
 
     # checking content of file_metadata
-    assert_equal(@file_metadata.root.attributes["package_file"], File.basename(@pkgfile))
+    assert_equal(@file_metadata[:package_file], File.basename(@pkgfile))
 
     # check file's ownership and permissions are ok
     assert_nothing_raised { @errors = tpkg.verify_file_metadata("testpkg") }
+    puts @errors.inspect
     @errors.each do | file, error |
       assert(error.empty?)
     end
@@ -102,7 +103,8 @@ class TpkgFileMetadataTests < Test::Unit::TestCase
 
     # remove file_metadata
     pkgname = File.basename(@pkgfile, File.extname(@pkgfile))
-    FileUtils.rm(File.join(testroot, 'home','tpkg', 'var', 'tpkg', 'installed', 'metadata', pkgname, 'file_metadata.xml'))
+    FileUtils.rm(File.join(testroot, 'home','tpkg', 'var', 'tpkg', 'installed', 'metadata', pkgname, 'file_metadata.bin'))
+#    FileUtils.rm(File.join(testroot, 'home','tpkg', 'var', 'tpkg', 'installed', 'metadata', pkgname, 'file_metadata.xml'))
 
     # verify nothing bad when user try to run -V
     assert_nothing_raised { @errors = tpkg.verify_file_metadata("testpkg")}

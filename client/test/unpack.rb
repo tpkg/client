@@ -201,9 +201,9 @@ class TpkgUnpackTests < Test::Unit::TestCase
     testbase = File.join(testroot, 'home', 'tpkg')
     FileUtils.mkdir_p(testbase)
     tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [pkg,pkg2,pkg3])
-    metadata  = Tpkg::metadata_xml_to_hash(Tpkg::metadata_from_package(pkg))
-    metadata2 = Tpkg::metadata_xml_to_hash(Tpkg::metadata_from_package(pkg2))
-    metadata3 = Tpkg::metadata_xml_to_hash(Tpkg::metadata_from_package(pkg3))
+    metadata  = Tpkg::metadata_from_package(pkg)
+    metadata2 = Tpkg::metadata_from_package(pkg2)
+    metadata3 = Tpkg::metadata_from_package(pkg3)
     begin
       tpkg.install([pkg], PASSPHRASE)
       tpkg.init_links(metadata).each do |link, init_script|
@@ -252,9 +252,9 @@ class TpkgUnpackTests < Test::Unit::TestCase
     testbase = File.join(testroot, 'home', 'tpkg')
     FileUtils.mkdir_p(testbase)
     tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [pkg,pkg2,pkg3])
-    metadata  = Tpkg::metadata_xml_to_hash(Tpkg::metadata_from_package(pkg))
-    metadata2 = Tpkg::metadata_xml_to_hash(Tpkg::metadata_from_package(pkg2))
-    metadata3 = Tpkg::metadata_xml_to_hash(Tpkg::metadata_from_package(pkg3))
+    metadata  = Tpkg::metadata_from_package(pkg)
+    metadata2 = Tpkg::metadata_from_package(pkg2)
+    metadata3 = Tpkg::metadata_from_package(pkg3)
     begin
       tpkg.install([pkg], PASSPHRASE)
       tpkg.crontab_destinations(metadata).each do |crontab, destination|
@@ -326,7 +326,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
     File.chmod(0755, extscript)
     # And run the test
     tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [pkg])
-    metadata  = Tpkg::metadata_xml_to_hash(Tpkg::metadata_from_package(pkg))
+    metadata  = Tpkg::metadata_from_package(pkg)
     assert_nothing_raised { tpkg.unpack(pkg, PASSPHRASE) }
     assert_equal(extdata, IO.read(exttmpfile.path))
     FileUtils.rm_rf(testroot)
@@ -361,7 +361,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
     File.chmod(0755, extscript)
     # And run the test
     tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [pkg])
-    metadata  = Tpkg::metadata_xml_to_hash(Tpkg::metadata_from_package(pkg))
+    metadata  = Tpkg::metadata_from_package(pkg)
     assert_nothing_raised { tpkg.unpack(pkg, PASSPHRASE) }
     assert_equal(extdata, IO.read(exttmpfile.path))
     FileUtils.rm_rf(testroot)
@@ -399,7 +399,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
     File.chmod(0755, extscript)
     # And run the test
     tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [pkg])
-    metadata  = Tpkg::metadata_xml_to_hash(Tpkg::metadata_from_package(pkg))
+    metadata  = Tpkg::metadata_from_package(pkg)
     assert_nothing_raised { tpkg.unpack(pkg, PASSPHRASE) }
     assert_equal(extdata, IO.read(exttmpfile.path))
     FileUtils.rm_rf(testroot)
