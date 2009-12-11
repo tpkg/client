@@ -132,6 +132,10 @@ opts.on('--reload-all', 'Reload the init script for all packages') do |opt|
   @action = :reload_init
 end
 opts.on('--query', '-q', '=NAMES', 'List installed packages', Array) do |opt|
+  # People mistype -qa instead of --qa frequently
+  if opt == ['a']
+    warn "NOTE: tpkg -qa queries for a pkg named 'a', you probably want --qa for all pkgs"
+  end
   @action = :query_installed
   @action_value = opt
 end
@@ -221,7 +225,7 @@ opts.on_tail("-h", "--help", "Show this message") do
   exit
 end
 
-opts.parse(ARGV)
+leftovers = opts.parse(ARGV)
 
 # Rerun with sudo if necessary, unless it's a deploy, then
 # we don't need to run with sudo on this machine. It will run with sudo
