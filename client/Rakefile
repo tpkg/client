@@ -63,7 +63,7 @@ def copy_tpkg_files(destdir, options={})
           line.sub!(/=.*/, "= '#{TPKGVER}'")
         end
         if options[:etcdir] && line =~ /^\s*CONFIGDIR/
-          line.sub!(/=.*/, "= #{options[:etcdir]}")
+          line.sub!(/=.*/, "= '#{options[:etcdir]}'")
         end
         newfile.write(line)
       end
@@ -112,7 +112,7 @@ def copy_tpkg_files(destdir, options={})
     mkdir_p(externalsdir)
     Dir.glob(File.join('externals', '*')).each do |external|
       cp(external, externalsdir, :preserve => true)
-      chmod(0555, File.join(externalsdir, external))
+      chmod(0555, File.join(externalsdir, File.basename(external)))
     end
   end
   
@@ -120,7 +120,7 @@ def copy_tpkg_files(destdir, options={})
     profiledir = File.join(BUILDROOT, options[:profiledir])
     mkdir_p(profiledir)
     cp('tpkg_profile.sh', profiledir, :preserve => true)
-    chmod(0755, File.join(BUILDROOT, 'tpkg_profile.sh'))
+    chmod(0755, File.join(profiledir, 'tpkg_profile.sh'))
   end
 end
 
@@ -167,6 +167,10 @@ task :rpm do
   
   #
   # Prep spec file
+            crondir = File.join(BUILDROOT, 'etc', 'cron.d')
+            mkdir_p(crondir)
+            cp('tpkg_yum_crontab', File.join(crondir, 'tpkg'), :preserve => true)
+            chmod(0444, File.join(crondir, 'tpkg'))
   #
   
   spec = Tempfile.new('tpkgrpm')
@@ -174,11 +178,11 @@ task :rpm do
     line.sub!('%VER%', TPKGVER)
     spec.puts(line)
   end
+  spec.flush
   
   #
   # Build the package
   #
-  
   system("rpmbuild -bb --buildroot #{BUILDROOT} #{spec.path}")
   
   #
