@@ -167,10 +167,6 @@ task :rpm do
   
   #
   # Prep spec file
-            crondir = File.join(BUILDROOT, 'etc', 'cron.d')
-            mkdir_p(crondir)
-            cp('tpkg_yum_crontab', File.join(crondir, 'tpkg'), :preserve => true)
-            chmod(0444, File.join(crondir, 'tpkg'))
   #
   
   spec = Tempfile.new('tpkgrpm')
