@@ -7,11 +7,14 @@ class ClientUpdateController < ApplicationController
   # of installed packages (in xml format)
   def create
     client_name = params[:client]
-    
-    # parse the xml POST data and generate a list of packages installed
+   
+    # parse the POST data and generate a list of packages installed
     # on this client
-    #packages = parse_xml_package(URI.unescape(params[:xml]), "packages/")
-    packages = parse_xml_package(URI.unescape(params[:xml]))
+    if params[:yml]
+      packages = parse_yml_package(URI.unescape(params[:yml]))
+    else
+      packages = parse_xml_package(URI.unescape(params[:xml]))
+    end
 
     # insert into DB if the packages are not there
     packages_id = Array.new
@@ -70,5 +73,16 @@ class ClientUpdateController < ApplicationController
       packages << package
     end
     return packages
+  end
+
+
+  PKG_ATTR = [:name, :version, :os, :arch, :maintainer, :description, :package_version, :filename]
+  def parse_yml_package(yml)
+     packages = YAML::load(yml)
+     packages.each do |pkg|
+       pkg.delete_if{|key,value| value.nil?}
+       pkg.delete_if{|key,value| !PKG_ATTR.include?(key)}
+     end
+     return packages
   end
 end
