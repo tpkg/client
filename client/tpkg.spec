@@ -7,6 +7,7 @@ License: MIT
 buildarch: noarch
 Requires: ruby, facter, redhat-lsb, crontabs
 BuildRoot: %{_builddir}/%{name}-buildroot
+AutoReqProv: no
 %description
 tpkg client
 
