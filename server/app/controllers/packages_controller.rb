@@ -5,6 +5,8 @@ class PackagesController < ApplicationController
 
   # lists out all packages
   def index
+    # whether we want to show all packages or only packages
+    # that are currently installed
     show_all = true
     @mainmodel = Package 
 
@@ -62,9 +64,9 @@ class PackagesController < ApplicationController
     end
 
     if show_all
-      join_type = "left join"
+      join = nil
     else
-      join_type = "inner join"
+      join = "inner join client_packages as cp on packages.id = cp.package_id"
     end
 
     if conditions_query.empty?
@@ -72,7 +74,7 @@ class PackagesController < ApplicationController
                                  #:include => includes,
                                  :group => "packages.id",
                                  :order => sort,
-                                 :joins => "#{join_type} client_packages as cp on packages.id = cp.package_id",
+                                 :joins => join,
                                  :page => params[:page])
     else
       conditions_string = conditions_query.join(' AND ')
@@ -81,7 +83,7 @@ class PackagesController < ApplicationController
                                  :conditions => [ conditions_string, *conditions_values ],
                                  :group => "packages.id",
                                  :order => sort,
-                                 :joins => "#{join_type} client_packages as cp on packages.id = cp.package_id",
+                                 :joins => join,
                                  :page => params[:page])
     end
 
