@@ -3194,7 +3194,7 @@ class Tpkg
             if dep[:name] == req[:name]
               additional_requirements << metadata.hash
             end
-          end
+          end if metadata[:dependencies]
         end
       end
       requirements.concat(additional_requirements)
@@ -3336,7 +3336,7 @@ class Tpkg
             if oldpkgs.all? {|oldpkg| oldpkg[:metadata][:externals].include?(external)}
               externals_to_skip << external
             end
-          end
+          end if pkg[:metadata][:externals]
 
           # Remove the old package if we haven't done so
           unless removed_pkgs.include?(pkg[:metadata][:name])
@@ -3355,7 +3355,7 @@ class Tpkg
                solution_packages.push(pkg)
                break
             end
-          end
+          end if pkg[:metadata][:dependencies]
           if can_unpack
             ret_val |= unpack(pkgfile, passphrase, :externals_to_skip => externals_to_skip)
           end
@@ -3411,6 +3411,7 @@ class Tpkg
       non_removable_pkg_files = []
       metadata_for_installed_packages.each do |metadata|
         next if pkg_files_to_remove.include?(metadata[:filename])
+        next if metadata[:dependencies].nil?
         metadata[:dependencies].each do |req|
           # We ignore native dependencies because there is no way a removal
           # can break a native dependency, we don't support removing native
@@ -3442,6 +3443,7 @@ class Tpkg
       pkg_files_to_remove = packages_to_remove.map { |pkg| pkg[:metadata][:filename] }
       metadata_for_installed_packages.each do |metadata|
         next if pkg_files_to_remove.include?(metadata[:filename])
+        next if metadata[:dependencies].nil?
         metadata[:dependencies].each do |req|
           # We ignore native dependencies because there is no way a removal
           # can break a native dependency, we don't support removing native
@@ -3452,7 +3454,7 @@ class Tpkg
               raise "Package #{metadata[:filename]} depends on #{req[:name]}"
             end
           end
-        end if metadata[:dependencies]
+        end
       end
     end
     
@@ -3911,7 +3913,9 @@ class Tpkg
     dependency_mapping = {}
     installed_packages.each do | pkg |
       metadata = pkg[:metadata]
+
       # Get list of pkgs that this pkg depends on
+      next if metadata[:dependencies].nil?
       depended_on = []
       metadata[:dependencies].each do |req|
         next if req[:type] == :native
