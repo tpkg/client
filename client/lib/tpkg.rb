@@ -594,7 +594,7 @@ class Tpkg
         metadata.root << md
       end
       # And write that out to metadata.xml
-      metadata_tmpfile = Tempfile.new('metadata.xml', directory)
+      metadata_tmpfile = Tempfile.new('metadata.xml', dest)
       metadata.write(metadata_tmpfile)
       metadata_tmpfile.close
       File.chmod(0644, metadata_tmpfile.path)
@@ -1197,31 +1197,34 @@ class Tpkg
           metadata_contents = File.read(File.join(source, 'metadata.yml'))
           Metadata::get_pkgs_metadata_from_yml_doc(metadata_contents, metadata, source)
         else
-          # TODO: change to look for metadata.yml first
-          uri = URI.join(source, 'metadata.yml')
-          http = Tpkg::gethttp(uri)
-          
-          # Calculate the path to the local copy of the metadata for this URI
-          localdir = source_to_local_directory(source)
-          localpath = File.join(localdir, 'metadata.yml')
-          localdate = nil
-          if File.exist?(localpath)
-            localdate = File.mtime(localpath)
-          end
-          
-          # Check if the local copy is out of data
-          remotedate = nil
-          if localdate
+          uri = http = localdate = remotedate = localdir = localpath = nil
+
+          ['metadata.yml', 'metadata.xml'].each do | metadata_file |
+            uri = URI.join(source, metadata_file)
+            http = Tpkg::gethttp(uri)
+
+            # Calculate the path to the local copy of the metadata for this URI
+            localdir = source_to_local_directory(source)
+            localpath = File.join(localdir, metadata_file)
+            localdate = nil
+            if File.exist?(localpath)
+              localdate = File.mtime(localpath)
+            end
+
+            # For now, we always have to hit the repo once to determine if
+            # it has metadata.yml or metadata.xml. In the future,
+            # we will only support metadata.yml
             response = http.head(uri.path)
             case response
             when Net::HTTPSuccess
               remotedate = Time.httpdate(response['Date'])
+              break 
             else
               puts "Error fetching metadata from #{uri}: #{response.body}"
-              response.error!  # Throws an exception
+              next
             end
           end
-          
+
           # Fetch the metadata if necessary
           metadata_contents = nil
           if !localdate || remotedate != localdate
@@ -1250,7 +1253,22 @@ class Tpkg
           else
             metadata_contents = IO.read(localpath)
           end
-          Metadata::get_pkgs_metadata_from_yml_doc(metadata_contents, metadata, source)
+
+          if uri.path =~ /yml/
+            Metadata::get_pkgs_metadata_from_yml_doc(metadata_contents, metadata, source)
+          else
+            # At this stage we just break up the metadata.xml document into
+            # per-package chunks and save them for further parsing later.
+            # This allows us to parse the whole metadata.xml just once, and
+            # saves us from having to further parse and convert the
+            # per-package chunks until if/when they are needed.
+            tpkg_metadata = REXML::Document.new(metadata_contents)
+            tpkg_metadata.elements.each('/tpkg_metadata/tpkg') do |metadata_xml|
+              name = metadata_xml.elements['name'].text
+              metadata[name] = [] if !metadata[name]
+              metadata[name] << Metadata.new(metadata_xml.to_s, 'xml', source)
+            end
+          end
         end
       end
       @metadata = metadata
@@ -3176,7 +3194,7 @@ class Tpkg
             if dep[:name] == req[:name]
               additional_requirements << metadata.hash
             end
-          end
+          end if metadata[:dependencies]
         end
       end
       requirements.concat(additional_requirements)
@@ -3318,7 +3336,7 @@ class Tpkg
             if oldpkgs.all? {|oldpkg| oldpkg[:metadata][:externals].include?(external)}
               externals_to_skip << external
             end
-          end
+          end if pkg[:metadata][:externals]
 
           # Remove the old package if we haven't done so
           unless removed_pkgs.include?(pkg[:metadata][:name])
@@ -3337,7 +3355,7 @@ class Tpkg
                solution_packages.push(pkg)
                break
             end
-          end
+          end if pkg[:metadata][:dependencies]
           if can_unpack
             ret_val |= unpack(pkgfile, passphrase, :externals_to_skip => externals_to_skip)
           end
@@ -3393,6 +3411,7 @@ class Tpkg
       non_removable_pkg_files = []
       metadata_for_installed_packages.each do |metadata|
         next if pkg_files_to_remove.include?(metadata[:filename])
+        next if metadata[:dependencies].nil?
         metadata[:dependencies].each do |req|
           # We ignore native dependencies because there is no way a removal
           # can break a native dependency, we don't support removing native
@@ -3424,6 +3443,7 @@ class Tpkg
       pkg_files_to_remove = packages_to_remove.map { |pkg| pkg[:metadata][:filename] }
       metadata_for_installed_packages.each do |metadata|
         next if pkg_files_to_remove.include?(metadata[:filename])
+        next if metadata[:dependencies].nil?
         metadata[:dependencies].each do |req|
           # We ignore native dependencies because there is no way a removal
           # can break a native dependency, we don't support removing native
@@ -3434,7 +3454,7 @@ class Tpkg
               raise "Package #{metadata[:filename]} depends on #{req[:name]}"
             end
           end
-        end if metadata[:dependencies]
+        end
       end
     end
     
@@ -3893,7 +3913,9 @@ class Tpkg
     dependency_mapping = {}
     installed_packages.each do | pkg |
       metadata = pkg[:metadata]
+
       # Get list of pkgs that this pkg depends on
+      next if metadata[:dependencies].nil?
       depended_on = []
       metadata[:dependencies].each do |req|
         next if req[:type] == :native

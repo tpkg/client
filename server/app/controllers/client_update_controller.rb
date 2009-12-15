@@ -7,11 +7,14 @@ class ClientUpdateController < ApplicationController
   # of installed packages (in xml format)
   def create
     client_name = params[:client]
-    
-    # parse the xml POST data and generate a list of packages installed
+   
+    # parse the POST data and generate a list of packages installed
     # on this client
-    #packages = parse_xml_package(URI.unescape(params[:xml]), "packages/")
-    packages = parse_xml_package(URI.unescape(params[:xml]))
+    if params[:yml]
+      packages = parse_yml_package(URI.unescape(params[:yml]))
+    else
+      packages = parse_xml_package(URI.unescape(params[:xml]))
+    end
 
     # insert into DB if the packages are not there
     packages_id = Array.new
@@ -53,6 +56,7 @@ class ClientUpdateController < ApplicationController
   end
 
   protected
+  # TODO: clean up this mess. Too much hardcode and duplicate code
   def parse_xml_package(xml)
     #puts xml
     packages = Array.new
@@ -67,6 +71,25 @@ class ClientUpdateController < ApplicationController
       package["description"] = ele.elements["description"].text if ele.elements["description"]
       package["package_version"] = ele.elements["package_version"].text if ele.elements["package_version"]
       package["filename"] = ele.attributes["filename"]
+      packages << package
+    end
+    return packages
+  end
+
+#  PKG_ATTR = [:name, :version, :os, :arch, :maintainer, :description, :package_version, :filename]
+  def parse_yml_package(yml)
+    packages = Array.new
+    packages_yaml = YAML::load(yml)
+    packages_yaml.each do |pkg|
+      package = Hash.new
+      package["name"] = pkg[:name]
+      package["version"] = pkg[:version]
+      package["os"] = pkg[:operatingsystem].join(",") if pkg[:operatingsystem]
+      package["arch"] = pkg[:architecture].join(",") if pkg[:architecture]
+      package["maintainer"] = pkg[:maintainer]
+      package["description"] = pkg[:description] if pkg[:description]
+      package["package_version"] = pkg[:package_version] if pkg[:package_version]
+      package["filename"] = pkg[:filename]
       packages << package
     end
     return packages
