@@ -56,6 +56,7 @@ class ClientUpdateController < ApplicationController
   end
 
   protected
+  # TODO: clean up this mess. Too much hardcode and duplicate code
   def parse_xml_package(xml)
     #puts xml
     packages = Array.new
@@ -75,14 +76,22 @@ class ClientUpdateController < ApplicationController
     return packages
   end
 
-
-  PKG_ATTR = [:name, :version, :os, :arch, :maintainer, :description, :package_version, :filename]
+#  PKG_ATTR = [:name, :version, :os, :arch, :maintainer, :description, :package_version, :filename]
   def parse_yml_package(yml)
-     packages = YAML::load(yml)
-     packages.each do |pkg|
-       pkg.delete_if{|key,value| value.nil?}
-       pkg.delete_if{|key,value| !PKG_ATTR.include?(key)}
-     end
-     return packages
+    packages = Array.new
+    packages_yaml = YAML::load(yml)
+    packages_yaml.each do |pkg|
+      package = Hash.new
+      package["name"] = pkg[:name]
+      package["version"] = pkg[:version]
+      package["os"] = pkg[:operatingsystem].join(",") if pkg[:operatingsystem]
+      package["arch"] = pkg[:architecture].join(",") if pkg[:architecture]
+      package["maintainer"] = pkg[:maintainer]
+      package["description"] = pkg[:description] if pkg[:description]
+      package["package_version"] = pkg[:package_version] if pkg[:package_version]
+      package["filename"] = pkg[:filename]
+      packages << package
+    end
+    return packages
   end
 end
