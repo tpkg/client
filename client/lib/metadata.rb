@@ -215,7 +215,7 @@ class Metadata
       metadata_xml.elements.each("/tpkg/#{arrayfield.to_s}") do |af|
         array.concat(af.text.split(/\s*,\s*/))
       end
-      metadata_hash[arrayfield] = array
+      metadata_hash[arrayfield] = array unless array.empty?
     end
 
     deps = []
@@ -233,7 +233,7 @@ class Metadata
       end
       deps << dep
     end
-    metadata_hash[:dependencies] = deps
+    metadata_hash[:dependencies] = deps unless deps.empty?
     
     conflicts = []
     metadata_xml.elements.each('/tpkg/conflicts/conflict') do |conflictxml|
@@ -250,7 +250,7 @@ class Metadata
       end
       conflicts << conflict
     end
-    metadata_hash[:conflicts] = conflicts
+    metadata_hash[:conflicts] = conflicts unless conflicts.empty?
 
     externals = []
     metadata_xml.elements.each('/tpkg/externals/external') do |extxml|
@@ -271,7 +271,7 @@ class Metadata
       end
       externals << external
     end
-    metadata_hash[:externals] = externals
+    metadata_hash[:externals] = externals unless externals.empty?
 
     metadata_hash[:files] = {}
     file_defaults = {}
@@ -297,7 +297,7 @@ class Metadata
       end
       file_defaults[:posix] = posix
     end
-    metadata_hash[:files][:file_defaults] = file_defaults 
+    metadata_hash[:files][:file_defaults] = file_defaults unless file_defaults.empty?
 
     dir_defaults = {}
     if metadata_xml.elements['/tpkg/files/dir_defaults/posix']
@@ -321,7 +321,7 @@ class Metadata
       end
       dir_defaults[:posix] = posix
     end
-    metadata_hash[:files][:dir_defaults] = dir_defaults
+    metadata_hash[:files][:dir_defaults] = dir_defaults unless dir_defaults.empty?
 
     files = []
     metadata_xml.elements.each('/tpkg/files/file') do |filexml|
@@ -380,7 +380,7 @@ class Metadata
       end
       files << file
     end
-    metadata_hash[:files][:files] = files
+    metadata_hash[:files][:files] = files unless files.empty?
 
     return metadata_hash
   end

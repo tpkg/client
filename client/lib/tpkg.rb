@@ -594,7 +594,7 @@ class Tpkg
         metadata.root << md
       end
       # And write that out to metadata.xml
-      metadata_tmpfile = Tempfile.new('metadata.xml', directory)
+      metadata_tmpfile = Tempfile.new('metadata.xml', dest)
       metadata.write(metadata_tmpfile)
       metadata_tmpfile.close
       File.chmod(0644, metadata_tmpfile.path)
