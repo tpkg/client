@@ -23,6 +23,8 @@
 .IR PACKAGES ]
 .RB [ --rd
 .IR PACKAGES ]
+.RB [ --rp
+.IR PACKAGES ]
 .RB [ --ra ]
 .RB [ --verify | \-V ]
 .RB [ --start
@@ -121,6 +123,9 @@ Remove the specified packages.  Packages specified as with --install.
 .TP
 .BI --rd " PACKAGES"
 Similar to --remove|\-r but also remove all depending packages.
+.TP
+.BI --rp " PACKAGES"
+Similar to --remove|\-r but also remove all prerequisite packages.
 .TP
 .B --ra
 Remove all installed packages.
