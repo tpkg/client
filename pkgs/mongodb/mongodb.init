@@ -1,0 +1,48 @@
+#!/bin/sh
+
+# Init file for mongod
+
+pidfile=/home/t/var/run/mongodb.pid
+
+case "$1" in
+'start')
+	echo "Starting mongodb"
+	if [ ! -f /home/t/var/log/mongodb.log ]
+	then
+		# Give 't' permission to write to log file
+		touch /home/t/var/log/mongodb.log
+		chown t /home/t/var/log/mongodb.log
+	fi
+	startout=`mktemp /tmp/mongodstart.XXXXXX`
+	chown t $startout
+	su t -s /bin/sh -c "/home/t/bin/mongod --fork --logpath /home/t/var/log/mongodb.log --logappend --config /home/t/etc/mongodb.conf > $startout 2>&1"
+	pid=`grep 'forked process:' $startout | awk '{print $NF}'`
+	if [ -n "$pid" ]
+	then
+		echo $pid > $pidfile
+	fi
+	rm -f $startout
+	;;
+
+'stop')
+	if [ -f $pidfile ]
+	then
+		echo "Stopping mongodb"
+		kill `cat $pidfile`
+		rm -f $pidfile
+	else
+		echo "No pid file for mongodb"
+	fi
+	;;
+
+'restart')
+	$0 stop
+	$0 start
+	;;
+*)
+	echo "Usage: $0 { start | stop | restart }"
+	exit 1
+	;;
+esac
+exit 0
+
