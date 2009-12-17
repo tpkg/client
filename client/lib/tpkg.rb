@@ -560,14 +560,20 @@ class Tpkg
     existing_metadata = {}
 
     if File.exists?(existing_metadata_file)
-      metadata_contents = File.read(File.join(directory, 'metadata.yml'))
-      Metadata::get_pkgs_metadata_from_yml_doc(metadata_contents, existing_metadata)
+      metadata_lists = File.read(File.join(directory, 'metadata.yml')).split("---")
+      metadata_lists.each do | metadata_text |
+        if metadata_text =~ /^:?filename:(.+)/
+           filename = $1.strip
+           existing_metadata[filename] = Metadata.new(metadata_text,'yml')
+        end
+      end
     end
 
     # Populate the metadata array with metadata for all of the packages
     # in the given directory. Reuse existing metadata if possible.
     Dir.glob(File.join(directory, '*.tpkg')) do |pkg|
       if existing_metadata[File.basename(pkg)]
+puts "Existing #{pkg}"
         metadata << existing_metadata[File.basename(pkg)]
       else
         metadata_yml = metadata_from_package(pkg)
@@ -577,7 +583,7 @@ class Tpkg
 
     return metadata
   end
-  
+
   # Extracts the metadata from a directory of package files and saves it
   # to metadata.xml in that directory
   def self.extract_metadata(directory, dest=nil)
@@ -698,6 +704,8 @@ class Tpkg
       # A req for a native package must be satisfied by a native package
       puts "Package fails native requirement" if @@debug
       result = false
+    elsif req[:filename]
+      result = false if req[:filename] != metadata[:filename]
     elsif (!req[:type] || req[:type] == :tpkg) &&
           (pkg[:source] == :native_installed || pkg[:source] == :native_available)
       # Likewise a req for a tpkg must be satisfied by a tpkg
@@ -963,18 +971,11 @@ class Tpkg
     req = {}
     parts = request.split('=')
 
-    # upgrade/remove/query options should take package filenames
-    # First, look inside installed dir to see if we can find the request package. This is to support
-    # request that uses package filename rather than package name
-    if installed_dir && File.exists?(File.join(installed_dir, request))
-      metadata = Tpkg::metadata_from_package(File.join(installed_dir, request))
-      req[:name] = metadata[:name]
-      req[:minimum_version] = metadata[:version].to_s
-      req[:maximum_version] = metadata[:version].to_s
-      if metadata[:package_version] && !metadata[:package_version].to_s.empty? 
-        req[:minimum_package_version] = metadata[:package_version].to_s
-        req[:maximum_package_version] = metadata[:package_version].to_s
-      end
+    # upgrade/remove/query options could take package filenames
+    # assuming that the filename is of the correct format, such as
+    # foo-1.0.tpkg or foo-1.0-1.tpkg
+    if request =~ /\.tpkg$/
+      req = {:filename => request, :name => request.split("-")[0]}
     elsif parts.length > 2 && parts[-2] =~ /^[\d\.]/ && parts[-1] =~ /^[\d\.]/
       package_version = parts.pop
       version = parts.pop
@@ -1032,21 +1033,22 @@ class Tpkg
     end
   end
 
-  def self.extract_tpkgxml(package_file)
+  def self.extract_tpkg_metadata_file(package_file)
     result = ""
     workdir = ""
     begin
       topleveldir = Tpkg::package_toplevel_directory(package_file)
       workdir = Tpkg::tempdir(topleveldir)
       system("#{find_tar} -xf #{package_file} -O #{File.join(topleveldir, 'tpkg.tar')} | #{find_tar} -C #{workdir} -xpf -")
-
-      if !File.exist?(File.join(workdir,"tpkg", "tpkg.xml"))
-        raise "#{package_file} does not contain tpkg.xml"
+     
+      if File.exist?(File.join(workdir,"tpkg", "tpkg.yml"))
+        metadata_file = File.join(workdir,"tpkg", "tpkg.yml")
+      elsif File.exist?(File.join(workdir,"tpkg", "tpkg.xml"))
+        metadata_file = File.join(workdir,"tpkg", "tpkg.xml")
       else
-        File.open(File.join(workdir,"tpkg", "tpkg.xml"), "r") do | f |
-          result = f.read
-        end
+        raise "#{package_file} does not contain metadata configuration file."
       end
+      result = File.read(metadata_file)
     rescue
       puts "Failed to extract package."
     ensure
@@ -2782,6 +2784,7 @@ class Tpkg
     
     requests.each do |request|
       puts "parse_requests processing #{request.inspect}" if @@debug
+
       if request =~ /^[-\w=<>\d\.]+$/ && !File.file?(request)  # basic package specs ('foo' or 'foo=1.0')
         puts "parse_requests request looks like package spec" if @@debug
 
@@ -2824,7 +2827,7 @@ class Tpkg
         packages[req[:name]] = [pkg]
       end
     end
-    
+
     requirements.concat(newreqs)
     newreqs
   end
@@ -3790,7 +3793,6 @@ class Tpkg
   def execute_init_for_package(pkg, action)
     ret_val = 0
     init_scripts_metadata = init_scripts(pkg[:metadata])
-
     # warn if there's no init script and then return
     if init_scripts_metadata.nil? || init_scripts_metadata.empty?
       warn "Warning: There is no init script for #{pkg[:metadata][:name]}"

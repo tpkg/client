@@ -178,8 +178,8 @@ opts.on('--dw', '=INTEGER', 'Number of workers for deploying') do |opt|
   @worker_count = opt.to_i
   @deploy_params = @deploy_params - ['--dw', @worker_count, "--dw=#{opt}"]
 end
-opts.on('--qX', '=FILENAME', 'Display tpkg.xml of the given package') do |opt|
-  @action = :query_tpkgxml
+opts.on('--qX', '=FILENAME', 'Display tpkg.xml or tpkg.yml of the given package') do |opt|
+  @action = :query_tpkg_metadata
   @action_value = opt
 end
 opts.on('--qenv', "Display machine's information") do |opt|
@@ -498,6 +498,7 @@ when :query_requires
       next if pkg[:source] != :currently_installed
       puts "The following package(s) require #{pkg[:metadata][:filename]}:"
       dependencies.each do | requiree, deps |
+        next if deps.nil?
         deps.each do | dep | 
           if Tpkg::package_meets_requirement?(pkg, dep)
             puts "  #{requiree}"
@@ -546,12 +547,14 @@ when :query_depends
       end
     end
   end
-when :query_tpkgxml
+when :query_tpkg_metadata
   tpkg = instantiate_tpkg(@tpkg_options)
-  if !File.exist?(@action_value)
-    puts "File #{@action_value} doesn't exist."
+  if File.exist?(@action_value)
+    puts Tpkg::extract_tpkg_metadata_file(@action_value)
+  elsif File.exists?(File.join(tpkg.installed_directory, @action_value))
+    puts Tpkg::extract_tpkg_metadata_file(File.join(tpkg.installed_directory, @action_value))
   else
-    puts Tpkg::extract_tpkgxml(@action_value)
+    puts "File #{@action_value} doesn't exist."
   end
 when :query_env
   puts "Operating System: #{Tpkg::get_os}"

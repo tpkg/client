@@ -560,7 +560,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
     FileUtils.rm_f(apkg)
     tpkg.parse_requests(File.basename(apkg), requirements, packages)
     assert_equal(1, requirements.length)
-    assert_equal(5, requirements.first.length)  # name, min ver, max ver, min package version, max package version
+    assert_equal(2, requirements.first.length)  # name, filename
     assert_equal('a', requirements.first[:name])
     assert_equal('2.0', requirements.first[:minimum_version])
     assert_equal('2.0', requirements.first[:maximum_version])
