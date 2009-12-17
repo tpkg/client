@@ -87,10 +87,6 @@ done
 # Make package
 sudo tpkg --make $pkgdir
 
-# Rename the package to reflect OS and arch
-sudo mv /tmp/$PKG-$VER-$PKGVER.tpkg \
-  /tmp/$PKG-$VER-$PKGVER-redhat$OSMAJOR-$ARCH.tpkg
-
 # Cleanup
 sudo rm -rf $pkgdir
 cd ..

@@ -34,9 +34,6 @@ make install DESTDIR=$pkgdir/root
 
 # Make package
 tpkg --make $pkgdir
-# Rename the package to reflect OS and arch
-mv /tmp/$PKG-$VER-$PKGVER.tpkg \
-	/tmp/$PKG-$VER-$PKGVER-redhat$OSMAJOR-$ARCH.tpkg
 # Cleanup
 rm -rf $pkgdir
 cd ..

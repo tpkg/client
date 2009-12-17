@@ -65,8 +65,6 @@ do
 			rmdir instantclient_* || exit 1
 			# Make package
 			tpkg --make $pkgdir || exit 1
-			# Rename the package to reflect OS and arch
-			mv /tmp/$PKG-$component-$ver-$PKGVER.tpkg /tmp/$PKG-$component-$ver-$PKGVER-redhat-$arch.tpkg
 			# Cleanup
 			rm -rf $pkgdir
 		done

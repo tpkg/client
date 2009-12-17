@@ -25,8 +25,6 @@ do
 	make altinstall DESTDIR=$pkgdir/root || exit 1
 	# Make package
 	tpkg --make $pkgdir || exit 1
-	# Rename the package to reflect OS and arch
-	mv /tmp/$PKG-$ver-$PKGVER.tpkg /tmp/$PKG-$ver-$PKGVER-redhat$OSMAJOR-$ARCH.tpkg
 	# Cleanup
 	rm -rf $pkgdir
 	cd ..

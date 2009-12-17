@@ -54,8 +54,6 @@ chmod 444 $pkgdir/reloc/etc/monit/sample || exit 1
 make install prefix=$pkgdir/reloc exec_prefix=$pkgdir/reloc || exit 1
 # Make package
 tpkg --make $pkgdir || exit 1
-# Rename the package to reflect OS and arch
-mv /tmp/$PKG-$VER-$PKGVER.tpkg /tmp/$PKG-$VER-$PKGVER-redhat$OSMAJOR-$ARCH.tpkg
 # Cleanup
 rm -rf $pkgdir
 cd ..

@@ -93,8 +93,6 @@ do
 		find $pkgdir/root/home/t -type f | xargs chmod g-w,o+rX
 		# Make package
 		tpkg --make $pkgdir || exit 1
-		# Rename the package to reflect OS and arch
-		mv /tmp/$PKG-$ver-$PKGVER.tpkg /tmp/$PKG-$ver-$PKGVER-redhat-$arch.tpkg
 		# Cleanup
 		rm -rf $pkgdir
 	done
