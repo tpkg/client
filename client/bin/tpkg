@@ -418,6 +418,8 @@ when :query_info
     next if already_displayed[metadata[:filename]]
     already_displayed[metadata[:filename]] = true
     [:name, :version, :package_version, :operatingsystem, :architecture, :maintainer, :description, :bugreporting].each do |field|
+      metadata[field] = 'any' if field == :operatingsystem && metadata[field].nil?
+      metadata[field] = 'any' if field == :architecture && metadata[field].nil?
       if metadata[field]
         if metadata[field].kind_of?(Array)
           puts "#{field}: #{metadata[field].join(',')}"
@@ -426,6 +428,10 @@ when :query_info
         end
       end
     end
+    if metadata[:dependencies] 
+      puts "This package depends on other packages, use --qd/--qld to view the dependencies."
+    end
+    puts "================================================================================"
   end
 when :query_list_files
   tpkg = instantiate_tpkg(@tpkg_options)
