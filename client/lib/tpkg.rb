@@ -1348,34 +1348,35 @@ puts "Existing #{pkg}"
           {:arg => 'available', :header => 'Available', :source => :native_available} ].each do |yum|
           puts "available_native_packages running 'yum list #{yum[:arg]} #{pkgname}'" if @@debug
           stderr_first_line = nil
-          Open3.popen3("yum list #{yum[:arg]} #{pkgname}") do |stdin, stdout, stderr|
+          Open3.popen3("yum info #{yum[:arg]} #{pkgname}") do |stdin, stdout, stderr|
             stdin.close
             read_packages = false
+            name = version = package_version = nil
             stdout.each_line do |line|
               if line =~ /#{yum[:header]} Packages/
                 # Skip the header lines until we get to this line
                 read_packages = true
               elsif read_packages
-                name_and_arch, ver_and_release, repo = line.split
+                if line =~ /^Name\s+:\s+(.+)/
+                  name = $1.strip
+                elsif line =~ /^Arch\s+:\s+(.+)/
+                  arch = $1.strip
+                elsif line =~ /^Version\s+:\s+(.+)/
+                  version = $1.strip.to_s
+                elsif line =~ /^Release\s+:\s+(.+)/
+                  package_version = $1.strip.to_s
+                elsif line =~ /^Repo\s+:\s+(.+)/
+                  repo = $1.strip
+                elsif line =~ /^\s*$/
+                  pkg = pkg_for_native_package(name, version, package_version, yum[:source])
+                  native_packages << pkg
+                  name = version = package_version = nil 
+                end
                 # In the end we ignore the architecture.  Anything that
                 # shows up in yum should be installable on this box, and
                 # the chance of a mismatch between facter's idea of the
                 # architecture and RPM's idea is high.  I.e. i386 vs i686
                 # or i32e vs x86_64 or whatever.
-                name, arch = name_and_arch.split('.')
-                # This is prone to error, as both the version and release
-                # (what we call package version) could contain '-', so
-                # there's no reliable way to parse the combined value.
-                # RPM can show them separately, but seemingly not yum.
-                # We could use rpm to list installed packages, but we
-                # have to use yum to get available packages so we're
-                # stuck with the problem.
-                verparts = ver_and_release.split('-')
-                package_version = verparts.pop
-                version = verparts.join('-')
-                # Create the pkg structure
-                pkg = pkg_for_native_package(name, version, package_version, yum[:source])
-                native_packages << pkg
               end
             end
             stderr_first_line = stderr.gets
