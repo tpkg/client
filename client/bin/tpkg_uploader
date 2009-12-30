@@ -1,0 +1,123 @@
+#!/usr/bin/ruby -w
+
+# Simple script for uploading packages to a tpkg server.
+# Requires curl in order to work
+
+require 'ping'
+require 'tempfile'  
+require 'optparse'
+require 'etc'
+require 'uri'
+
+##########################################################################
+# Set these variables to the appropriate values that suit your environment
+authentication_url = "http://localhost:3000/login"
+tpkg_upload_url = "http://localhost:3000/uploads/create"
+proxy_server = "proxy.yellowpages.local:8080"
+##########################################################################
+
+username = Etc.getlogin
+password = nil
+files_to_upload = nil
+proxy = ""
+cookie_file = nil
+opts = OptionParser.new
+opts.banner = 'Usage: tpkg [options]'
+opts.on('-u', '--username USERNAME', 'Your username') do |opt|
+  username = opt
+end
+opts.on('-p', '--password PASSWORD', 'Your password') do |opt|
+  password = opt
+end
+opts.on('-f', '--file FILES', Array, 'Comma-separated list of files you want to upload') do |opt|
+  files_to_upload = opt
+end
+opts.on('--source_dir DIR', 'Directory containing *.tpkg files that you want to upload') do |opt|
+  if !File.directory?(opt)
+    raise "#{opt} is not a directory"
+  else
+    files_to_upload = Dir.glob(File.join(opt, '*.tpkg'))
+  end
+end
+opts.on('-x', '--proxy PROXY', 'Proxy to connect to tpkg server (if needed)') do |opt|
+  proxy = "--proxy #{opt}"
+end
+opts.on('--cookie FILE', 'Path where cookie is stored') do |opt|
+  cookie_file = opt
+end
+
+opts.on_tail("-h", "--help", "Show this message") do
+  puts opts
+  exit
+end
+
+opts.parse(ARGV)
+
+# Authenticate against tpkg server either using existing cookie file (saved from curl)
+# or username/password
+# To save cookie file, use the following curl command
+#    curl https://myserver/login --data 'login=username&password=password' -k -c path_to_save_the_cookie
+
+if cookie_file
+  if !File.exists?(cookie_file)
+    puts "Cookie file doesn't exist" 
+    exit
+  end
+else
+  # ask for username and password if user doesn't specify it
+  if username.nil?
+    print "Enter your username: "
+    username = STDIN.gets.chomp
+  end
+
+  if password.nil?
+    begin
+      system 'stty -echo'
+      print "Enter your password: "
+      password = STDIN.gets.chomp
+    ensure
+      system 'stty echo; echo ""'
+    end
+  end
+
+  curl_config=Tempfile.new("curl_config")
+  cookie_file=Tempfile.new("cookie").path
+
+  # See if we can talk to the authentication server. If not, we might need to use a proxy
+  if (proxy.nil? || proxy.empty?) && !Ping.pingecho(URI.parse(authentication_url).host, 2)
+    proxy = "--proxy #{proxy_server}"
+    puts "Can't connect to authentication server directly. Trying to connect via #{proxy}."
+  end
+
+  # We need to authenticate against the server first in order to get a cookie
+  # To prevent username and password showing up when we call
+  # curl, we will tell curl to look it up from a config file
+  config="data = \"login=#{username}&password=#{password}\""
+  File.open(curl_config.path, 'w') {|f| f.write(config) }
+  result = `curl #{authentication_url} -K #{curl_config.path} -k -c #{cookie_file} #{proxy}`
+  if result =~ /failed/
+    puts "Failed to authenticate."
+    exit
+  end
+end
+
+# Get file to upload
+if files_to_upload.nil?
+  print "Specify the file you want to upload: "
+  files_to_upload = [STDIN.gets.chomp]
+end
+
+# Do the actual upload
+files_to_upload.each do | file |
+  # check if file exists
+  if File.file?(file)
+    file = File.expand_path(file)
+  else
+    puts "File doesn't exist"
+    exit
+  end
+
+  puts "Uploading #{file}"
+  out=`curl -b #{cookie_file} -F upload[upload]=@#{file} #{tpkg_upload_url}`
+  puts out
+end
