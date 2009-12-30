@@ -1,4 +1,21 @@
 ActionController::Routing::Routes.draw do |map|
+  map.logout '/logout', :controller => 'sessions', :action => 'destroy'
+#  map.login '/login', :controller => 'sessions', :action => 'new'
+  map.register '/register', :controller => 'users', :action => 'create'
+  map.signup '/signup', :controller => 'users', :action => 'new'
+  map.activate '/activate/:activation_code', :controller => 'users',
+                    :action => 'activate', :activation_code => nil
+
+  map.with_options :controller => 'sessions' do |session|
+    session.login 'login', :action => 'new', :conditions => {:method => :get}
+    session.login 'login', :action => 'create', :conditions => {:method => :post}
+  end
+
+  map.resources :users, :member => { :suspend   => :put,
+                                   :unsuspend => :put,
+                                   :purge     => :delete }
+  map.resource :session
+
   map.resources :packages,                             :collection => { :field_names => :get, :search => :get, :download => :get }, :member => { :version_history => :get }
   map.resources :clients,                             :collection => { :field_names => :get, :search => :get }, :member => { :version_history => :get }
   map.resources :uploads, :collection => { :swfupload => :post }

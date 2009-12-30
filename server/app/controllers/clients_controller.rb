@@ -1,4 +1,5 @@
 class ClientsController < ApplicationController
+  before_filter :login_required
 
   # list out the clients
   def index

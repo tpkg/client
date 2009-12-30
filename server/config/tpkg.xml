@@ -21,8 +21,8 @@
     </dependency>
     <dependency>
       <name>tpkg</name>
-      <minimum_version>1.13</minimum_version>
-      <maximum_version>1.13</maximum_version>
+      <minimum_version>1.16</minimum_version>
+      <maximum_version>1.16</maximum_version>
     </dependency>
     <dependency>
       <name>logrotate</name>

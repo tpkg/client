@@ -17,6 +17,6 @@ config.action_controller.perform_caching             = false
 config.action_mailer.raise_delivery_errors = true
 config.action_mailer.delivery_method = :smtp
 config.action_mailer.smtp_settings = {
-  :address => "smtp.example.com",
-  :domain => "example.com",
+  :address => "mailrelay.wc1.yellowpages.com",
+  :domain => "yellowpages.com",
 }

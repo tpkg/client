@@ -1,7 +1,8 @@
 require 'rexml/document'
 
 class PackagesController < ApplicationController
-  skip_before_filter :verify_authenticity_token
+  before_filter :login_required
+#  skip_before_filter :verify_authenticity_token
 
   # lists out all packages
   def index
