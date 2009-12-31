@@ -1,4 +1,5 @@
 require 'yaml'
+require 'rexml/document'
 
 module SymbolizeKeys
 
@@ -176,7 +177,7 @@ class Metadata
   end
 
   def metadata_xml_to_hash
-    # Don't do anything if metadata is from xml file
+    # Don't do anything if metadata is not from xml file
     return if @format != "xml"
 
     metadata_hash = {}
