@@ -241,8 +241,8 @@ class Tpkg
       # by the package. For example, checksum, path, relocatable or not, etc.
       File.open(File.join(tpkgdir, "file_metadata.bin"), "w") do |file|
         filemetadata = get_filemetadata_from_directory(tpkgdir)
-        Marshal::dump(filemetadata.hash, file)
-#        YAML::dump(filemetadata.hash, file)  
+        Marshal::dump(filemetadata.to_hash, file)
+#        YAML::dump(filemetadata.to_hash, file)  
       end
 
       # Check all the files are there as specified in the metadata config file
@@ -611,7 +611,7 @@ puts "Existing #{pkg}"
     # And write that out to metadata.yml
     metadata_tmpfile = Tempfile.new('metadata.yml', dest)
     metadata.each do | metadata |
-      YAML::dump(metadata.hash, metadata_tmpfile)  
+      YAML::dump(metadata.to_hash, metadata_tmpfile)  
     end
     metadata_tmpfile.close
     File.chmod(0644, metadata_tmpfile.path)
@@ -1632,7 +1632,7 @@ puts "Existing #{pkg}"
             begin
               FileUtils.mkdir_p(package_metadata_dir)
               File.open(metadata_file, "w") do |file|
-                YAML::dump(m.hash, file)
+                YAML::dump(m.to_hash, file)
               end
             rescue Errno::EACCES
               raise if Process.euid == 0
@@ -2721,7 +2721,7 @@ puts "Existing #{pkg}"
       end
       
       file = File.open(File.join(package_metadata_dir, "file_metadata.bin"), "w")
-      Marshal.dump(file_metadata.hash, file)
+      Marshal.dump(file_metadata.to_hash, file)
       file.close
     else
       warn "Warning: package #{File.basename(package_file)} does not include file_metadata information."
@@ -3196,7 +3196,7 @@ puts "Existing #{pkg}"
         metadata_for_installed_packages.each do | metadata |
           metadata[:dependencies].each do | dep |
             if dep[:name] == req[:name]
-              additional_requirements << metadata.hash
+              additional_requirements << metadata.to_hash
             end
           end if metadata[:dependencies]
         end
@@ -3883,7 +3883,7 @@ puts "Existing #{pkg}"
 
   # TODO: update server side to accept yaml data
   def send_update_to_server
-    metadata = metadata_for_installed_packages.collect{|metadata| metadata.hash}
+    metadata = metadata_for_installed_packages.collect{|metadata| metadata.to_hash}
     yml = YAML.dump(metadata)
     begin
       update_uri =  URI.parse("#{@report_server}")

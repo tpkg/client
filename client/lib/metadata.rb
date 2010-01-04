@@ -87,14 +87,14 @@ class Metadata
   end
 
   def [](key)
-    return hash[key]
+    return to_hash[key]
   end
 
   def []=(key,value)
-    hash[key]=value
+    to_hash[key]=value
   end
 
-  def hash
+  def to_hash
     if @hash  
       return @hash 
     end
@@ -109,18 +109,18 @@ class Metadata
   end
 
   def write(file)
-    YAML::dump(hash, file)
+    YAML::dump(to_hash, file)
   end
 
   def get_files_list
   end
 
   def generate_package_filename
-    name = hash[:name]
-    version = hash[:version]
+    name = to_hash[:name]
+    version = to_hash[:version]
     packageversion = nil
-    if hash[:package_version] && !hash[:package_version].to_s.empty?
-      packageversion = hash[:package_version]
+    if to_hash[:package_version] && !to_hash[:package_version].to_s.empty?
+      packageversion = to_hash[:package_version]
     end
     package_filename = "#{name}-#{version}"
     if packageversion
@@ -128,11 +128,11 @@ class Metadata
     end
 
 
-    if hash[:operatingsystem] and !hash[:operatingsystem].empty?
-      if hash[:operatingsystem].length == 1
-        package_filename << "-#{Metadata::clean_for_filename(hash[:operatingsystem].first)}"
+    if to_hash[:operatingsystem] and !to_hash[:operatingsystem].empty?
+      if to_hash[:operatingsystem].length == 1
+        package_filename << "-#{Metadata::clean_for_filename(to_hash[:operatingsystem].first)}"
       else
-        operatingsystems = hash[:operatingsystem].dup
+        operatingsystems = to_hash[:operatingsystem].dup
         # Genericize any equivalent operating systems
         # FIXME: more generic handling of equivalent OSs is probably called for
         operatingsystems.each do |os|
@@ -155,9 +155,9 @@ class Metadata
         end
       end
     end
-    if hash[:architecture] and !hash[:architecture].empty?
-      if hash[:architecture].length == 1
-        package_filename << "-#{Metadata::clean_for_filename(hash[:architecture].first)}"
+    if to_hash[:architecture] and !to_hash[:architecture].empty?
+      if to_hash[:architecture].length == 1
+        package_filename << "-#{Metadata::clean_for_filename(to_hash[:architecture].first)}"
       else
         package_filename << "-multiarch"
       end
@@ -168,9 +168,9 @@ class Metadata
 
   def verify_required_fields
     REQUIRED_FIELDS.each do |reqfield|
-      if hash[reqfield].nil?
+      if to_hash[reqfield].nil?
         raise "Required field #{reqfield} not found"
-      elsif hash[reqfield].to_s.empty?
+      elsif to_hash[reqfield].to_s.empty?
         raise "Required field #{reqfield} is empty"
       end
     end
@@ -388,13 +388,13 @@ class Metadata
 end
 
 class FileMetadata < Metadata
-  def hash
+  def to_hash
     if @hash
       return @hash
     end
 
     if @format == 'bin'
-      @hash = Marshal::load(@metadata_text)
+      hash = Marshal::load(@metadata_text)
       @hash = hash.extend(SymbolizeKeys)
     elsif @format == 'yml'
       hash = YAML::load(@metadata_text)

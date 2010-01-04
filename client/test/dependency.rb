@@ -543,7 +543,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
     requirements.clear
     packages.clear
     
-    # Test with a given filename rather than a package spec
+    # Test with a given filename (full path to the actual package)  rather than a package spec
     apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '2.0' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
     tpkg.parse_requests(apkg, requirements, packages)
     assert_equal(1, requirements.length)
@@ -562,10 +562,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
     assert_equal(1, requirements.length)
     assert_equal(2, requirements.first.length)  # name, filename
     assert_equal('a', requirements.first[:name])
-    assert_equal('2.0', requirements.first[:minimum_version])
-    assert_equal('2.0', requirements.first[:maximum_version])
-    assert_equal('1', requirements.first[:minimum_package_version])
-    assert_equal('1', requirements.first[:maximum_package_version])
+    assert_equal(File.basename(apkg), requirements.first[:filename])
     assert_equal(1, packages['a'].length)
     requirements.clear
     packages.clear

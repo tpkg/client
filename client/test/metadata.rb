@@ -200,7 +200,7 @@ class TpkgMetadataTests < Test::Unit::TestCase
     assert_equal(1, tpkg.available_packages['testpkg'].length)
     expected = Tpkg::metadata_from_package(@pkgfile)
     actual = tpkg.available_packages['testpkg'].first[:metadata]
-    assert_equal(expected.hash, actual.hash)
+    assert_equal(expected.to_hash, actual.to_hash)
     pkgs = tpkg.available_packages.collect {|m| m[1]}.flatten
     assert_equal(1, pkgs.length)
 
@@ -208,7 +208,7 @@ class TpkgMetadataTests < Test::Unit::TestCase
     assert_equal(1, tpkg.available_packages['testpkg2'].length)
     expected = Tpkg::metadata_from_package(pkgfile2)
     actual = tpkg.available_packages['testpkg2'].first[:metadata]
-    assert_equal(expected.hash, actual.hash)
+    assert_equal(expected.to_hash, actual.to_hash)
     pkgs = tpkg.available_packages.collect {|m| m[1]}.flatten
     assert_equal(2, pkgs.length)
 
