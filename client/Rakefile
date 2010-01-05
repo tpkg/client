@@ -238,7 +238,7 @@ task :deb do
 end
 
 desc 'Build tpkg client SysV packages for Solaris'
-task :solaris => [:sysvpkg, :sysvpkgsparc]
+task :solaris => [:sysvpkg]
 desc 'Build an tpkg client SysV package'
 task :sysvpkg do
   #
