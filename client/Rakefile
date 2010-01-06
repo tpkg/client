@@ -417,8 +417,11 @@ task :tpkgpkg do
   #
   
   rm_rf(BUILDROOT)
+
+  libdir = ENV['libdir'].nil?? File.join('home', 't', 'lib', 'site_ruby', '1.8') : File.join('root', ENV['libdir'])
+
   copy_tpkg_files(BUILDROOT,
-                  :libdir => 'lib',
+                  :libdir => libdir,
                   :copythirdparty => true)
   
   #
