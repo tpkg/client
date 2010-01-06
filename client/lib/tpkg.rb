@@ -1357,15 +1357,15 @@ puts "Existing #{pkg}"
                 # Skip the header lines until we get to this line
                 read_packages = true
               elsif read_packages
-                if line =~ /^Name\s+:\s+(.+)/
+                if line =~ /^Name\s*:\s*(.+)/
                   name = $1.strip
-                elsif line =~ /^Arch\s+:\s+(.+)/
+                elsif line =~ /^Arch\s*:\s*(.+)/
                   arch = $1.strip
-                elsif line =~ /^Version\s+:\s+(.+)/
+                elsif line =~ /^Version\s*:\s*(.+)/
                   version = $1.strip.to_s
-                elsif line =~ /^Release\s+:\s+(.+)/
+                elsif line =~ /^Release\s*:\s*(.+)/
                   package_version = $1.strip.to_s
-                elsif line =~ /^Repo\s+:\s+(.+)/
+                elsif line =~ /^Repo\s*:\s*(.+)/
                   repo = $1.strip
                 elsif line =~ /^\s*$/
                   pkg = pkg_for_native_package(name, version, package_version, yum[:source])

@@ -23,7 +23,7 @@ class UploadsController < ApplicationController
   def create
     # Standard, one-at-a-time, upload action
     @upload = Upload.new(params[:upload])
-    @upload.uploader = @current_user.login
+    @upload.uploader = session[:username]
     pkgfile = @upload.save!
 
     #redirect_to uploads_url
@@ -35,7 +35,7 @@ class UploadsController < ApplicationController
   def swfupload
     # swfupload action set in routes.rb
     @upload = Upload.new(:upload => params[:Filedata])
-    @upload.uploader = @current_user.login
+    @upload.uploader = session[:username]
     pkgfile = @upload.save!
 
     # This returns the thumbnail url for handlers.js to use to display the thumbnail
