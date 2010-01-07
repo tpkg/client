@@ -13,7 +13,7 @@ require 'uri'
 # Set these variables to the appropriate values that suit your environment
 authentication_url = "http://localhost:3000/login"
 tpkg_upload_url = "http://localhost:3000/uploads/create"
-proxy_server = "proxy.yellowpages.local:8080"
+proxy_server = "proxy.local:8080"
 ##########################################################################
 
 username = Etc.getlogin
