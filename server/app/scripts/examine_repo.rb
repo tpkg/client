@@ -3,7 +3,7 @@ require 'utils'
 
 class ExamineRepo < ActiveRecord::Base
   present_files = []
-  Dir.glob(File.join(Upload::UPLOAD_PATH, '*.tpkg')) do | file |
+  Dir.glob(File.join(AppConfig.upload_path, '*.tpkg')) do | file |
     present_files << File.basename(file)
   end
   existing_uploads = Upload.find(:all, :select => :upload_file_name).collect{ | upload | upload.upload_file_name}
