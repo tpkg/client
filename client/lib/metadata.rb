@@ -102,6 +102,12 @@ class Metadata
     if @format == 'yml'
       hash = YAML::load(@metadata_text)
       @hash = hash.extend(SymbolizeKeys)
+
+      # We need this for backward compatibility. With xml, we specify
+      # native dependency as type: :native rather then native: true
+      @hash[:dependencies].each do | dep |
+        dep[:type] = :native if dep[:native]
+      end if @hash[:dependencies]
     else
       @hash = metadata_xml_to_hash
     end
