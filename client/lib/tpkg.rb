@@ -1277,13 +1277,12 @@ puts "Existing #{pkg}"
       if @@debug
         @sources.each do |source|
           count = metadata.inject(0) do |memo,m|
-                    # metadata is a hash of pkgname => array of metadata
-                    # hashes
+                    # metadata is a hash of pkgname => array of Metadata
+                    # objects.
                     # Thus m is a 2 element array of [pkgname, array of
-                    # metadata hashes]  And thus m[1] is the array of
-                    # metadata hashes.  And metadata hashes are themselves
-                    # a hash of XML metadata and source.
-                    memo + m[1].select{|mh| mh[:source] == source}.length
+                    # Metadata objects]  And thus m[1] is the array of
+                    # Metadata objects.
+                    memo + m[1].select{|mo| mo.source == source}.length
                   end
           puts "Found #{count} packages from #{source}"
         end
