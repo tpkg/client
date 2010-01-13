@@ -2990,7 +2990,11 @@ puts "Existing #{pkg}"
             name = pkg[:metadata][:name]
             version = pkg[:metadata][:version]
             package_version = pkg[:metadata][:package_version]
-            puts "Native #{name}=#{version}=#{package_version}"
+            pkgname = "#{name}-#{version}"
+            if package_version
+              pkgname << "-#{package_version}"
+            end
+            puts "Native #{pkgname}"
           else    
             puts pkg[:metadata][:filename]
           end
