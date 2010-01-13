@@ -6,6 +6,13 @@ PKG=curl
 VER=7.19.7
 PKGVER=1
 OS=`tpkg --qenv | grep 'Operating System' | awk '{print $NF}'`
+if echo $OS | egrep 'RedHat|CentOS'
+then
+        # Save folks from having to build separate packages for Red Hat and
+        # CentOS
+        OSMAJOR=`echo $OS | cut -d- -f2`
+        OS="RedHat-$OSMAJOR,CentOS-$OSMAJOR"
+fi
 ARCH=`tpkg --qenv | grep 'Architecture' | awk '{print $NF}'`
 
 # This package doesn't work perfectly well as a relocatable package, as
