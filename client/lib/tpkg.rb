@@ -3775,31 +3775,43 @@ puts "Existing #{pkg}"
     end
     return results
   end
-  
-  def execute_init(requests, action)
+ 
+  def execute_init(options, *moreoptions)
     ret_val = 0
     packages_to_execute_on = []
-    if requests.nil?
+    if options.is_a?(Hash)
+      action = options[:cmd]
+      requested_packages = options[:packages]
+      requested_init_scripts = options[:scripts]
+    else # for backward compatibility
+      action = moreoptions[0]
+      requested_packages = options
+    end
+
+    # if user specified no packages, then assume all
+    if requested_packages.nil?
       packages_to_execute_on = installed_packages_that_meet_requirement(nil)
     else
-      requests.each do |request|
+      requested_packages.each do |request|
         req = Tpkg::parse_request(request)
         packages_to_execute_on.concat(installed_packages_that_meet_requirement(req))
       end
     end
     
     packages_to_execute_on.each do |pkg|
-      ret_val |= execute_init_for_package(pkg, action)
+      ret_val |= execute_init_for_package(pkg, action, requested_init_scripts)
     end 
     return ret_val
   end
-  
-  def execute_init_for_package(pkg, action)
+ 
+  def execute_init_for_package(pkg, action, requested_init_scripts = nil)
     ret_val = 0
+
+    # Get init scripts metadata for the given package
     init_scripts_metadata = init_scripts(pkg[:metadata])
     # warn if there's no init script and then return
     if init_scripts_metadata.nil? || init_scripts_metadata.empty?
-      warn "Warning: There is no init script for #{pkg[:metadata][:name]}"
+      warn "Warning: There is no init script for #{pkg[:metadata][:name]}."
       return 1
     end
 
@@ -3811,9 +3823,18 @@ puts "Existing #{pkg}"
       init = {}
       init[:path] = installed_path
       init[:start] = init_info[:init][:start] || 0
-      init_scripts << init
+
+      # if user requests specific init scripts, then only include those
+      if requested_init_scripts.nil? or 
+         requested_init_scripts && requested_init_scripts.include?(File.basename(installed_path))
+        init_scripts << init 
+      end
     end
 
+    if requested_init_scripts && init_scripts.empty?
+      warn "Warning: There are no init scripts that satisfy your request: #{requested_init_scripts.inspect} for package #{pkg[:metadata][:name]}."
+    end
+    
     # Reverse order if doing stop. 
     if action == "stop"
       ordered_init_scripts = init_scripts.sort{ |a,b| b[:start] <=> a[:start] }

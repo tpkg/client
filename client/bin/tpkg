@@ -29,6 +29,7 @@ require 'tpkg'
 @worker_count = 10
 @rerun_with_sudo = false
 @tpkg_options = {}
+@init_options = {}           
 
 def rerun_with_sudo_if_necessary
   if Process.euid != 0 && @sudo
@@ -97,39 +98,60 @@ opts.on('--verify', '-V', '=NAME', 'Verify packages') do |opt|
 end
 opts.on('--start', '=NAME', 'Start the init script for the specified package', Array) do |opt|
   @rerun_with_sudo = true
-  @action = :start_init
-  @action_value = opt
+  @action = :execute_init
+  @init_options[:packages] = opt
+  @init_options[:cmd] = 'start'
 end
 opts.on('--stop', '=NAME', 'Stop the init script for the specified package', Array) do |opt|
   @rerun_with_sudo = true
-  @action = :stop_init
-  @action_value = opt
+  @action = :execute_init
+  @init_options[:packages] = opt
+  @init_options[:cmd] = 'stop'
 end
 opts.on('--restart', '=NAME', 'Restart the init script for the specified package', Array) do |opt|
   @rerun_with_sudo = true
-  @action = :restart_init
-  @action_value = opt
+  @action = :execute_init
+  @init_options[:packages] = opt
+  @init_options[:cmd] = 'restart'
 end
 opts.on('--reload', '=NAME', 'Reload the init script for the specified package', Array) do |opt|
   @rerun_with_sudo = true
-  @action = :reload_init
-  @action_value = opt
+  @action = :execute_init
+  @init_options[:packages] = opt
+  @init_options[:cmd] = 'reload'
 end
 opts.on('--start-all', 'Start the init scripts for all packages') do |opt|
   @rerun_with_sudo = true
-  @action = :start_init
+  @action = :execute_init
+  @init_options[:cmd] = 'start'
 end
 opts.on('--stop-all', 'Stop the init script for all packages') do |opt|
   @rerun_with_sudo = true
-  @action = :stop_init
+  @action = :execute_init
+  @init_options[:cmd] = 'stop'
 end
 opts.on('--restart-all', 'Restart the init script for all packages') do |opt|
   @rerun_with_sudo = true
-  @action = :restart_init
+  @action = :execute_init
+  @init_options[:cmd] = 'restart'
 end
 opts.on('--reload-all', 'Reload the init script for all packages') do |opt|
   @rerun_with_sudo = true
-  @action = :reload_init
+  @action = :execute_init
+  @init_options[:cmd] = 'reload'
+end
+opts.on('--exec-init', '=NAME', 'Execute init scripts for the specified packages', Array) do |opt|
+  @rerun_with_sudo = true
+  @init_options[:packages] = opt
+  @action = :execute_init
+end
+opts.on('--init-script', '=NAME', 'What init scripts to execute', Array) do |opt|
+  @rerun_with_sudo = true
+  @init_options[:scripts] = opt
+end
+opts.on('--init-cmd', '=CMD', 'Invoke the specified init script command') do |opt|
+  @rerun_with_sudo = true
+  @init_options[:cmd] = opt
 end
 opts.on('--query', '-q', '=NAMES', 'List installed packages', Array) do |opt|
   # People mistype -qa instead of --qa frequently
@@ -360,18 +382,12 @@ when :verify
     end 
     puts "Package verification failed" unless success 
   end
-when :start_init
+when :execute_init
   tpkg = instantiate_tpkg(@tpkg_options)
-  ret_val = tpkg.execute_init(@action_value, "start")
-when :stop_init
-  tpkg = instantiate_tpkg(@tpkg_options)
-  ret_val = tpkg.execute_init(@action_value, "stop")
-when :restart_init
-  tpkg = instantiate_tpkg(@tpkg_options)
-  ret_val = tpkg.execute_init(@action_value, "restart")
-when :reload_init
-  tpkg = instantiate_tpkg(@tpkg_options)
-  ret_val = tpkg.execute_init(@action_value, "reload")
+  if @init_options[:cmd].nil?
+    raise "You didn't specify what init command to run"
+  end
+  ret_val = tpkg.execute_init(@init_options)
 when :query_installed
   tpkg = instantiate_tpkg(@tpkg_options)
   req = nil

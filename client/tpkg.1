@@ -43,6 +43,12 @@
 .IR NAME ]
 .RB [ --reload-all
 .IR NAME ]
+.RB [ --exec-init
+.IR NAME ]
+.RB [ --init-script
+.IR NAME ]
+.RB [ --init-cmd
+.IR NAME ]
 .RB [ --query | \-q
 .IR NAMES ]
 .RB [ --qa ]
@@ -161,6 +167,17 @@ Run the init scripts of all installed packages with a "restart" argument.
 .TP
 .BI --reload-all
 Run the init scripts of all installed packages with a "reload" argument.
+.TP
+.BI --exec-init
+Run the init scripts associated with the specified packages. Requires
+--init-cmd option to be specified.
+.TP
+.BI --init-script
+Use with the --exec-init option to specify what packages to run the init 
+scripts.
+.TP
+.BI --init-cmd
+Use with the --exec-init option to specify what init action to run.
 .TP
 .BI --query|\-q " NAMES"
 Check if the specified packages is installed.
