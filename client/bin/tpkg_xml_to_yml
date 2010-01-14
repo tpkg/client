@@ -6,12 +6,12 @@
 require 'tpkg'
 
 if ARGV.size < 1
-  puts "You didn't specify a file"
+  raise "You didn't specify a file"
 end
 
 xmlfile =  ARGV[0]
 if !File.exist?(xmlfile)
-  puts "File doesn't exist"
+  raise "File doesn't exist"
 end
 
 metadata_text = File.read(xmlfile)
