@@ -106,7 +106,13 @@ class Metadata
       # We need this for backward compatibility. With xml, we specify
       # native dependency as type: :native rather then native: true
       @hash[:dependencies].each do | dep |
-        dep[:type] = :native if dep[:native]
+        if !dep[:type]
+          if dep[:native]
+            dep[:type] = :native
+          else
+            dep[:type] = :tpkg
+          end
+        end
       end if @hash[:dependencies]
     else
       @hash = metadata_xml_to_hash
@@ -237,6 +243,8 @@ class Metadata
       end
       if depxml.elements['native']
         dep[:type] = :native
+      else
+        dep[:type] = :tpkg
       end
       deps << dep
     end
@@ -254,6 +262,8 @@ class Metadata
       end
       if conflictxml.elements['native']
         conflict[:type] = :native
+      else
+        conflict[:type] = :tpkg
       end
       conflicts << conflict
     end

@@ -298,7 +298,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
     # package set in a new, clean base
     testbase = Tempdir.new("testbase")
     tpkg = Tpkg.new(:base => testbase, :sources => @pkgfiles)
-    solution_packages = tpkg.best_solution([{:name => 'a'}], {}, ['a'])
+    solution_packages = tpkg.best_solution([{:name => 'a', :type => :tpkg}], {}, ['a'])
     # We should end up with a-1.0, b-1.0 (the specific one, not the generic
     # one), c-1.2 and d-1.2
     assert_equal(4, solution_packages.length)
@@ -318,7 +318,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
     requirements = []
     packages = {}
     tpkg.requirements_for_currently_installed_packages(requirements, packages)
-    requirements << {:name => 'a'}
+    requirements << {:name => 'a', :type => :tpkg}
     solution_packages = tpkg.best_solution(requirements, packages, ['a'])
     assert_equal(1, solution_packages.length)
     assert_equal(:currently_installed, solution_packages.first[:source])
@@ -382,7 +382,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
     # Test with no valid solution, ensure it fails
     testbase = Tempdir.new("testbase")
     tpkg = Tpkg.new(:base => testbase, :sources => @pkgfiles)
-    solution_packages = tpkg.best_solution([{:name => 'a'}, {:name => 'c', :minimum_version => '1.3'}], {}, ['a', 'c'])
+    solution_packages = tpkg.best_solution([{:name => 'a', :type => :tpkg}, {:name => 'c', :minimum_version => '1.3', :type => :tpkg}], {}, ['a', 'c'])
     assert_nil(solution_packages)
     FileUtils.rm_rf(testbase)
   end
@@ -393,7 +393,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
     testbase = Tempdir.new("testbase")
     tpkg = Tpkg.new(:base => testbase, :sources => @pkgfiles)
     
-    result = tpkg.resolve_dependencies([{:name => 'a'}], {}, ['a'])
+    result = tpkg.resolve_dependencies([{:name => 'a', :type => :tpkg}], {:tpkg => {}, :native => {}}, ['a'])
     assert(result.has_key?(:solution))
     solution = result[:solution]
     
@@ -413,20 +413,20 @@ class TpkgDependencyTests < Test::Unit::TestCase
     tpkg = Tpkg.new(:base => testbase, :sources => @pkgfiles)
     
     solution = nil
-    requirements = [{:name => 'c', :minimum_version => '1.3'}, {:name => 'd', :minimum_version => '1.3'}]
-    packages = {}
+    requirements = [{:name => 'c', :minimum_version => '1.3', :type => :tpkg}, {:name => 'd', :minimum_version => '1.3', :type => :tpkg}]
+    packages = {:tpkg => {}, :native => {}}
     requirements.each do |req|
-      packages[req[:name]] = tpkg.available_packages_that_meet_requirement(req)
+      packages[req[:type]][req[:name]] = tpkg.available_packages_that_meet_requirement(req)
     end
     core_packages = ['c']
     number_of_possible_solutions_checked = 0
     
     result = nil
     # Check a valid solution
-    solution = {:pkgs => packages.values.flatten}
+    solution = {:pkgs => packages[:tpkg].values.flatten}
     assert_nothing_raised { result = tpkg.check_solution(solution, requirements, packages, core_packages, number_of_possible_solutions_checked) }
     assert(result.has_key?(:solution))
-    assert_equal(packages.values.flatten, result[:solution])
+    assert_equal(packages[:tpkg].values.flatten, result[:solution])
     
     # Check an invalid solution
     xpkgfile = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'x' }, :dependencies => {'y' => {}}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
@@ -455,11 +455,13 @@ class TpkgDependencyTests < Test::Unit::TestCase
     assert_equal('testpkg', requirements.first[:name])
     assert_equal('1.0', requirements.first[:minimum_version])
     assert_equal('1', requirements.first[:minimum_package_version])
+    assert_equal(:tpkg, requirements.first[:type])
     assert_nothing_raised { requirements = tpkg.requirements_for_currently_installed_package('testpkg2') }
     assert_equal(1, requirements.length)
     assert_equal('testpkg2', requirements.first[:name])
     assert_equal('1.0', requirements.first[:minimum_version])
     assert_nil(requirements.first[:minimum_package_version])
+    assert_equal(:tpkg, requirements.first[:type])
     FileUtils.rm_f(pkgfile)
     FileUtils.rm_f(pkgfile2)
     FileUtils.rm_rf(testbase)
@@ -476,6 +478,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
     assert_equal(1, requirements.length)
     assert_equal('a', requirements.first[:name])
     assert_equal('2.0', requirements.first[:minimum_version])
+    assert_equal(:tpkg, requirements.first[:type])
     # Given the way we set up the tpkg instance we should have two entries
     # in packages, one for the installed copy of the package and one for the
     # uninstalled copy
@@ -489,22 +492,25 @@ class TpkgDependencyTests < Test::Unit::TestCase
   end
   def test_parse_request
     req = Tpkg::parse_request('a')
-    assert_equal(1, req.length)
+    assert_equal(2, req.length)
     assert_equal('a', req[:name])
+    assert_equal(:tpkg, req[:type])
     
     req = Tpkg::parse_request('a=1.0')
-    assert_equal(3, req.length)
+    assert_equal(4, req.length)
     assert_equal('a', req[:name])
     assert_equal('1.0', req[:minimum_version])
     assert_equal('1.0', req[:maximum_version])
+    assert_equal(:tpkg, req[:type])
     
     req = Tpkg::parse_request('a=1.0=1')
-    assert_equal(5, req.length)
+    assert_equal(6, req.length)
     assert_equal('a', req[:name])
     assert_equal('1.0', req[:minimum_version])
     assert_equal('1.0', req[:maximum_version])
     assert_equal('1', req[:minimum_package_version])
     assert_equal('1', req[:maximum_package_version])
+    assert_equal(:tpkg, req[:type])
   end
   def test_parse_requests
     testbase = Tempdir.new("testbase")
@@ -515,30 +521,33 @@ class TpkgDependencyTests < Test::Unit::TestCase
     # Test various package spec requests
     tpkg.parse_requests('a', requirements, packages)
     assert_equal(1, requirements.length)
-    assert_equal(1, requirements.first.length)
+    assert_equal(2, requirements.first.length)
     assert_equal('a', requirements.first[:name])
+    assert_equal(:tpkg, requirements.first[:type])
     assert_equal(1, packages['a'].length)
     requirements.clear
     packages.clear
     
     tpkg.parse_requests('a=1.0', requirements, packages)
     assert_equal(1, requirements.length)
-    assert_equal(3, requirements.first.length)
+    assert_equal(4, requirements.first.length)
     assert_equal('a', requirements.first[:name])
     assert_equal('1.0', requirements.first[:minimum_version])
     assert_equal('1.0', requirements.first[:maximum_version])
+    assert_equal(:tpkg, requirements.first[:type])
     assert_equal(1, packages['a'].length)
     requirements.clear
     packages.clear
     
     tpkg.parse_requests('a=1.0=1', requirements, packages)
     assert_equal(1, requirements.length)
-    assert_equal(5, requirements.first.length)
+    assert_equal(6, requirements.first.length)
     assert_equal('a', requirements.first[:name])
     assert_equal('1.0', requirements.first[:minimum_version])
     assert_equal('1.0', requirements.first[:maximum_version])
     assert_equal('1', requirements.first[:minimum_package_version])
     assert_equal('1', requirements.first[:maximum_package_version])
+    assert_equal(:tpkg, requirements.first[:type])
     assert_equal(1, packages['a'].length)
     requirements.clear
     packages.clear
@@ -547,8 +556,9 @@ class TpkgDependencyTests < Test::Unit::TestCase
     apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '2.0' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
     tpkg.parse_requests(apkg, requirements, packages)
     assert_equal(1, requirements.length)
-    assert_equal(1, requirements.first.length)   # should this be 5?
+    assert_equal(2, requirements.first.length)   # should this be 6?
     assert_equal('a', requirements.first[:name])
+    assert_equal(:tpkg, requirements.first[:type])
     assert_equal(1, packages['a'].length)
     requirements.clear
     packages.clear
@@ -560,23 +570,31 @@ class TpkgDependencyTests < Test::Unit::TestCase
     FileUtils.rm_f(apkg)
     tpkg.parse_requests(File.basename(apkg), requirements, packages)
     assert_equal(1, requirements.length)
-    assert_equal(2, requirements.first.length)  # name, filename
+    assert_equal(3, requirements.first.length)  # name, filename, type
     assert_equal('a', requirements.first[:name])
     assert_equal(File.basename(apkg), requirements.first[:filename])
+    assert_equal(:tpkg, requirements.first[:type])
     assert_equal(1, packages['a'].length)
     requirements.clear
     packages.clear
- 
+  end
+  
+  def test_check_requests
     # check_requests does some additional checks for requests by
     # filename or URI, test those
+    testbase = Tempdir.new("testbase")
+    tpkg = Tpkg.new(:base => testbase, :sources => @pkgfiles)
+    requirements = []
+    packages = {}
     
     # First just check that it properly checks a package with dependencies
     apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '2.0' }, :dependencies => {'b' => {}}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
     tpkg.parse_requests(apkg, requirements, packages)
     assert_nothing_raised { tpkg.check_requests(packages) }
     assert_equal(1, requirements.length)
-    assert_equal(1, requirements.first.length)
+    assert_equal(2, requirements.first.length)
     assert_equal('a', requirements.first[:name])
+    assert_equal(:tpkg, requirements.first[:type])
     assert_equal(1, packages['a'].length)
     requirements.clear
     packages.clear
