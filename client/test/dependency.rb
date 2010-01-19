@@ -379,6 +379,27 @@ class TpkgDependencyTests < Test::Unit::TestCase
     FileUtils.rm_f(older_apkg)
     FileUtils.rm_rf(testbase)
     
+    # Test that we can handle simultaneous dependency on a native package and
+    # a tpkg with the same name. For this we need a native package that is
+    # generally available on systems that developers are likely to use, I'm
+    # going to use wget for now.
+    nativedep = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'nativedep' }, :dependencies => {'wget' => {'native' => true}}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    tpkgdep = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'tpkgdep' }, :dependencies => {'wget' => {}}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    wget = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'wget' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    parent = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'parent' }, :dependencies => {'nativedep' => {}, 'tpkgdep' => {}}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    testbase = Tempdir.new("testbase")
+    mixeddeppkgs = [nativedep, tpkgdep, wget, parent]
+    tpkg = Tpkg.new(:base => testbase, :sources => mixeddeppkgs)
+    solution_packages = tpkg.best_solution([{:name => 'parent', :type => :tpkg}], {}, ['parent'])
+    # The solution should include the four tpkgs plus a native wget
+    assert_equal(5, solution_packages.length)
+    assert(solution_packages.any? {|sp| sp[:metadata][:name] == 'wget' && (sp[:source] == :native_available || sp[:source] == :native_installed)})
+    assert(solution_packages.any? {|sp| sp[:metadata][:name] == 'wget' && sp[:source].include?('wget-1.0-1.tpkg')})
+    mixeddeppkgs.each do |mdp|
+      FileUtils.rm_f(mdp)
+    end
+    FileUtils.rm_rf(testbase)
+    
     # Test with no valid solution, ensure it fails
     testbase = Tempdir.new("testbase")
     tpkg = Tpkg.new(:base => testbase, :sources => @pkgfiles)
