@@ -1,6 +1,6 @@
 ##############################################################################
 # tpkg package management system library
-# Copyright 2009, AT&T Interactive
+# Copyright 2009, 2010 AT&T Interactive
 # License: MIT (http://www.opensource.org/licenses/mit-license.php)
 ##############################################################################
 
@@ -706,7 +706,7 @@ puts "Existing #{pkg}"
       result = false
     elsif req[:filename]
       result = false if req[:filename] != metadata[:filename]
-    elsif (!req[:type] || req[:type] == :tpkg) &&
+    elsif req[:type] == :tpkg &&
           (pkg[:source] == :native_installed || pkg[:source] == :native_available)
       # Likewise a req for a tpkg must be satisfied by a tpkg
       puts "Package fails non-native requirement" if @@debug
@@ -2285,12 +2285,22 @@ puts "Existing #{pkg}"
     end
     case operation
     when :install
-      IO.popen("#{externalpath} '#{pkgfile}' install", 'w') do |pipe|
-        pipe.write(data)
+      begin
+        IO.popen("#{externalpath} '#{pkgfile}' install", 'w') do |pipe|
+          pipe.write(data)
+        end
+      rescue => e
+        # Tell the user which external and package were involved, otherwise
+        # failures in externals are very hard to debug
+        raise e.exception("External #{name} #{operation} for #{File.basename(pkgfile)}: " + e.message)
       end
     when :remove
-      IO.popen("#{externalpath} '#{pkgfile}' remove", 'w') do |pipe|
-        pipe.write(data)
+      begin
+        IO.popen("#{externalpath} '#{pkgfile}' remove", 'w') do |pipe|
+          pipe.write(data)
+        end
+      rescue => e
+        raise e.exception("External #{name} #{operation} for #{File.basename(pkgfile)}: " + e.message)
       end
     else
       raise "Bug, unknown external operation #{operation}"
@@ -2873,23 +2883,24 @@ puts "Existing #{pkg}"
       request_satisfied = false # whether or not this request can be satisfied
       possible_errors = []
       pkgs.each do |pkg|
+        good_package = true
         metadata = pkg[:metadata]
         req = { :name => metadata[:name], :type => :tpkg }
         # Quick sanity check that the package can be installed on this machine.  
         if !Tpkg::package_meets_requirement?(pkg, req)
           possible_errors << "  Requested package #{metadata[:filename]} doesn't match this machine's OS or architecture"
+          good_package = false
           next
         end
         # a sanity check that there is at least one package
         # available for each dependency of this package
-        dep_satisfied = true
         metadata[:dependencies].each do |depreq|
           if available_packages_that_meet_requirement(depreq).empty? && !Tpkg::packages_meet_requirement?(packages.values.flatten, depreq)
             possible_errors << "  Requested package #{metadata[:filename]} depends on #{depreq.inspect}, no packages that satisfy that dependency are available"
-            dep_satisfied = false
+            good_package = false
           end
         end if metadata[:dependencies]
-        request_satisfied = true if dep_satisfied
+        request_satisfied = true if good_package
       end
       if !request_satisfied
         errors << ["Unable to find any packages which satisfy #{name}. Possible error(s):"]
@@ -3452,7 +3463,7 @@ puts "Existing #{pkg}"
           # We ignore native dependencies because there is no way a removal
           # can break a native dependency, we don't support removing native
           # packages.
-          if req[:type] != :native && req[:type] != :native_installed
+          if req[:type] != :native
             iptmr = installed_packages_that_meet_requirement(req)
             if iptmr.all? { |pkg| pkg_files_to_remove.include?(pkg[:metadata][:filename]) }
               non_removable_pkg_files |= iptmr.map{ |pkg| pkg[:metadata][:filename]}
