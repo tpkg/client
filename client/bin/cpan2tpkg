@@ -36,7 +36,6 @@ All options can be shortened to anything that's unique.
 EOF
 }
 
-# FIXME: we're not actually using $modver, we're just letting CPAN installed the latest available version
 my $modver;
 my $pkgver = 1;
 my %extradeps = ();
@@ -57,6 +56,13 @@ my $module = shift @ARGV;
 usage() if (!$getopt);
 usage() if ($help);
 usage() if (!$module);
+
+# FIXME: we're not actually using $modver, we're just letting CPAN install
+# the latest available version
+if ($modver)
+{
+	die "--version not implemented\n";
+}
 
 my @extradepsopts = split(/,/, $extradepsopts);
 while (scalar @extradepsopts)
@@ -161,16 +167,51 @@ print "Installed modules to be packaged (except Perl):\n";
 print join(', ', $extinst->modules), "\n";
 
 # Inspect temp directory and package each installed module
-foreach my $name ($extinst->modules)
+MODULE: foreach my $name ($extinst->modules)
 {
-	next if ($name eq 'Perl');
+	next MODULE if ($name eq 'Perl');
 	print "Packaging $name\n";
-	my $dashname = $name;
-	$dashname =~ s/::/-/g;
-	my $ver = $extinst->version($name);
-	print "Module version is $ver\n";
 	my %deps = ();
 	my $mod = CPAN::Shell->expand('Module', $name);
+	# Sometimes calling expand on a result from EU::I->modules doesn't
+	# work.  For example, if the user requests Date::Parse that module
+	# is part of the TimeDate distribution.  EU::I->modules will return
+	# ['Perl', 'TimeDate'], but calling expand on TimeDate fails.  It
+	# seems like we should find an alternative to EU::I->modules,
+	# something that returns the distributions installed rather than the
+	# modules.
+	if (!$mod)
+	{
+		# If EU::I->modules only returned two results we can safely
+		# assume the !Perl one is whatever the user asked to have
+		# installed and use its expansion instead.  Continue the example
+		# mentioned above, calling expand on TimeDate fails but calling
+		# expand on Date::Parse works, for whatever reason.
+		if (scalar($extinst->modules) == 2)
+		{
+			# We've already called expand on the user's request, so we
+			# can reuse that result.
+			$mod = $modobj;
+			warn "Failed to expand $name the usual way, secondary efforts ",
+				"successful\n";
+		}
+		else
+		{
+			warn "Failed to expand $name, secondary efforts failed, skipping\n";
+			next MODULE;
+		}
+	}
+	# Note that this won't work if we ever implement letting the user
+	# select a specific version (via the --version CLI option), as
+	# expand presumably returns the info for the latest available
+	# version of the distribution.  Note that EU::I->version returns the
+	# version of the module, not the version of the distribution, and
+	# those can differ.  We're packaging the distribution, which may
+	# include multiple modules with their own, differing versions.
+	my $ver = module_to_dist_ver($mod);
+	print "Module version is $ver\n";
+	my $pkgname = module_to_pkg_name($mod);
+	print "Package name, based on distribution, is $pkgname\n";
 	# Looks like newer versions of CPAN.pm have a CPAN::Module::distribution()
 	# method.  What I'm using here is a little hacky but works, so I
 	# don't think it is worth forcing users to use a newer version.
@@ -199,7 +240,7 @@ foreach my $name ($extinst->modules)
 				%prereqs = ();
 			}
 		}
-		foreach my $dep (keys %prereqs)
+		PREREQ: foreach my $dep (keys %prereqs)
 		{
 			# Skip dependencies on core modules
 			my $depmod = CPAN::Shell->expand('Module', $dep);
@@ -213,15 +254,14 @@ foreach my $name ($extinst->modules)
 			if ($depmod->inst_file =~ m,/home/t/perl,)
 			{
 				print "Prereq $dep is a core module, skipping\n";
-				next;
+				next PREREQ;
 			}
 			
-			my $dashdep = $dep;
-			$dashdep =~ s/::/-/g;
-			$deps{$dashdep} = {};
+			my $deppkgname = module_to_pkg_name($depmod);
+			$deps{$deppkgname} = {};
 			if ($prereqs{$dep} ne '0')
 			{
-				$deps{$dashdep}{minimum_version} = $prereqs{$dep};
+				$deps{$deppkgname}{minimum_version} = $prereqs{$dep};
 			}
 		}
 	}
@@ -248,7 +288,7 @@ foreach my $name ($extinst->modules)
 	print $xmlfh '<?xml version="1.0" encoding="UTF-8"?>', "\n";
 	print $xmlfh '<!DOCTYPE tpkg SYSTEM "http://tpkg.sourceforge.net/tpkg-1.0.dtd">', "\n";
 	print $xmlfh '<tpkg>', "\n";
-	print $xmlfh "  <name>cpan-perl$majorminor-$dashname</name>", "\n";
+	print $xmlfh "  <name>cpan-perl$majorminor-$pkgname</name>", "\n";
 	print $xmlfh "  <version>$ver</version>", "\n";
 	print $xmlfh "  <package_version>$pkgver</package_version>", "\n";
 	print $xmlfh '  <maintainer>cpan2tpkg</maintainer>', "\n";
@@ -344,5 +384,33 @@ foreach my $name ($extinst->modules)
 	print $xmlfh '</tpkg>', "\n";
 	# Build package
 	system("tpkg --make $tpkgdir");
+}
+
+# Pass in an expanded module (CPAN::Shell->expand), get back a name
+# suitable for use in packaging.
+# The package name is based on the distribution that contains the
+# module, as sometimes multiple modules are packaged into a single
+# distribution file.
+sub module_to_pkg_name
+{
+	my $mod = shift;
+	my $distfilename = basename($mod->{RO}{CPAN_FILE});
+	my $pkgname = $distfilename;
+	# Cut off the version and suffix
+	# I.e. TimeDate-1.20.tar.gz -> TimeDate
+	$pkgname =~ s/-\d.*//;
+	return $pkgname;
+}
+# Pass in an expanded module (CPAN::Shell->expand), get back the version
+# of the associated distribution.
+sub module_to_dist_ver
+{
+	my $mod = shift;
+	my $distfilename = basename($mod->{RO}{CPAN_FILE});
+	# Cut off the distribution name and suffix
+	# I.e. TimeDate-1.20.tar.gz -> 1.20
+	$distfilename =~ /-(\d.*?)\.\D/;
+	my $distver = $1;
+	return $distver;
 }
 
