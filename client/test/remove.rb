@@ -326,6 +326,8 @@ case "$operation" in
 	;;
 'remove')
 	rm -f "$requestfile".*
+	# Avoid generating SIGPIPE in tpkg
+	cat > /dev/null
 	;;
 *)
 	echo "$0: Invalid arguments"
@@ -388,6 +390,8 @@ case "$operation" in
 	;;
 'remove')
 	rm -f "$requestfile".*
+	# Avoid generating SIGPIPE in tpkg
+	cat > /dev/null
 	;;
 *)
 	echo "$0: Invalid arguments"
@@ -453,6 +457,8 @@ case "$operation" in
 	;;
 'remove')
 	rm -f "$requestfile".*
+	# Avoid generating SIGPIPE in tpkg
+	cat > /dev/null
 	;;
 *)
 	echo "$0: Invalid arguments"
