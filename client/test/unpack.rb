@@ -321,7 +321,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
     extscript = File.join(externalsdir, extname)
     File.open(extscript, 'w') do |file|
       file.puts('#!/bin/sh')
-      file.puts("cat > #{exttmpfile.path}")
+      file.puts("cat >> #{exttmpfile.path}")
     end
     File.chmod(0755, extscript)
     # And run the test
