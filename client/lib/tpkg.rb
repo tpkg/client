@@ -3377,10 +3377,10 @@ puts "Existing #{pkg}"
           # If the old and new packages have overlapping externals flag them
           # to be skipped so that the external isn't removed and then
           # immediately re-added
-          oldpkgs = installed_packages_that_meet_requirement({:name => pkg[:metadata][:name]})
+          oldpkgs = installed_packages_that_meet_requirement({:name => pkg[:metadata][:name], :type => :tpkg})
           externals_to_skip = []
           pkg[:metadata][:externals].each do |external|
-            if oldpkgs.all? {|oldpkg| oldpkg[:metadata][:externals].include?(external)}
+            if oldpkgs.all? {|oldpkg| oldpkg[:metadata][:externals] && oldpkg[:metadata][:externals].include?(external)}
               externals_to_skip << external
             end
           end if pkg[:metadata][:externals]
