@@ -2196,7 +2196,13 @@ class Tpkg
               Tpkg::get_os =~ /Solaris/
           init_directory = File.join(@file_system_root, 'etc')
         end
-        levels.to_s.each do |level|
+      
+        # in case user specify levels in yaml as string/integer instead of array
+        if !levels.kind_of?(Array)
+          levels = levels.to_s.split(//)  
+        end
+    
+        levels.each do |level|
           links[File.join(init_directory, "rc#{level}.d", 'S' + start.to_s + File.basename(installed_path))] = installed_path
         end
       elsif Tpkg::get_os =~ /FreeBSD/
