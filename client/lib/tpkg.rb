@@ -510,7 +510,8 @@ class Tpkg
       tpkg_xml = REXML::Document.new(pipe.read)
     end
     if !$?.success?
-      raise "Extracting tpkg.xml from #{package_file} failed"
+      warn "Warning: Extracting tpkg.xml from #{package_file} failed"
+      return nil
     end
 
     # Insert an attribute on the root element with the package filename
@@ -543,7 +544,7 @@ class Tpkg
         metadata << existing_metadata[File.basename(pkg)]
       else
         xml = xml_metadata_from_package(pkg)
-        metadata << xml.root
+        metadata << xml.root if xml
       end
     end
 
@@ -573,7 +574,6 @@ class Tpkg
     # in the given directory. Reuse existing metadata if possible.
     Dir.glob(File.join(directory, '*.tpkg')) do |pkg|
       if existing_metadata[File.basename(pkg)]
-puts "Existing #{pkg}"
         metadata << existing_metadata[File.basename(pkg)]
       else
         metadata_yml = metadata_from_package(pkg)
@@ -3051,13 +3051,20 @@ puts "Existing #{pkg}"
     parse_requests(requests, requirements, packages)
     check_requests(packages)
     core_packages = []
-    currently_installed_requirements = []
+    #currently_installed_requirements = []
     requirements.each do |req|
       core_packages << req[:name] if !core_packages.include?(req[:name])
-      currently_installed_requirements.concat(
-        requirements_for_currently_installed_package(req[:name]))
+
+    # This was here to ensure that nothing went backwards.  But I guess in the 
+    # install case (as opposed to upgrade) going backwards can't really happen, 
+    # we may just install an older version alongside a newer version, which is
+    # perfectly fine.
+    #  currently_installed_requirements.concat(
+    #    requirements_for_currently_installed_package(req[:name]))
     end
-    requirements.concat(currently_installed_requirements).uniq!
+    #requirements.concat(currently_installed_requirements).uniq!
+
+
     
     puts "install calling best_solution" if @@debug
     puts "install requirements: #{requirements.inspect}" if @@debug
