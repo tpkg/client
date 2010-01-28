@@ -29,7 +29,7 @@ def copy_tpkg_files(destdir, options={})
   if options[:bindir]
     bindir = File.join(destdir, options[:bindir])
     mkdir_p(bindir)
-    binapps = ['tpkg', 'cpan2tpkg', 'gem2tpkg']
+    binapps = ['tpkg', 'cpan2tpkg', 'gem2tpkg', 'tpkg_xml_to_yml']
     binapps.each do |binapp|
       if options[:ruby]
         # Change #! line
@@ -238,7 +238,7 @@ task :deb do
 end
 
 desc 'Build tpkg client SysV packages for Solaris'
-task :solaris => [:sysvpkg, :sysvpkgsparc]
+task :solaris => [:sysvpkg]
 desc 'Build an tpkg client SysV package'
 task :sysvpkg do
   #
@@ -417,8 +417,11 @@ task :tpkgpkg do
   #
   
   rm_rf(BUILDROOT)
+
+  libdir = ENV['libdir'].nil?? File.join('home', 't', 'lib', 'site_ruby', '1.8') : File.join('root', ENV['libdir'])
+
   copy_tpkg_files(BUILDROOT,
-                  :libdir => 'lib',
+                  :libdir => libdir,
                   :copythirdparty => true)
   
   #

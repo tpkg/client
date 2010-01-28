@@ -186,7 +186,40 @@ class TpkgUpgradeTests < Test::Unit::TestCase
     assert_equal('2.0', bpkg[:version])
   end
   
-  def test_upgrade_with_externals
+  def test_upgrade_with_externals_add
+    # Older version has no external, newer version has external
+    srcdir = Tempdir.new("srcdir")
+    FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+    extname1 = 'testext1'
+    extdata1 = "This is a test of an external hook\nwith multiple lines\nof data"
+    oldpkg = make_package(:change => { 'name' => 'externalpkg', 'version' => '1' }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    newpkg = make_package(:change => { 'name' => 'externalpkg', 'version' => '2' }, :externals => { extname1 => {'data' => extdata1} }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    FileUtils.rm_rf(srcdir)
+    # Make external scripts which write the data they receive to temporary
+    # files, so that we can verify the external scripts received the data
+    # properly.
+    exttmpfile1 = Tempfile.new('tpkgtest_external')
+    externalsdir = File.join(@testbase, 'var', 'tpkg', 'externals')
+    FileUtils.mkdir_p(externalsdir)
+    extscript1 = File.join(externalsdir, extname1)
+    File.open(extscript1, 'w') do |file|
+      file.puts('#!/bin/sh')
+      # Operation (install/remove)
+      file.puts("echo $2 >> #{exttmpfile1.path}")
+      # Data
+      file.puts("cat >> #{exttmpfile1.path}")
+    end
+    File.chmod(0755, extscript1)
+    # And run the test
+    assert_nothing_raised { @tpkg.install([oldpkg], PASSPHRASE) }
+    assert_equal('', IO.read(exttmpfile1.path))
+    assert_nothing_raised { @tpkg.upgrade(newpkg, PASSPHRASE) }
+    assert_equal("install\n#{extdata1}", IO.read(exttmpfile1.path))
+    FileUtils.rm_f(oldpkg)
+    FileUtils.rm_f(newpkg)
+  end
+  
+  def test_upgrade_with_externals_add_second
     # Older version has one external, newer version has same external plus an
     # additional one
     srcdir = Tempdir.new("srcdir")
@@ -209,24 +242,64 @@ class TpkgUpgradeTests < Test::Unit::TestCase
     extscript2 = File.join(externalsdir, extname2)
     File.open(extscript1, 'w') do |file|
       file.puts('#!/bin/sh')
+      # Operation (install/remove)
+      file.puts("echo $2 >> #{exttmpfile1.path}")
+      # Data
       file.puts("cat >> #{exttmpfile1.path}")
     end
     File.open(extscript2, 'w') do |file|
       file.puts('#!/bin/sh')
+      # Operation (install/remove)
+      file.puts("echo $2 >> #{exttmpfile2.path}")
+      # Data
       file.puts("cat >> #{exttmpfile2.path}")
     end
     File.chmod(0755, extscript1)
     File.chmod(0755, extscript2)
     # And run the test
     assert_nothing_raised { @tpkg.install([oldpkg], PASSPHRASE) }
-    assert_equal(extdata1, IO.read(exttmpfile1.path))
+    assert_equal("install\n#{extdata1}", IO.read(exttmpfile1.path))
     assert_equal('', IO.read(exttmpfile2.path))
     assert_nothing_raised { @tpkg.upgrade(newpkg, PASSPHRASE) }
     # The expectation is that since the old and new packages have the same
     # extname1 external that it will not be run during the upgrade, and thus
     # the extdata1 should only occur once in the tempfile.
-    assert_equal(extdata1, IO.read(exttmpfile1.path))
-    assert_equal(extdata2, IO.read(exttmpfile2.path))
+    assert_equal("install\n#{extdata1}", IO.read(exttmpfile1.path))
+    assert_equal("install\n#{extdata2}", IO.read(exttmpfile2.path))
+    FileUtils.rm_f(oldpkg)
+    FileUtils.rm_f(newpkg)
+  end
+  
+  def test_upgrade_with_externals_different_data
+    # Both versions have an external with the same name but different data
+    srcdir = Tempdir.new("srcdir")
+    FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+    extname1 = 'testext1'
+    extdata1 = "This is a test of an external hook\nwith multiple lines\nof data"
+    extdata2 = "This is a test of an external hook\nwith multiple lines\nof different data"
+    oldpkg = make_package(:change => { 'name' => 'externalpkg', 'version' => '1' }, :externals => { extname1 => {'data' => extdata1} }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    newpkg = make_package(:change => { 'name' => 'externalpkg', 'version' => '2' }, :externals => { extname1 => {'data' => extdata2} }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    FileUtils.rm_rf(srcdir)
+    # Make external scripts which write the data they receive to temporary
+    # files, so that we can verify the external scripts received the data
+    # properly.
+    exttmpfile1 = Tempfile.new('tpkgtest_external')
+    externalsdir = File.join(@testbase, 'var', 'tpkg', 'externals')
+    FileUtils.mkdir_p(externalsdir)
+    extscript1 = File.join(externalsdir, extname1)
+    File.open(extscript1, 'w') do |file|
+      file.puts('#!/bin/sh')
+      # Operation (install/remove)
+      file.puts("echo $2 >> #{exttmpfile1.path}")
+      # Data
+      file.puts("cat >> #{exttmpfile1.path}")
+    end
+    File.chmod(0755, extscript1)
+    # And run the test
+    assert_nothing_raised { @tpkg.install([oldpkg], PASSPHRASE) }
+    assert_equal("install\n#{extdata1}", IO.read(exttmpfile1.path))
+    assert_nothing_raised { @tpkg.upgrade(newpkg, PASSPHRASE) }
+    assert_equal("install\n#{extdata1}remove\n#{extdata1}install\n#{extdata2}", IO.read(exttmpfile1.path))
     FileUtils.rm_f(oldpkg)
     FileUtils.rm_f(newpkg)
   end

@@ -114,7 +114,7 @@ class PackagesController < ApplicationController
 
   def download
     filename = params[:filename]
-    if File.exists?(File.join(Upload::UPLOAD_PATH, filename))
+    if File.exists?(File.join(AppConfig.upload_path, filename))
       redirect_to :controller => :tpkg, :action => filename
     else
       render :text => "File #{filename} doesn't exist on repo"

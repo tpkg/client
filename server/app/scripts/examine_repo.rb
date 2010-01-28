@@ -3,7 +3,7 @@ require 'utils'
 
 class ExamineRepo < ActiveRecord::Base
   present_files = []
-  Dir.glob(File.join(Upload::UPLOAD_PATH, '*.tpkg')) do | file |
+  Dir.glob(File.join(AppConfig.upload_path, '*.tpkg')) do | file |
     present_files << File.basename(file)
   end
   existing_uploads = Upload.find(:all, :select => :upload_file_name).collect{ | upload | upload.upload_file_name}
@@ -11,7 +11,7 @@ class ExamineRepo < ActiveRecord::Base
   missing = present_files - existing_uploads
 
   missing.each do | file |
-    xml = Tpkg::extract_tpkgxml(File.join(Upload::UPLOAD_PATH, file))      
+    xml = Tpkg::extract_tpkgxml(File.join(AppConfig.upload_path, file))      
     package = parse_xml_package(xml)[0]
     package['filename'] = file
     Package.find_or_create(package)
@@ -19,7 +19,7 @@ class ExamineRepo < ActiveRecord::Base
     upload = Upload.new 
     upload.upload_file_name = file
     upload.save
-    upload.created_at = File.mtime(File.join(Upload::UPLOAD_PATH, file))
+    upload.created_at = File.mtime(File.join(AppConfig.upload_path, file))
     puts "Looking at #{file} which has mtime of #{upload.created_at}"
     upload.uploader = "unknown"
     upload.save
