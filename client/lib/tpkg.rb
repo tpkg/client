@@ -2064,7 +2064,7 @@ class Tpkg
         if packages[newreq[:type]][newreq[:name]]
           pkg = solution[:pkgs].find{|solpkg| solpkg[:metadata][:name] == newreq[:name]}
           puts "checksol newreq pkg: #{pkg.inspect}" if @@debug
-          if Tpkg::package_meets_requirement?(pkg, newreq)
+          if pkg && Tpkg::package_meets_requirement?(pkg, newreq)
             # No change to solution needed
           else
             # Solution no longer works
@@ -2892,7 +2892,8 @@ class Tpkg
         good_package = true
         metadata = pkg[:metadata]
         req = { :name => metadata[:name], :type => :tpkg }
-        # Quick sanity check that the package can be installed on this machine.  
+        # Quick sanity check that the package can be installed on this machine.
+        puts "check_requests checking that requested package works on this machine: #{pkg.inspect}" if @@debug
         if !Tpkg::package_meets_requirement?(pkg, req)
           possible_errors << "  Requested package #{metadata[:filename]} doesn't match this machine's OS or architecture"
           good_package = false
@@ -2901,6 +2902,7 @@ class Tpkg
         # a sanity check that there is at least one package
         # available for each dependency of this package
         metadata[:dependencies].each do |depreq|
+          puts "check_requests checking for available packages to satisfy dependency: #{depreq.inspect}" if @@debug
           if available_packages_that_meet_requirement(depreq).empty? && !Tpkg::packages_meet_requirement?(packages.values.flatten, depreq)
             possible_errors << "  Requested package #{metadata[:filename]} depends on #{depreq.inspect}, no packages that satisfy that dependency are available"
             good_package = false

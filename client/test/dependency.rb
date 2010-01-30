@@ -403,8 +403,22 @@ class TpkgDependencyTests < Test::Unit::TestCase
     # Test with no valid solution, ensure it fails
     testbase = Tempdir.new("testbase")
     tpkg = Tpkg.new(:base => testbase, :sources => @pkgfiles)
-    solution_packages = tpkg.best_solution([{:name => 'a', :type => :tpkg}, {:name => 'c', :minimum_version => '1.3', :type => :tpkg}], {}, ['a', 'c'])
+    assert_nothing_raised { solution_packages = tpkg.best_solution([{:name => 'a', :type => :tpkg}, {:name => 'c', :minimum_version => '1.3', :type => :tpkg}], {}, ['a', 'c']) }
     assert_nil(solution_packages)
+    FileUtils.rm_rf(testbase)
+    
+    # The test recreates a set of circumstances that triggered a bug at one
+    # point.  There are several versions of the requested package which depend
+    # on a non-existent package.  This particular arrangement led to
+    # attempting to reference a nil value as a pkg.
+    testbase = Tempdir.new("testbase")
+    baddep1 = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'baddep', 'version' => '1' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    baddep2 = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'baddep', 'version' => '2' }, :dependencies => {'bogus' => {}}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    baddep3 = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'baddep', 'version' => '2' }, :dependencies => {'bogus' => {}}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    tpkg = Tpkg.new(:base => testbase, :sources => [baddep1, baddep2, baddep3])
+    assert_nothing_raised { solution_packages = tpkg.best_solution([{:name => 'baddep', :type => :tpkg}], {}, ['baddep']) }
+    assert_equal(1, solution_packages.length)
+    assert(solution_packages.first[:source] == baddep1)
     FileUtils.rm_rf(testbase)
   end
   
