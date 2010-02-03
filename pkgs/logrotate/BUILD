@@ -21,7 +21,7 @@ ARCH=`tpkg --qenv | grep 'Architecture' | awk '{print $NF}'`
 rm -rf $PKG-$VER
 tar zxvf $PKG-$VER.tar.gz
 cd $PKG-$VER
-make
+STATEFILE="/home/t/var/lib/logrotate.status" make
 pkgdir=`mktemp -d -t tpkg.XXXXXX`
 cat ../../tpkg.xml | \
 	sed "s/NAME/$PKG/" | \
@@ -44,6 +44,8 @@ mkdir -p $pkgdir/reloc/etc/cron.d
 cp ../logrotate.cron $pkgdir/reloc/etc/cron.d/logrotate
 # Add directory for the log file used in the cronjob
 mkdir -p $pkgdir/reloc/var/log
+# Add directory for the state file
+mkdir -p $pkgdir/reloc/var/lib
 # Install
 make install PREFIX=$pkgdir/reloc BASEDIR=
 # Make package
