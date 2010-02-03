@@ -7,7 +7,7 @@ set -e
 
 PKG=logrotate
 VER=3.7.8
-PKGVER=3
+PKGVER=4
 OS=`tpkg --qenv | grep 'Operating System' | awk '{print $NF}'`
 if echo $OS | egrep 'RedHat|CentOS'
 then
