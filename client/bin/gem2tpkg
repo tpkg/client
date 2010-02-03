@@ -10,20 +10,9 @@ require 'shellwords'
 require 'tpkg'
 require 'facter'
 
-# Names of packages containing ruby and gems.  Dependencies on these
-# will be added to generated packages, so that if a user installs a gem
-# then tpkg will pull in ruby and gems.
-RUBYDEPS = ['ruby']
-# T_RUBY_BASE = "/home/t/ruby"
-T_RUBY_BASE = "#{Tpkg::DEFAULT_BASE}/#{RUBYDEPS.first}".freeze
-DEFAULT_GEM_COMMAND = "#{T_RUBY_BASE}/bin/gem"
-
-# Figure out rubygems library from ruby.
-# There might be several versions so get the latest one. We're assuming that
-# the version directories are named appropriately under lib/ruby/site_ruby.
-versions = Dir.glob(File.join("#{T_RUBY_BASE}", "lib", "ruby", "site_ruby", "*"))
-versions.sort!
-DEFAULT_RUBYGEMS_PATH = versions[-1]
+# We don't want to just use the first gem command in the user's PATH by
+# default, as that may not be a tpkg gem.  I.e. /usr/bin/gem on Mac OS X.
+DEFAULT_GEM_COMMAND = "#{Tpkg::DEFAULT_BASE}/ruby-1.8/bin/gem"
 
 # Haven't found a Ruby method for creating temporary directories,
 # so create a temporary file and replace it with a directory.
@@ -45,6 +34,7 @@ end
 @buildopts = []
 @gemcmd = DEFAULT_GEM_COMMAND
 @rubygemspath = nil
+@extrapkgname = nil
 
 opts = OptionParser.new
 opts.banner = 'Usage: gem2tpkg [options] GEMNAME1 GEMNAME2 ...'
@@ -92,25 +82,84 @@ end
 opts.on('--rubygems-path', '=PATH', 'Path to rubygems library') do |opt|
   @rubygemspath = opt
 end
+opts.on('--extra-name', '=EXTRANAME', 'Extra string to add to package name') do |opt|
+  @extrapkgname = opt
+end
 opts.on_tail("-h", "--help", "Show this message") do
   puts opts
   exit
 end
 
-# we now allow user to specifies multiple gems at the end of the command line arguments
+# Allow user to specify multiple gems at the end of the command line
+# arguments
 leftover = opts.parse(ARGV)
 @gems = leftover
-#if leftover.length == 1
-#  @gem = leftover.shift
-#else
-#  puts opts
-#  exit
-#end
 
-# require the correct rubygems based on what the user specifies
-@rubygemspath ||= DEFAULT_RUBYGEMS_PATH
+# Extract a few paths from gem
+@geminstallpath = nil
+@gembinpath = nil
+@rubypath = nil
+IO.popen("#{@gemcmd} environment") do |pipe|
+  pipe.each_line do |line|
+    if line =~ /INSTALLATION DIRECTORY:\s+(\S+)/
+      @geminstallpath = $1
+    end
+    if line =~ /EXECUTABLE DIRECTORY:\s+(\S+)/
+      @gembinpath = $1
+    end
+    if line =~ /RUBY EXECUTABLE:\s+(\S+)/
+      @rubypath = $1
+    end
+  end
+end
+if !$?.success?
+  abort 'gem environment failed'
+end
+
+# Find the right rubygems library if the user didn't request a specific
+# one
+if !@rubygemspath
+  cmd = "#{@rubypath} -e 'puts $:'"
+  IO.popen(cmd) do |pipe|
+    pipe.each_line do |line|
+      line.chomp!
+      if File.exist?(File.join(line, 'rubygems.rb'))
+        @rubygemspath = line
+        break
+      end
+    end
+  end
+  if !$?.success?
+      abort "#{cmd} failed"
+  end
+end
+
+# Require the correct rubygems based on what the user specifies
 $:.unshift @rubygemspath unless @rubygemspath.nil?
 require 'rubygems'
+
+# Ask tpkg what package owns the gem executable that we're using so that
+# we can add a dependency on that package to any packages we build.
+@gemdep = []
+# FIXME: Currently the reading of config files and whatnot is done in
+# the tpkg executable.  We should probably move that into the library so
+# that other utilities like this one use an alternate base if the user
+# has configured one, etc.
+tpkg = Tpkg.new(:base => Tpkg::DEFAULT_BASE)
+tpkg.files_for_installed_packages.each do |pkgfile, fip|
+  fip[:normalized].each do |file|
+    if file == @gemcmd
+      metadata = nil
+      # FIXME: Should add a metadata_for_installed_package method to the
+      # library
+      tpkg.metadata_for_installed_packages.each do |metadata|
+        if metadata[:filename] == pkgfile
+          @gemdep << metadata[:name]
+        end
+      end
+    end
+  end
+end
 
 # Create the directory we want gem to install into
 @gemdir = tempdir('gem2tpkg')
@@ -118,7 +167,6 @@ ENV['GEM_HOME'] = @gemdir
 ENV['GEM_PATH'] = @gemdir
 
 # Install the gem
-#geminst = [@gemcmd, 'install', @gems.join(" "), '--no-rdoc', '--no-ri']
 geminst = [@gemcmd, 'install', '--no-rdoc', '--no-ri'] | @gems
 if @gemver
   geminst << @gemver
@@ -147,7 +195,6 @@ def package(gem)
   puts "Packaging #{gem}"
   
   gemsdir = nil
-  #globdirs = Dir.glob(File.join(@gemdir, 'gems', "#{gem}-*"))
   globdirs = Dir.glob(File.join(@gemdir, 'gems', "#{gem}-[0-9]*"))
   if globdirs.length == 1
     gemsdir = globdirs[0]
@@ -286,7 +333,7 @@ def package(gem)
   
   # The directory where we make our package
   pkgdir = tempdir('gem2tpkg')
-  pkgbasedir = File.join(pkgdir, "/root/#{T_RUBY_BASE}/lib/ruby/gems/1.8")
+  pkgbasedir = File.join(pkgdir, "/root/#{@geminstallpath}")
   FileUtils.mkdir_p(pkgbasedir)
   pkggemdir = File.join(pkgbasedir, 'gems')
   FileUtils.mkdir_p(pkggemdir)
@@ -305,7 +352,7 @@ def package(gem)
     binfiles << File.join(@gemdir, 'bin', exec)
   end
   if !binfiles.empty?
-    bindir = "#{pkgdir}/root/#{T_RUBY_BASE}/bin"
+    bindir = "#{pkgdir}/root/#{@gembinpath}"
     FileUtils.mkdir_p(bindir)
     binfiles.each do |binfile|
       FileUtils.cp(binfile, bindir, :preserve => true)
@@ -315,6 +362,15 @@ def package(gem)
   # Copy over the gemspec file
   FileUtils.cp(gemspecfile, pkgspecdir, :preserve => true)
   
+  pkgnamesuffix = ''
+  if @extrapkgname
+    pkgnamesuffix = '-' + @extrapkgname
+  elsif @gemcmd != DEFAULT_GEM_COMMAND
+    # If we're not using the default gem try to name the package in a way
+    # that indicates the alternate ruby/gem used
+    pkgnamesuffix = '-' + @gemdep.first.sub(/\W/, '')
+  end
+  
   # Add tpkg.xml
   os = nil
   arch = nil
@@ -322,7 +378,7 @@ def package(gem)
     file.puts '<?xml version="1.0" encoding="UTF-8"?>'
     file.puts '<!DOCTYPE tpkg SYSTEM "http://tpkg.sourceforge.net/tpkg-1.0.dtd">'
     file.puts '<tpkg>'
-    file.puts "  <name>gem-#{gem}</name>"
+    file.puts "  <name>gem-#{gem}#{pkgnamesuffix}</name>"
     file.puts "  <version>#{gemspec.version.to_s}</version>"
     file.puts "  <package_version>#{@pkgver}</package_version>"
     file.puts '  <maintainer>gem2tpkg</maintainer>'
@@ -341,11 +397,11 @@ def package(gem)
     end
     if !deps.empty? ||
        !@extradeps.empty? || !@nativedeps.empty? ||
-       !RUBYDEPS.empty?
+       !@gemdep.empty?
       file.puts '  <dependencies>'
       deps.each do |depgem, depvers|
         file.puts '    <dependency>'
-        file.puts "      <name>gem-#{depgem}</name>"
+        file.puts "      <name>gem-#{depgem}#{pkgnamesuffix}</name>"
         if depvers[:minimum_version]
           file.puts "      <minimum_version>#{depvers[:minimum_version]}</minimum_version>"
         end
@@ -377,9 +433,9 @@ def package(gem)
         file.puts '      <native/>'
         file.puts '    </dependency>'
       end
-      RUBYDEPS.each do |rubydep|
+      @gemdep.each do |gemdep|
         file.puts '    <dependency>'
-        file.puts "      <name>#{rubydep}</name>"
+        file.puts "      <name>#{gemdep}</name>"
         file.puts '    </dependency>'
       end
       file.puts '  </dependencies>'
@@ -389,24 +445,11 @@ def package(gem)
   
   # Make package
   pkgfile = Tpkg::make_package(pkgdir)
-  # If the package is OS-specific then rename the file to reflect that
-  if os
-    # Examples:
-    # FreeBSD-7 -> freebsd7
-    # RedHat-5 -> redhat5
-    # CentOS-5 -> redhat5
-    fileos = Tpkg::get_os.sub('CentOS', 'RedHat').downcase.sub('-', '')
-    newpkgfile = File.join(
-                   File.dirname(pkgfile),
-                   "#{File.basename(pkgfile, '.tpkg')}-#{fileos}-#{arch}.tpkg")
-    File.rename(pkgfile, newpkgfile)
-    pkgfile = newpkgfile
-  end
   pkgfiles << pkgfile
   
   # Cleanup
   FileUtils.rm_rf(pkgdir)
- 
+  
   @already_packaged << gem
   pkgfiles
 end
