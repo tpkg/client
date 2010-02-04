@@ -1,60 +1,225 @@
 require 'yaml'
 require 'rexml/document'
 
-module SymbolizeKeys
+# We store this gem in our thirdparty directory. So we need to add it
+# it to the search path
+#  This one is for when everything is installed
+$:.unshift(File.join(File.dirname(__FILE__), 'thirdparty/kwalify-0.7.1/lib'))
+#  And this one for when we're in the svn directory structure
+$:.unshift(File.join(File.dirname(File.dirname(__FILE__)), 'thirdparty/kwalify-0.7.1/lib'))
+require 'kwalify' # for validating yaml
 
-  # converts any current string keys to symbol keys 
-  def self.extended(hash)
-    hash.each do |key,value|
-      if key.is_a?(String)
-        hash.delete key
-        hash[key] = value #through overridden []= 
-      end
-      if value.is_a?(Hash)
-        hash[key]=value.extend(SymbolizeKeys)
-      elsif value.is_a?(Array)
-        value.each do |val|
-          if val.is_a?(Hash)
-            val.extend(SymbolizeKeys)
-          end
-        end
-      end
+# This class is taken from the ActiveSupport gem. 
+# With yaml, keys are stored as string. But when we convert xml to hash, we store the key as
+# symbol. To make it more convenient, we'll be subclassing our metadata hash with this class. 
+# That way, we can access our metadata using either string or symbol as the key.
+class HashWithIndifferentAccess < Hash
+  def initialize(constructor = {})
+    if constructor.is_a?(Hash)
+      super()
+      update(constructor)
+    else
+      super(constructor)
+    end
+  end
+  
+  def default(key = nil)
+    if key.is_a?(Symbol) && include?(key = key.to_s)
+      self[key]
+    else
+      super
     end
   end
 
-  # assigns a new key/value pair 
-  # converts they key to a symbol if it is a string 
-  def []=(*args)
-    args[0] = args[0].to_sym if args[0].is_a?(String)
-    super
+  alias_method :regular_writer, :[]= unless method_defined?(:regular_writer)
+  alias_method :regular_update, :update unless method_defined?(:regular_update)
+    
+  # Assigns a new value to the hash:
+  #
+  #   hash = HashWithIndifferentAccess.new
+  #   hash[:key] = "value"
+  #
+  def []=(key, value)
+    regular_writer(convert_key(key), convert_value(value))
   end
-
-  # returns new hash which is the merge of self and other hashes 
-  # the returned hash will also be extended by SymbolizeKeys 
-  def merge(*other_hashes , &resolution_proc )
-    merged = Hash.new.extend SymbolizeKeys
-    merged.merge! self , *other_hashes , &resolution_proc
-  end
-
-  # merges the other hashes into self 
-  # if a proc is submitted , it's return will be the value for the key 
-  def merge!( *other_hashes , &resolution_proc )
-
-    # default resolution: value of the other hash 
-    resolution_proc ||= proc{ |key,oldval,newval| newval }
-
-    # merge each hash into self 
-    other_hashes.each do |hash|
-      hash.each{ |k,v|
-        # assign new k/v into self, resolving conflicts with resolution_proc 
-        self[k] = self.has_key?(k) ? resolution_proc[k,self[k],v] : v
-      }
-    end
-
+  
+  # Updates the instantized hash with values from the second:
+  # 
+  #   hash_1 = HashWithIndifferentAccess.new
+  #   hash_1[:key] = "value"
+  # 
+  #   hash_2 = HashWithIndifferentAccess.new
+  #   hash_2[:key] = "New Value!"
+  # 
+  #   hash_1.update(hash_2) # => {"key"=>"New Value!"}
+  # 
+  def update(other_hash)
+    other_hash.each_pair { |key, value| regular_writer(convert_key(key), convert_value(value)) }
     self
+  end
+
+  alias_method :merge!, :update
+
+  # Checks the hash for a key matching the argument passed in:
+  #
+  #   hash = HashWithIndifferentAccess.new
+  #   hash["key"] = "value"
+  #   hash.key? :key  # => true
+  #   hash.key? "key" # => true
+  #
+  def key?(key)
+    super(convert_key(key))
+  end
+
+  alias_method :include?, :key?
+  alias_method :has_key?, :key?
+  alias_method :member?, :key?
+
+  # Fetches the value for the specified key, same as doing hash[key]
+  def fetch(key, *extras)
+    super(convert_key(key), *extras)
+  end
+
+  # Returns an array of the values at the specified indices:
+  #
+  #   hash = HashWithIndifferentAccess.new
+  #   hash[:a] = "x"
+  #   hash[:b] = "y"
+  #   hash.values_at("a", "b") # => ["x", "y"]
+  #
+  def values_at(*indices)
+    indices.collect {|key| self[convert_key(key)]}
+  end
+
+  # Returns an exact copy of the hash.
+  def dup
+    HashWithIndifferentAccess.new(self)
+  end
+
+  # Merges the instantized and the specified hashes together, giving precedence to the values from the second hash
+  # Does not overwrite the existing hash.
+  def merge(hash)
+    self.dup.update(hash)
+  end
+
+  # Removes a specified key from the hash.
+  def delete(key)
+    super(convert_key(key))
+  end
+
+  def stringify_keys!; self end
+  def symbolize_keys!; self end
+  def to_options!; self end
+
+  # Convert to a Hash with String keys.
+  def to_hash
+    Hash.new(default).merge(self)
+  end
+
+  protected
+    def convert_key(key)
+      key.kind_of?(Symbol) ? key.to_s : key
+    end
+
+    def convert_value(value)
+      case value
+      when Hash
+        value.with_indifferent_access
+      when Array
+        value.collect { |e| e.is_a?(Hash) ? e.with_indifferent_access : e }
+      else
+        value
+      end
+    end
+end
+
+module IndifferentAccess 
+  def with_indifferent_access
+    hash = HashWithIndifferentAccess.new(self)
+    hash.default = self.default
+    hash
   end
 end
 
+# modules with some handy methods for dealing with hash. taken from
+# ActiveSupport and Facets
+module HashUtils
+  # Return a new hash with all keys converted to strings.
+  def stringify_keys
+    inject({}) do |options, (key, value)|
+      options[key.to_s] = value
+      options
+    end
+  end
+
+  # Return a new hash with all keys converted to symbols.
+  def symbolize_keys
+    inject({}) do |options, (key, value)|
+      options[(key.to_sym rescue key) || key] = value
+      options
+    end
+  end
+
+  def recursively(&block)
+    h = inject({}) do |hash, (key, value)|
+      if value.is_a?(Hash)
+        hash[key] = value.recursively(&block)
+      elsif value.is_a?(Array)
+        array = []
+        value.each do |val|
+          if val.is_a?(Hash)
+            array << val.recursively(&block) 
+          else
+            array << val
+          end
+        end
+        hash[key] = array
+      else
+        hash[key] = value
+      end
+      hash
+    end
+    yield h
+  end
+
+  def rekey(*args, &block)
+    result = {}
+    # for backward comptability (TODO: DEPRECATE).
+    block = args.pop.to_sym.to_proc if args.size == 1
+    # if no args use block.
+    if args.empty?
+      block = lambda{|k| k.to_sym} unless block
+      keys.each do |k|
+        nk = block[k]
+        result[nk]=self[k] if nk
+      end
+    else
+      raise ArgumentError, "3 for 2" if block
+      to, from = *args
+      result[to] = self[from]
+    end
+    result
+  end
+end
+
+# Adding new capabilities to hash
+class Hash
+  include IndifferentAccess
+  include HashUtils
+end
+
+# This is needed for backward compatibility
+# We were using SymbolizeKeys rather than the HashWithIndifferentAccess
+# class
+module SymbolizeKeys 
+  def self.extended(hash)
+    hash.extend(HashWithIndifferentAccess)
+  end
+end
+
+# This class is used for storing metadata of a package. The idea behind this class
+# is that you can give it a metadata file of any format, such as yaml or xml,
+# and it will provide you a uniform interface for accessing/dealing with the metadata.
 class Metadata
   attr_accessor :source
   REQUIRED_FIELDS = [:name, :version, :maintainer]
@@ -101,7 +266,19 @@ class Metadata
 
     if @format == 'yml'
       hash = YAML::load(@metadata_text)
-      @hash = hash.extend(SymbolizeKeys)
+      @hash = hash.with_indifferent_access
+
+      # We need this for backward compatibility. With xml, we specify
+      # native dependency as type: :native rather then native: true
+      @hash[:dependencies].each do | dep |
+        if !dep[:type]
+          if dep[:native]
+            dep[:type] = :native
+          else
+            dep[:type] = :tpkg
+          end
+        end
+      end if @hash[:dependencies]
     else
       @hash = metadata_xml_to_hash
     end
@@ -109,10 +286,10 @@ class Metadata
   end
 
   def write(file)
-    YAML::dump(to_hash, file)
-  end
-
-  def get_files_list
+    # When we convert xml to hash, we store the key as symbol. So when we
+    # write back out to file, we should stringify all the keys for readability.
+    data = to_hash.recursively{|h| h.stringify_keys }
+    YAML::dump(data, file)
   end
 
   def generate_package_filename
@@ -166,14 +343,52 @@ class Metadata
     return package_filename
   end
 
+  # Validate the metadata against the schema/dtd specified by the user
+  # or use the default one in schema_dir
+  # Return array of errors (if there are any)
+  def validate(schema_dir)
+    errors = []
+    if @format == 'yml'
+      if to_hash[:schema_file] 
+        schema_file = File.join(schema_dir, to_hash[:schema_file]) 
+      else
+        schema_file = File.join(schema_dir, "schema.yml") 
+      end
+      unless File.exists?(schema_file)
+        warn "Warning: unable to validate metadata because #{schema_file} does not exist"
+        return
+      end 
+      errors = verify_yaml(schema_file, @metadata_text)
+    elsif @format == 'xml'
+      # TODO: use DTD to validate XML
+      errors = verify_required_fields
+    end
+    errors
+  end
+
+  # Verify the yaml text against the given schema
+  # Return array of errors (if there are any)
+  def verify_yaml(schema, yaml_text)
+    schema = Kwalify::Yaml.load_file(schema)
+
+    ## create validator
+    validator = Kwalify::Validator.new(schema.with_indifferent_access)
+    ## validate
+    errors = validator.validate(YAML::load(yaml_text).with_indifferent_access)
+  end
+
+  # Once we implement validating the XML using the DTD, we won't need
+  # this method anymore
   def verify_required_fields
+    errors = []
     REQUIRED_FIELDS.each do |reqfield|
       if to_hash[reqfield].nil?
-        raise "Required field #{reqfield} not found"
+        errors << "Required field #{reqfield} not found"
       elsif to_hash[reqfield].to_s.empty?
-        raise "Required field #{reqfield} is empty"
+        errors << "Required field #{reqfield} is empty"
       end
     end
+    errors
   end
 
   def metadata_xml_to_hash
@@ -182,7 +397,10 @@ class Metadata
 
     metadata_hash = {}
     metadata_xml = REXML::Document.new(@metadata_text)
-    metadata_hash[:filename] = metadata_xml.root.attributes['filename']
+
+    if metadata_xml.root.attributes['filename'] # && !metadata_xml.root.attributes['filename'].empty?
+      metadata_hash[:filename] = metadata_xml.root.attributes['filename'] 
+    end
 
     REQUIRED_FIELDS.each do |reqfield|
       if metadata_xml.elements["/tpkg/#{reqfield}"]
@@ -231,6 +449,8 @@ class Metadata
       end
       if depxml.elements['native']
         dep[:type] = :native
+      else
+        dep[:type] = :tpkg
       end
       deps << dep
     end
@@ -248,6 +468,8 @@ class Metadata
       end
       if conflictxml.elements['native']
         conflict[:type] = :native
+      else
+        conflict[:type] = :tpkg
       end
       conflicts << conflict
     end
@@ -395,10 +617,10 @@ class FileMetadata < Metadata
 
     if @format == 'bin'
       hash = Marshal::load(@metadata_text)
-      @hash = hash.extend(SymbolizeKeys)
+      @hash = hash.with_indifferent_access
     elsif @format == 'yml'
       hash = YAML::load(@metadata_text)
-      @hash = hash.extend(SymbolizeKeys)
+      @hash = hash.with_indifferent_access
     elsif @format == 'xml'
       @hash = file_metadata_xml_to_hash
     end

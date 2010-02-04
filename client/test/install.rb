@@ -80,6 +80,31 @@ class TpkgInstallTests < Test::Unit::TestCase
     assert(cctime > bctime)
 
   end
+
+  # Verify that we can install multiple versions of the same package
+  def test_install_multiple_versions
+    pkgfiles = []
+    testroot = Tempdir.new("testroot")
+    ['1', '2'].each do |pkgver|
+      pkgfiles << make_package(:change => {'version' => pkgver, 'name' => 'versiontest'}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    end
+    tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => pkgfiles)
+    assert_nothing_raised { tpkg.install(['versiontest=1'], PASSPHRASE) }
+    assert_nothing_raised { tpkg.install(['versiontest=2'], PASSPHRASE) }
+    metadata = tpkg.metadata_for_installed_packages
+    # verify that both of them are installed
+    assert_equal(metadata.size, 2)
+
+    # verify we can install in reverse order
+    testroot = Tempdir.new("testroot2")
+    tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => pkgfiles)
+    assert_nothing_raised { tpkg.install(['versiontest=2'], PASSPHRASE) }
+    assert_nothing_raised { tpkg.install(['versiontest=1'], PASSPHRASE) }
+    metadata = tpkg.metadata_for_installed_packages
+    # verify that both of them are installed
+    assert_equal(metadata.size, 2)
+
+  end
   
   def teardown
     FileUtils.rm_f(@pkgfile)

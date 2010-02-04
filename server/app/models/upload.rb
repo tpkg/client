@@ -6,6 +6,7 @@ rescue LoadError
 end
 
 class Upload < ActiveRecord::Base
+  AppConfig = ConfigurationManager.new_manager
   has_attached_file :upload, :path => "#{AppConfig.upload_path}:basename.:extension"
 
   before_post_process  :pre_process

@@ -16,6 +16,7 @@ tpkg client
 /usr/bin/tpkg
 /usr/bin/cpan2tpkg
 /usr/bin/gem2tpkg
+/usr/bin/tpkg_xml_to_yml
 /usr/lib/ruby/site_ruby/1.8/tpkg
 /usr/lib/ruby/site_ruby/1.8/tpkg.rb
 /usr/share/man/man1/tpkg.1
@@ -24,4 +25,3 @@ tpkg client
 /home/t/var/tpkg/externals
 %config /etc/tpkg.conf
 /etc/tpkg
-

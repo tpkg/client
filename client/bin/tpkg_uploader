@@ -13,7 +13,7 @@ require 'uri'
 # Set these variables to the appropriate values that suit your environment
 authentication_url = "http://localhost:3000/login"
 tpkg_upload_url = "http://localhost:3000/uploads/create"
-proxy_server = "proxy.yellowpages.local:8080"
+proxy_server = "proxy.local:8080"
 ##########################################################################
 
 username = Etc.getlogin
@@ -94,7 +94,7 @@ else
   # curl, we will tell curl to look it up from a config file
   config="data = \"login=#{username}&password=#{password}\""
   File.open(curl_config.path, 'w') {|f| f.write(config) }
-  result = `curl #{authentication_url} -K #{curl_config.path} -k -c #{cookie_file} #{proxy}`
+  result = `curl #{authentication_url} -L -K #{curl_config.path} -k -c #{cookie_file} #{proxy}`
   if result =~ /failed/
     puts "Failed to authenticate."
     exit

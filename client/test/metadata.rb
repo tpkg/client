@@ -54,10 +54,12 @@ class TpkgMetadataTests < Test::Unit::TestCase
         assert_equal('3.0', depreq[:maximum_version])
         assert_equal('1.5', depreq[:minimum_package_version])
         assert_equal('2.5', depreq[:maximum_package_version])
-        assert_equal(5, depreq.length)  # :name and 4 version requirements
+        assert_equal(:tpkg, depreq[:type])
+        assert_equal(6, depreq.length)  # :name, :type and 4 version requirements
       else
         assert_equal('testpkg3', depreq[:name])
-        assert_equal(1, depreq.length)  # :name only
+        assert_equal(:tpkg, depreq[:type])
+        assert_equal(2, depreq.length)  # :name and :type only
       end
     end
     FileUtils.rm_f(pkgfile)

@@ -1,6 +1,6 @@
 ##############################################################################
 # tpkg package management system library
-# Copyright 2009, AT&T Interactive
+# Copyright 2009, 2010 AT&T Interactive
 # License: MIT (http://www.opensource.org/licenses/mit-license.php)
 ##############################################################################
 
@@ -20,6 +20,13 @@ tpkglibdir = File.join(File.dirname(__FILE__), 'tpkg')
 if File.directory?(tpkglibdir)
   $:.unshift(tpkglibdir)
 end
+
+# We store this gem in our thirdparty directory. So we need to add it
+# it to the search path
+#  This one is for when everything is installed
+$:.unshift(File.join(File.dirname(__FILE__), 'thirdparty/kwalify-0.7.1/lib'))
+#  And this one for when we're in the svn directory structure
+$:.unshift(File.join(File.dirname(File.dirname(__FILE__)), 'thirdparty/kwalify-0.7.1/lib'))
 
 begin
   # Try loading facter w/o gems first so that we don't introduce a
@@ -45,15 +52,19 @@ require 'versiontype'    # Version
 require 'deployer'
 require 'set'
 require 'metadata'
+require 'kwalify'        # for validating yaml
 
 class Tpkg
   
   VERSION = 'trunk'
   CONFIGDIR = '/etc'
-  
+
+  GENERIC_ERR = 1  
   POSTINSTALL_ERR = 2
   POSTREMOVE_ERR = 3
   INITSCRIPT_ERR = 4
+
+  CONNECTION_TIMEOUT = 10
 
   attr_reader :installed_directory
  
@@ -190,8 +201,7 @@ class Tpkg
   end
   
   # Makes a package from a directory containing the files to put into the package
-  REQUIRED_FIELDS = ['name', 'version', 'maintainer']
-  def self.make_package(pkgsrcdir, passphrase=nil)
+  def self.make_package(pkgsrcdir, passphrase=nil, options = {})
     pkgfile = nil
     
     # Make a working directory
@@ -225,17 +235,33 @@ class Tpkg
       # code (tar) ever touch the user's files.
       system("#{find_tar} -C #{pkgsrcdir} -cf - . | #{find_tar} -C #{tpkgdir} -xpf -") || raise("Package content copy failed")
       
+      # check metadata file 
+      errors = []
       if File.exists?(File.join(tpkgdir, 'tpkg.yml'))
-        metadata_text = File.read(File.join(tpkgdir, 'tpkg.yml'))
-        metadata = Metadata.new(metadata_text, 'yml')
+        metadata_file = File.join(tpkgdir, 'tpkg.yml')
+        metadata_format = 'yml'
       elsif File.exists?(File.join(tpkgdir, 'tpkg.xml'))
-        metadata_text = File.read(File.join(tpkgdir, 'tpkg.xml'))
-        metadata = Metadata.new(metadata_text, 'xml')
+        metadata_file = File.join(tpkgdir, 'tpkg.xml')
+        metadata_format = 'xml'
       else
         raise 'Your source directory does not contain the metadata configuration file.'
       end
+      metadata_text = File.read(metadata_file)
+      metadata = Metadata.new(metadata_text, metadata_format)
 
-      metadata.verify_required_fields
+      # This is the directory where we put our dtd/schema for validating
+      # the metadata file
+      if File.exist?(File.join(CONFIGDIR, 'tpkg', 'schema'))
+        schema_dir = File.join(CONFIGDIR, 'tpkg', 'schema')
+      else # This is for when we're in developement mode or when installed as gem
+        schema_dir = File.join(File.dirname(File.dirname(__FILE__)), "schema")
+      end
+      errors = metadata.validate(schema_dir)
+      if errors && !errors.empty? 
+        puts "Bad metadata file. Possible error(s):"
+        errors.each {|e| puts e }
+        exit GENERIC_ERR unless options[:force]
+      end
 
       # file_metadata.yml hold information for files that are installed
       # by the package. For example, checksum, path, relocatable or not, etc.
@@ -324,7 +350,11 @@ class Tpkg
     # FIXME: This is so lame, to read the whole package to get the
     # first filename.  Blech.
     IO.popen("#{find_tar} -tf #{package_file}") do |pipe|
-      toplevel = pipe.gets.chomp
+      toplevel = pipe.gets
+      if toplevel.nil?
+         raise "Package directory structure of #{package_file} unexpected. Unable to get top level."
+      end
+      toplevel.chomp!
       # Avoid SIGPIPE, if we don't sink the rest of the output from tar
       # then tar ends up getting SIGPIPE when it tries to write to the
       # closed pipe and exits with error, which causes us to throw an
@@ -510,7 +540,8 @@ class Tpkg
       tpkg_xml = REXML::Document.new(pipe.read)
     end
     if !$?.success?
-      raise "Extracting tpkg.xml from #{package_file} failed"
+      warn "Warning: Extracting tpkg.xml from #{package_file} failed"
+      return nil
     end
 
     # Insert an attribute on the root element with the package filename
@@ -543,7 +574,7 @@ class Tpkg
         metadata << existing_metadata[File.basename(pkg)]
       else
         xml = xml_metadata_from_package(pkg)
-        metadata << xml.root
+        metadata << xml.root if xml
       end
     end
 
@@ -573,7 +604,6 @@ class Tpkg
     # in the given directory. Reuse existing metadata if possible.
     Dir.glob(File.join(directory, '*.tpkg')) do |pkg|
       if existing_metadata[File.basename(pkg)]
-puts "Existing #{pkg}"
         metadata << existing_metadata[File.basename(pkg)]
       else
         metadata_yml = metadata_from_package(pkg)
@@ -706,7 +736,7 @@ puts "Existing #{pkg}"
       result = false
     elsif req[:filename]
       result = false if req[:filename] != metadata[:filename]
-    elsif (!req[:type] || req[:type] == :tpkg) &&
+    elsif req[:type] == :tpkg &&
           (pkg[:source] == :native_installed || pkg[:source] == :native_available)
       # Likewise a req for a tpkg must be satisfied by a tpkg
       puts "Package fails non-native requirement" if @@debug
@@ -778,6 +808,9 @@ puts "Existing #{pkg}"
     else
       puts "Package fails name" if @@debug
       result = false
+    end
+    if result
+      puts "Package matches" if @@debug
     end
     result
   end
@@ -992,6 +1025,7 @@ puts "Existing #{pkg}"
     else
       req[:name] = parts.join('-')
     end
+    req[:type] = :tpkg
     req
   end
 
@@ -1277,13 +1311,12 @@ puts "Existing #{pkg}"
       if @@debug
         @sources.each do |source|
           count = metadata.inject(0) do |memo,m|
-                    # metadata is a hash of pkgname => array of metadata
-                    # hashes
+                    # metadata is a hash of pkgname => array of Metadata
+                    # objects.
                     # Thus m is a 2 element array of [pkgname, array of
-                    # metadata hashes]  And thus m[1] is the array of
-                    # metadata hashes.  And metadata hashes are themselves
-                    # a hash of XML metadata and source.
-                    memo + m[1].select{|mh| mh[:source] == source}.length
+                    # Metadata objects]  And thus m[1] is the array of
+                    # Metadata objects.
+                    memo + m[1].select{|mo| mo.source == source}.length
                   end
           puts "Found #{count} packages from #{source}"
         end
@@ -1357,15 +1390,15 @@ puts "Existing #{pkg}"
                 # Skip the header lines until we get to this line
                 read_packages = true
               elsif read_packages
-                if line =~ /^Name\s+:\s+(.+)/
+                if line =~ /^Name\s*:\s*(.+)/
                   name = $1.strip
-                elsif line =~ /^Arch\s+:\s+(.+)/
+                elsif line =~ /^Arch\s*:\s*(.+)/
                   arch = $1.strip
-                elsif line =~ /^Version\s+:\s+(.+)/
+                elsif line =~ /^Version\s*:\s*(.+)/
                   version = $1.strip.to_s
-                elsif line =~ /^Release\s+:\s+(.+)/
+                elsif line =~ /^Release\s*:\s*(.+)/
                   package_version = $1.strip.to_s
-                elsif line =~ /^Repo\s+:\s+(.+)/
+                elsif line =~ /^Repo\s*:\s*(.+)/
                   repo = $1.strip
                 elsif line =~ /^\s*$/
                   pkg = pkg_for_native_package(name, version, package_version, yum[:source])
@@ -1781,18 +1814,21 @@ puts "Existing #{pkg}"
     files
   end
   
-  # Returns the best solution that meets the given requirements.  Some
-  # or all packages may be optionally pre-selected and specified via the
-  # packages parameter, otherwise packages are picked from the set of
-  # available packages.  The packages parameter is in the form of a hash
-  # with package names as keys pointing to arrays of package specs (our
-  # standard hash of package metadata and source).  The return value
+  # Returns the best solution that meets the given requirements.  Some or all
+  # packages may be optionally pre-selected and specified via the packages
+  # parameter, otherwise packages are picked from the set of available
+  # packages.  The requirements parameter is an array of package requirements.
+  # The packages parameter is in the form of a hash with package names as keys
+  # pointing to arrays of package specs (our standard hash of package metadata
+  # and source).  The core_packages parameter is an array of the names of
+  # packages that should be considered core requirements, i.e. the user
+  # specifically requested they be installed or upgraded. The return value
   # will be an array of package specs.
   MAX_POSSIBLE_SOLUTIONS_TO_CHECK = 10000
   def best_solution(requirements, packages, core_packages)
     # Dup objects passed to us so that resolve_dependencies is free to
     # change them without potentially messing up our caller
-    result = resolve_dependencies(requirements.dup, packages.dup, core_packages.dup)
+    result = resolve_dependencies(requirements.dup, {:tpkg => packages.dup, :native => {}}, core_packages.dup)
     if @@debug
       if result[:solution]
         puts "bestsol picks: #{result[:solution].inspect}" if @@debug
@@ -1804,21 +1840,30 @@ puts "Existing #{pkg}"
   end
   
   # Recursive method used by best_solution
+  # Parameters mostly map from best_solution, but packages turns into a hash
+  # with two possible keys, :tpkg and :native.  The value for the :tpkg key
+  # would be the packages parameter from best_solution.  Native packages are
+  # only installed due to dependencies, we don't let the user request them
+  # directly, so callers of best_solution never need to pass in a package list
+  # for native packages.  Separating the two sets of packages allows us to
+  # calculate a solution that contains both a tpkg and a native package with
+  # the same name.  This may be necessary if different dependencies of the
+  # core packages end up needing both.
   def resolve_dependencies(requirements, packages, core_packages, number_of_possible_solutions_checked=0)
     # Make sure we have populated package lists for all requirements.
     # Filter the package lists against the requirements and
     # ensure we can at least satisfy the initial requirements.
     requirements.each do |req|
-      if !packages[req[:name]]
+      if !packages[req[:type]][req[:name]]
         puts "resolvedeps initializing packages for #{req.inspect}" if @@debug
-        packages[req[:name]] =
+        packages[req[:type]][req[:name]] =
           available_packages_that_meet_requirement(req)
       else
         # Loop over packages and eliminate ones that don't work for
         # this requirement
         puts "resolvedeps filtering packages for #{req.inspect}" if @@debug
-        packages[req[:name]] =
-          packages[req[:name]].select do |pkg|
+        packages[req[:type]][req[:name]] =
+          packages[req[:type]][req[:name]].select do |pkg|
             # When this method is called recursively there might be a
             # nil entry inserted into packages by the sorting code
             # below.  We need to skip those.
@@ -1827,7 +1872,7 @@ puts "Existing #{pkg}"
             end
           end
       end
-      if packages[req[:name]].empty?
+      if packages[req[:type]][req[:name]].empty?
         if @@debug
           puts "No packages matching #{req.inspect}"
         end
@@ -1835,15 +1880,17 @@ puts "Existing #{pkg}"
       end
     end
     # Sort the packages
-    packages.each do |pkgname, pkgs|
-      pkgs.sort!(&SORT_PACKAGES)
-      # Only currently installed packages are allowed to score 0.
-      # Anything else can score 1 at best.  This ensures
-      # that we prefer the solution which leaves the most
-      # currently installed packages alone.
-      if pkgs[0][:source] != :currently_installed &&
-         pkgs[0][:source] != :native_installed
-        pkgs.unshift(nil)
+    [:tpkg, :native].each do |type|
+      packages[type].each do |pkgname, pkgs|
+        pkgs.sort!(&SORT_PACKAGES)
+        # Only currently installed packages are allowed to score 0.
+        # Anything else can score 1 at best.  This ensures
+        # that we prefer the solution which leaves the most
+        # currently installed packages alone.
+        if pkgs[0][:source] != :currently_installed &&
+           pkgs[0][:source] != :native_installed
+          pkgs.unshift(nil)
+        end
       end
     end
     
@@ -1888,13 +1935,16 @@ puts "Existing #{pkg}"
     # [a2, b2, c2]                (avg 2)
     
     # Divide packages into core and non-core packages
-    corepkgs = packages.reject{|pkgname, pkgs| !core_packages.include?(pkgname)}
-    noncorepkgs = packages.reject{|pkgname, pkgs| core_packages.include?(pkgname)}
+    corepkgs = packages[:tpkg].reject{|pkgname, pkgs| !core_packages.include?(pkgname)}
+    noncorepkgs = {}
+    noncorepkgs[:tpkg] = packages[:tpkg].reject{|pkgname, pkgs| core_packages.include?(pkgname)}
+    noncorepkgs[:native] = packages[:native]
     
     # Calculate total package depth, the sum of the lengths (or rather
     # the max array index) of each array of packages.
     coretotaldepth = corepkgs.inject(0) {|memo, pkgs| memo + pkgs[1].length - 1}
-    noncoretotaldepth = noncorepkgs.inject(0) {|memo, pkgs| memo + pkgs[1].length - 1}
+    noncoretotaldepth = noncorepkgs[:tpkg].inject(0) {|memo, pkgs| memo + pkgs[1].length - 1} +
+                        noncorepkgs[:native].inject(0) {|memo, pkgs| memo + pkgs[1].length - 1}
     if @@debug
       puts "resolvedeps coretotaldepth #{coretotaldepth}"
       puts "resolvedeps noncoretotaldepth #{noncoretotaldepth}"
@@ -1938,7 +1988,7 @@ puts "Existing #{pkg}"
                 # {:pkgs=>{a1,b0}, :remaining_coredepth=0}
                 if coresol[:remaining_coredepth] == 0
                   # Second pass, add combinations of non-core packages
-                  if noncorepkgs.empty?
+                  if noncorepkgs[:tpkg].empty? && noncorepkgs[:native].empty?
                     puts "resolvedeps noncorepkgs empty, checking solution" if @@debug
                     result = check_solution(coresol, requirements, packages, core_packages, number_of_possible_solutions_checked)
                     if result[:solution]
@@ -1951,45 +2001,47 @@ puts "Existing #{pkg}"
                       puts "resolvedeps noncoredepth: #{noncoredepth}" if @@debug
                       coresol[:remaining_noncoredepth] = noncoredepth
                       solutions = [coresol]
-                      noncorepkgs.each do |ncpkgname, ncpkgs|
-                        puts "resolvedeps noncorepkg #{ncpkgname}: #{ncpkgs.inspect}" if @@debug
-                        new_solutions = []
-                        solutions.each do |solution|
-                          remaining_noncoredepth = solution[:remaining_noncoredepth]
-                          puts "resolvedeps :remaining_noncoredepth: #{remaining_noncoredepth}" if @@debug
-                          (0..[remaining_noncoredepth, ncpkgs.length-1].min).each do |ncpkgdepth|
-                            puts "resolvedeps ncpkgdepth: #{ncpkgdepth}" if @@debug
-                            # We insert a nil entry in some situations (see the sort
-                            # step earlier), so skip nil entries in the pkgs array.
-                            if ncpkgs[ncpkgdepth] != nil
-                              sol = solution.dup
-                              # Hash#dup doesn't dup each key/value, so we need to
-                              # explicitly dup :pkgs so that each copy has an
-                              # independent array that we can modify.
-                              sol[:pkgs] = solution[:pkgs].dup
-                              sol[:remaining_noncoredepth] -= ncpkgdepth
-                              sol[:pkgs] << ncpkgs[ncpkgdepth]
-                              new_solutions << sol
-                              # If this is a complete combination of packages then
-                              # proceed to the next step
-                              puts "resolvedeps sol[:pkgs] #{sol[:pkgs].inspect}" if @@debug
-                              if sol[:pkgs].length == packages.length
-                                puts "resolvedeps complete pkg set: #{sol.inspect}" if @@debug
-                                # Solutions with remaining depth are duplicates of
-                                # solutions we already checked at lower depth levels
-                                if sol[:remaining_noncoredepth] == 0
-                                  result = check_solution(sol, requirements, packages, core_packages, number_of_possible_solutions_checked)
-                                  if result[:solution]
-                                    return result
-                                  else
-                                    number_of_possible_solutions_checked = result[:number_of_possible_solutions_checked]
+                      [:tpkg, :native].each do |nctype|
+                        noncorepkgs[nctype].each do |ncpkgname, ncpkgs|
+                          puts "resolvedeps noncorepkg #{nctype} #{ncpkgname}: #{ncpkgs.inspect}" if @@debug
+                          new_solutions = []
+                          solutions.each do |solution|
+                            remaining_noncoredepth = solution[:remaining_noncoredepth]
+                            puts "resolvedeps :remaining_noncoredepth: #{remaining_noncoredepth}" if @@debug
+                            (0..[remaining_noncoredepth, ncpkgs.length-1].min).each do |ncpkgdepth|
+                              puts "resolvedeps ncpkgdepth: #{ncpkgdepth}" if @@debug
+                              # We insert a nil entry in some situations (see the sort
+                              # step earlier), so skip nil entries in the pkgs array.
+                              if ncpkgs[ncpkgdepth] != nil
+                                sol = solution.dup
+                                # Hash#dup doesn't dup each key/value, so we need to
+                                # explicitly dup :pkgs so that each copy has an
+                                # independent array that we can modify.
+                                sol[:pkgs] = solution[:pkgs].dup
+                                sol[:remaining_noncoredepth] -= ncpkgdepth
+                                sol[:pkgs] << ncpkgs[ncpkgdepth]
+                                new_solutions << sol
+                                # If this is a complete combination of packages then
+                                # proceed to the next step
+                                puts "resolvedeps sol[:pkgs] #{sol[:pkgs].inspect}" if @@debug
+                                if sol[:pkgs].length == packages[:tpkg].length + packages[:native].length
+                                  puts "resolvedeps complete pkg set: #{sol.inspect}" if @@debug
+                                  # Solutions with remaining depth are duplicates of
+                                  # solutions we already checked at lower depth levels
+                                  if sol[:remaining_noncoredepth] == 0
+                                    result = check_solution(sol, requirements, packages, core_packages, number_of_possible_solutions_checked)
+                                    if result[:solution]
+                                      return result
+                                    else
+                                      number_of_possible_solutions_checked = result[:number_of_possible_solutions_checked]
+                                    end
                                   end
                                 end
                               end
                             end
                           end
+                          solutions = new_solutions
                         end
-                        solutions = new_solutions
                       end
                     end
                   end
@@ -2039,10 +2091,10 @@ puts "Existing #{pkg}"
       newreqs_that_need_packages = []
       newreqs.each do |newreq|
         puts "checksol checking newreq: #{newreq.inspect}" if @@debug
-        if packages[newreq[:name]]
+        if packages[newreq[:type]][newreq[:name]]
           pkg = solution[:pkgs].find{|solpkg| solpkg[:metadata][:name] == newreq[:name]}
           puts "checksol newreq pkg: #{pkg.inspect}" if @@debug
-          if Tpkg::package_meets_requirement?(pkg, newreq)
+          if pkg && Tpkg::package_meets_requirement?(pkg, newreq)
             # No change to solution needed
           else
             # Solution no longer works
@@ -2174,7 +2226,13 @@ puts "Existing #{pkg}"
               Tpkg::get_os =~ /Solaris/
           init_directory = File.join(@file_system_root, 'etc')
         end
-        levels.to_s.each do |level|
+      
+        # in case user specify levels in yaml as string/integer instead of array
+        if !levels.kind_of?(Array)
+          levels = levels.to_s.split(//)  
+        end
+    
+        levels.each do |level|
           links[File.join(init_directory, "rc#{level}.d", 'S' + start.to_s + File.basename(installed_path))] = installed_path
         end
       elsif Tpkg::get_os =~ /FreeBSD/
@@ -2263,12 +2321,22 @@ puts "Existing #{pkg}"
     end
     case operation
     when :install
-      IO.popen("#{externalpath} '#{pkgfile}' install", 'w') do |pipe|
-        pipe.write(data)
+      begin
+        IO.popen("#{externalpath} '#{pkgfile}' install", 'w') do |pipe|
+          pipe.write(data)
+        end
+      rescue => e
+        # Tell the user which external and package were involved, otherwise
+        # failures in externals are very hard to debug
+        raise e.exception("External #{name} #{operation} for #{File.basename(pkgfile)}: " + e.message)
       end
     when :remove
-      IO.popen("#{externalpath} '#{pkgfile}' remove", 'w') do |pipe|
-        pipe.write(data)
+      begin
+        IO.popen("#{externalpath} '#{pkgfile}' remove", 'w') do |pipe|
+          pipe.write(data)
+        end
+      rescue => e
+        raise e.exception("External #{name} #{operation} for #{File.basename(pkgfile)}: " + e.message)
       end
     else
       raise "Bug, unknown external operation #{operation}"
@@ -2740,7 +2808,8 @@ puts "Existing #{pkg}"
     metadata_for_installed_packages.each do |metadata|
       if !pkgname || pkgname == metadata[:name]
         req = { :name => metadata[:name],
-                :minimum_version => metadata[:version] }
+                :minimum_version => metadata[:version],
+                :type => :tpkg }
         if metadata[:package_version]
           req[:minimum_package_version] = metadata[:package_version]
         end
@@ -2759,7 +2828,7 @@ puts "Existing #{pkg}"
       version = installed_xml[:version]
       # For each currently installed package we insert a requirement for
       # at least that version of the package
-      req = { :name => name, :minimum_version => version }
+      req = { :name => name, :minimum_version => version, :type => :tpkg }
       requirements << req
       # Initialize the list of possible packages for this req
       if !packages[name]
@@ -2805,6 +2874,11 @@ puts "Existing #{pkg}"
         localpath = nil
         if File.file?(request)
           puts "parse_requests treating request as a file" if @@debug
+
+          if request !~ /\.tpkg$/
+            warn "Warning: Attempting to perform the request on #{File.expand_path(request)}. This might not be a valid package file."
+          end
+
           localpath = request
           metadata = Tpkg::metadata_from_package(request)
           source = request
@@ -2820,6 +2894,7 @@ puts "Existing #{pkg}"
           FileUtils.rm_rf(localpath)
         end
         req[:name] = metadata[:name]
+        req[:type] = :tpkg
         pkg = { :metadata => metadata, :source => source }
 
         newreqs << req
@@ -2849,23 +2924,26 @@ puts "Existing #{pkg}"
       request_satisfied = false # whether or not this request can be satisfied
       possible_errors = []
       pkgs.each do |pkg|
+        good_package = true
         metadata = pkg[:metadata]
-        req = { :name => metadata[:name] }
-        # Quick sanity check that the package can be installed on this machine.  
+        req = { :name => metadata[:name], :type => :tpkg }
+        # Quick sanity check that the package can be installed on this machine.
+        puts "check_requests checking that requested package works on this machine: #{pkg.inspect}" if @@debug
         if !Tpkg::package_meets_requirement?(pkg, req)
           possible_errors << "  Requested package #{metadata[:filename]} doesn't match this machine's OS or architecture"
+          good_package = false
           next
         end
         # a sanity check that there is at least one package
         # available for each dependency of this package
-        dep_satisfied = true
         metadata[:dependencies].each do |depreq|
+          puts "check_requests checking for available packages to satisfy dependency: #{depreq.inspect}" if @@debug
           if available_packages_that_meet_requirement(depreq).empty? && !Tpkg::packages_meet_requirement?(packages.values.flatten, depreq)
             possible_errors << "  Requested package #{metadata[:filename]} depends on #{depreq.inspect}, no packages that satisfy that dependency are available"
-            dep_satisfied = false
+            good_package = false
           end
         end if metadata[:dependencies]
-        request_satisfied = true if dep_satisfied
+        request_satisfied = true if good_package
       end
       if !request_satisfied
         errors << ["Unable to find any packages which satisfy #{name}. Possible error(s):"]
@@ -2991,7 +3069,11 @@ puts "Existing #{pkg}"
             name = pkg[:metadata][:name]
             version = pkg[:metadata][:version]
             package_version = pkg[:metadata][:package_version]
-            puts "Native #{name}=#{version}=#{package_version}"
+            pkgname = "#{name}-#{version}"
+            if package_version
+              pkgname << "-#{package_version}"
+            end
+            puts "Native #{pkgname}"
           else    
             puts pkg[:metadata][:filename]
           end
@@ -3012,13 +3094,20 @@ puts "Existing #{pkg}"
     parse_requests(requests, requirements, packages)
     check_requests(packages)
     core_packages = []
-    currently_installed_requirements = []
+    #currently_installed_requirements = []
     requirements.each do |req|
       core_packages << req[:name] if !core_packages.include?(req[:name])
-      currently_installed_requirements.concat(
-        requirements_for_currently_installed_package(req[:name]))
+
+    # This was here to ensure that nothing went backwards.  But I guess in the 
+    # install case (as opposed to upgrade) going backwards can't really happen, 
+    # we may just install an older version alongside a newer version, which is
+    # perfectly fine.
+    #  currently_installed_requirements.concat(
+    #    requirements_for_currently_installed_package(req[:name]))
     end
-    requirements.concat(currently_installed_requirements).uniq!
+    #requirements.concat(currently_installed_requirements).uniq!
+
+
     
     puts "install calling best_solution" if @@debug
     puts "install requirements: #{requirements.inspect}" if @@debug
@@ -3196,7 +3285,11 @@ puts "Existing #{pkg}"
         metadata_for_installed_packages.each do | metadata |
           metadata[:dependencies].each do | dep |
             if dep[:name] == req[:name]
-              additional_requirements << metadata.to_hash
+              # Package metadata is almost usable as-is as a req, just need to
+              # set :type
+              addreq = metadata.to_hash
+              addreq[:type] = :tpkg
+              additional_requirements << addreq
             end
           end if metadata[:dependencies]
         end
@@ -3334,10 +3427,10 @@ puts "Existing #{pkg}"
           # If the old and new packages have overlapping externals flag them
           # to be skipped so that the external isn't removed and then
           # immediately re-added
-          oldpkgs = installed_packages_that_meet_requirement({:name => pkg[:metadata][:name]})
+          oldpkgs = installed_packages_that_meet_requirement({:name => pkg[:metadata][:name], :type => :tpkg})
           externals_to_skip = []
           pkg[:metadata][:externals].each do |external|
-            if oldpkgs.all? {|oldpkg| oldpkg[:metadata][:externals].include?(external)}
+            if oldpkgs.all? {|oldpkg| oldpkg[:metadata][:externals] && oldpkg[:metadata][:externals].include?(external)}
               externals_to_skip << external
             end
           end if pkg[:metadata][:externals]
@@ -3420,7 +3513,7 @@ puts "Existing #{pkg}"
           # We ignore native dependencies because there is no way a removal
           # can break a native dependency, we don't support removing native
           # packages.
-          if req[:type] != :native && req[:type] != :native_installed
+          if req[:type] != :native
             iptmr = installed_packages_that_meet_requirement(req)
             if iptmr.all? { |pkg| pkg_files_to_remove.include?(pkg[:metadata][:filename]) }
               non_removable_pkg_files |= iptmr.map{ |pkg| pkg[:metadata][:filename]}
@@ -3772,31 +3865,43 @@ puts "Existing #{pkg}"
     end
     return results
   end
-  
-  def execute_init(requests, action)
+ 
+  def execute_init(options, *moreoptions)
     ret_val = 0
     packages_to_execute_on = []
-    if requests.nil?
+    if options.is_a?(Hash)
+      action = options[:cmd]
+      requested_packages = options[:packages]
+      requested_init_scripts = options[:scripts]
+    else # for backward compatibility
+      action = moreoptions[0]
+      requested_packages = options
+    end
+
+    # if user specified no packages, then assume all
+    if requested_packages.nil?
       packages_to_execute_on = installed_packages_that_meet_requirement(nil)
     else
-      requests.each do |request|
+      requested_packages.each do |request|
         req = Tpkg::parse_request(request)
         packages_to_execute_on.concat(installed_packages_that_meet_requirement(req))
       end
     end
     
     packages_to_execute_on.each do |pkg|
-      ret_val |= execute_init_for_package(pkg, action)
+      ret_val |= execute_init_for_package(pkg, action, requested_init_scripts)
     end 
     return ret_val
   end
-  
-  def execute_init_for_package(pkg, action)
+ 
+  def execute_init_for_package(pkg, action, requested_init_scripts = nil)
     ret_val = 0
+
+    # Get init scripts metadata for the given package
     init_scripts_metadata = init_scripts(pkg[:metadata])
     # warn if there's no init script and then return
     if init_scripts_metadata.nil? || init_scripts_metadata.empty?
-      warn "Warning: There is no init script for #{pkg[:metadata][:name]}"
+      warn "Warning: There is no init script for #{pkg[:metadata][:name]}."
       return 1
     end
 
@@ -3808,9 +3913,18 @@ puts "Existing #{pkg}"
       init = {}
       init[:path] = installed_path
       init[:start] = init_info[:init][:start] || 0
-      init_scripts << init
+
+      # if user requests specific init scripts, then only include those
+      if requested_init_scripts.nil? or 
+         requested_init_scripts && requested_init_scripts.include?(File.basename(installed_path))
+        init_scripts << init 
+      end
     end
 
+    if requested_init_scripts && init_scripts.empty?
+      warn "Warning: There are no init scripts that satisfy your request: #{requested_init_scripts.inspect} for package #{pkg[:metadata][:name]}."
+    end
+    
     # Reverse order if doing stop. 
     if action == "stop"
       ordered_init_scripts = init_scripts.sort{ |a,b| b[:start] <=> a[:start] }
@@ -3881,21 +3995,25 @@ puts "Existing #{pkg}"
     end
   end
 
-  # TODO: update server side to accept yaml data
   def send_update_to_server
     metadata = metadata_for_installed_packages.collect{|metadata| metadata.to_hash}
     yml = YAML.dump(metadata)
     begin
-      update_uri =  URI.parse("#{@report_server}")
-      http = Tpkg::gethttp(update_uri)
-      request = {"yml"=>URI.escape(yml), "client"=>Facter['fqdn'].value}
-      post = Net::HTTP::Post.new(update_uri.path)
-      post.set_form_data(request)
-      response = http.request(post)
+      response = nil
+      # Need to set timeout otherwise tpkg can hang for a long time when having
+      # problem talking to the reporter server.
+      # I can't seem get net-ssh timeout to work so we'll just handle the timeout ourselves
+      timeout(CONNECTION_TIMEOUT) do
+        update_uri =  URI.parse("#{@report_server}")
+        http = Tpkg::gethttp(update_uri)
+        request = {"yml"=>URI.escape(yml), "client"=>Facter['fqdn'].value}
+        post = Net::HTTP::Post.new(update_uri.path)
+        post.set_form_data(request)
+        response = http.request(post)
+      end
 
       case response
       when Net::HTTPSuccess
-#       puts "Response from server:\n'#{response.body}'"
        puts "Successfully send update to reporter server"
       else
         $stderr.puts response.body
@@ -3903,10 +4021,12 @@ puts "Existing #{pkg}"
         # just ignore error and give user warning
         puts "Failed to send update to reporter server"
       end
+    rescue Timeout::Error
+      puts "Timed out when trying to send update to reporter server"
     rescue
       puts "Failed to send update to reporter server"
     end
-  end  
+  end
 
   # Build a dependency map of currently installed packages
   # For example, if we have pkgB and pkgC which depends on pkgA, then 
