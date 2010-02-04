@@ -332,7 +332,7 @@ end
 ret_val = 0
 case @action
 when :make
-  pkgfile = Tpkg::make_package(@action_value, passphrase_callback)
+  pkgfile = Tpkg::make_package(@action_value, passphrase_callback, {:force => @force})
   if pkgfile
     puts "Package is #{pkgfile}"
   else

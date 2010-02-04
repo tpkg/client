@@ -25,4 +25,3 @@ tpkg client
 /home/t/var/tpkg/externals
 %config /etc/tpkg.conf
 /etc/tpkg
-

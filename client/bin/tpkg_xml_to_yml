@@ -1,5 +1,8 @@
 #!/usr/bin/ruby -w
 
+# Ensure we can find tpkg.rb
+$:.unshift File.join(File.dirname(__FILE__), "..", "lib")
+
 # This script expects one argument, which is the tpkg.xml file
 # that you want to convert to yml format.
 # The resulting data is output to stdout

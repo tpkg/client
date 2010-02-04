@@ -21,6 +21,13 @@ if File.directory?(tpkglibdir)
   $:.unshift(tpkglibdir)
 end
 
+# We store this gem in our thirdparty directory. So we need to add it
+# it to the search path
+#  This one is for when everything is installed
+$:.unshift(File.join(File.dirname(__FILE__), 'thirdparty/kwalify-0.7.1/lib'))
+#  And this one for when we're in the svn directory structure
+$:.unshift(File.join(File.dirname(File.dirname(__FILE__)), 'thirdparty/kwalify-0.7.1/lib'))
+
 begin
   # Try loading facter w/o gems first so that we don't introduce a
   # dependency on gems if it is not needed.
@@ -45,12 +52,14 @@ require 'versiontype'    # Version
 require 'deployer'
 require 'set'
 require 'metadata'
+require 'kwalify'        # for validating yaml
 
 class Tpkg
   
   VERSION = 'trunk'
   CONFIGDIR = '/etc'
-  
+
+  GENERIC_ERR = 1  
   POSTINSTALL_ERR = 2
   POSTREMOVE_ERR = 3
   INITSCRIPT_ERR = 4
@@ -192,8 +201,7 @@ class Tpkg
   end
   
   # Makes a package from a directory containing the files to put into the package
-  REQUIRED_FIELDS = ['name', 'version', 'maintainer']
-  def self.make_package(pkgsrcdir, passphrase=nil)
+  def self.make_package(pkgsrcdir, passphrase=nil, options = {})
     pkgfile = nil
     
     # Make a working directory
@@ -227,17 +235,33 @@ class Tpkg
       # code (tar) ever touch the user's files.
       system("#{find_tar} -C #{pkgsrcdir} -cf - . | #{find_tar} -C #{tpkgdir} -xpf -") || raise("Package content copy failed")
       
+      # check metadata file 
+      errors = []
       if File.exists?(File.join(tpkgdir, 'tpkg.yml'))
-        metadata_text = File.read(File.join(tpkgdir, 'tpkg.yml'))
-        metadata = Metadata.new(metadata_text, 'yml')
+        metadata_file = File.join(tpkgdir, 'tpkg.yml')
+        metadata_format = 'yml'
       elsif File.exists?(File.join(tpkgdir, 'tpkg.xml'))
-        metadata_text = File.read(File.join(tpkgdir, 'tpkg.xml'))
-        metadata = Metadata.new(metadata_text, 'xml')
+        metadata_file = File.join(tpkgdir, 'tpkg.xml')
+        metadata_format = 'xml'
       else
         raise 'Your source directory does not contain the metadata configuration file.'
       end
+      metadata_text = File.read(metadata_file)
+      metadata = Metadata.new(metadata_text, metadata_format)
 
-      metadata.verify_required_fields
+      # This is the directory where we put our dtd/schema for validating
+      # the metadata file
+      if File.exist?(File.join(CONFIGDIR, 'tpkg', 'schema'))
+        schema_dir = File.join(CONFIGDIR, 'tpkg', 'schema')
+      else # This is for when we're in developement mode or when installed as gem
+        schema_dir = File.join(File.dirname(File.dirname(__FILE__)), "schema")
+      end
+      errors = metadata.validate(schema_dir)
+      if errors && !errors.empty? 
+        puts "Bad metadata file. Possible error(s):"
+        errors.each {|e| puts e }
+        exit GENERIC_ERR unless options[:force]
+      end
 
       # file_metadata.yml hold information for files that are installed
       # by the package. For example, checksum, path, relocatable or not, etc.

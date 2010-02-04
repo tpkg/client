@@ -19,6 +19,7 @@ BUILDROOT = '/var/tmp/tpkg-client-buildroot'
 #  :etcdir
 #  :mandir
 #  :externalsdir
+#  :schemadir
 #  :profiledir
 #  :ruby (#! lines in scripts will be changed to specified ruby)
 #  :copythirdparty
@@ -115,6 +116,15 @@ def copy_tpkg_files(destdir, options={})
       chmod(0555, File.join(externalsdir, File.basename(external)))
     end
   end
+
+  if options[:schemadir]
+    schemadir = File.join(destdir, options[:schemadir])
+    mkdir_p(schemadir)
+    Dir.glob(File.join('schema', '*')).each do |schema|
+      cp(schema, schemadir, :preserve => true)
+      chmod(0555, File.join(schemadir, File.basename(schema)))
+    end
+  end
   
   if options[:profiledir]
     profiledir = File.join(BUILDROOT, options[:profiledir])
@@ -155,6 +165,7 @@ task :rpm do
   mandir = File.join('usr', 'share', 'man')
   etcdir = '/etc'
   externalsdir = File.join('home', 't', 'var', 'tpkg', 'externals')
+  schemadir = File.join('etc', 'tpkg', 'schema')
   profiledir = File.join('etc', 'profile.d')
   copy_tpkg_files(BUILDROOT,
                   :bindir => bindir,
@@ -162,6 +173,7 @@ task :rpm do
                   :mandir => mandir,
                   :etcdir => etcdir,
                   :externalsdir => externalsdir,
+                  :schemadir => schemadir,
                   :profiledir => profiledir,
                   :copythirdparty => true)
   
@@ -210,12 +222,14 @@ task :deb do
   mandir = File.join('usr', 'share', 'man')
   etcdir = '/etc'
   externalsdir = File.join('home', 't', 'var', 'tpkg', 'externals')
+  schemadir = File.join('etc', 'tpkg', 'schema')
   copy_tpkg_files(BUILDROOT,
                   :bindir => bindir,
                   :libdir => libdir,
                   :mandir => mandir,
                   :etcdir => etcdir,
                   :externalsdir => externalsdir,
+                  :schemadir => schemadir,
                   :copythirdparty => true)
   
   #
@@ -252,6 +266,7 @@ task :sysvpkg do
   mandir = File.join('usr', 'share', 'man')
   etcdir = '/etc'
   externalsdir = File.join('home', 't', 'var', 'tpkg', 'externals')
+  schemadir = File.join('etc', 'tpkg', 'schema')
   profiledir = File.join('etc', 'profile.d')
   copy_tpkg_files(BUILDROOT,
                   :bindir => bindir,
@@ -259,6 +274,7 @@ task :sysvpkg do
                   :mandir => mandir,
                   :etcdir => etcdir,
                   :externalsdir => externalsdir,
+                  :schemadir => schemadir,
                   :profiledir => profiledir,
                   :copythirdparty => true,
                   :ruby => '/opt/csw/bin/ruby')
@@ -373,7 +389,8 @@ task :gem do
   rm_rf(BUILDROOT)
   copy_tpkg_files(BUILDROOT,
                   :bindir => 'bin',
-                  :libdir => 'lib')
+                  :libdir => 'lib',
+                  :schemadir => 'schema')
   
   #
   # Prep gemspec (renaming to Rakefile in the process)
