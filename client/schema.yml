@@ -1,6 +1,6 @@
 type: map
 mapping: 
-  "schema_version": { type: text }
+  "schema_file": { type: text }
   "name": { type: str, required: yes }
   "version": { type: text, required: yes }
   "package_version": { type: text }
@@ -20,6 +20,7 @@ mapping:
           "minimum_package_version": { type: text }
           "maximum_package_version": { type: text }
           "native": { type: bool }
+          "type": { type: any, pattern: /(native|tpkg)$/ }
   "conflicts":
     type: seq
     sequence:
@@ -31,6 +32,7 @@ mapping:
           "minimum_package_version": { type: text } 
           "maximum_package_version": { type: text } 
           "native": { type: bool }
+          "type": { type: any, pattern: /(native|tpkg)$/ }
   "externals":
     type: seq
     sequence:
