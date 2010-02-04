@@ -86,7 +86,7 @@ class TpkgMakeTests < Test::Unit::TestCase
   
   def test_make_required_fields
     # Verify that you can't make a package without one of the required fields
-    Tpkg::REQUIRED_FIELDS.each do |r|
+    Metadata::REQUIRED_FIELDS.each do |r|
       testname = "make package without required field #{r}"
       File.open(File.join(@pkgdir, 'tpkg.xml'), 'w') do |pkgxmlfile|
         IO.foreach(File.join(TESTPKGDIR, 'tpkg-nofiles.xml')) do |line|
@@ -98,7 +98,7 @@ class TpkgMakeTests < Test::Unit::TestCase
       assert_raise(RuntimeError, testname) { Tpkg.make_package(@pkgdir, PASSPHRASE) }
     end
     # Verify that you can't make a package with one of the required fields empty
-    Tpkg::REQUIRED_FIELDS.each do |r|
+    Metadata::REQUIRED_FIELDS.each do |r|
       testname = "make package with empty required field #{r}"
       File.open(File.join(@pkgdir, 'tpkg.xml'), 'w') do |pkgxmlfile|
         IO.foreach(File.join(TESTPKGDIR, 'tpkg-nofiles.xml')) do |line|
@@ -119,7 +119,7 @@ class TpkgMakeTests < Test::Unit::TestCase
         if line =~ /^<?xml/ || line =~ /^<!DOCTYPE/ || line =~ /^<\/?tpkg>/
           # XML headers and document root
           pkgxmlfile.print(line)
-        elsif Tpkg::REQUIRED_FIELDS.any? { |r| line =~ /^\s*<\/?#{r}>/ }
+        elsif Metadata::REQUIRED_FIELDS.any? { |r| line =~ /^\s*<\/?#{r}>/ }
           # Include just the required fields
           pkgxmlfile.print(line)
         end

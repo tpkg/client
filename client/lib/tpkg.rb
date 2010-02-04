@@ -260,7 +260,7 @@ class Tpkg
       if errors && !errors.empty? 
         puts "Bad metadata file. Possible error(s):"
         errors.each {|e| puts e }
-        exit GENERIC_ERR unless options[:force]
+        raise "Failed to create package."  unless options[:force]
       end
 
       # file_metadata.yml hold information for files that are installed
