@@ -55,6 +55,8 @@ class Tpkg
   POSTREMOVE_ERR = 3
   INITSCRIPT_ERR = 4
 
+  CONNECTION_TIMEOUT = 10
+
   attr_reader :installed_directory
  
   #
@@ -324,7 +326,11 @@ class Tpkg
     # FIXME: This is so lame, to read the whole package to get the
     # first filename.  Blech.
     IO.popen("#{find_tar} -tf #{package_file}") do |pipe|
-      toplevel = pipe.gets.chomp
+      toplevel = pipe.gets
+      if toplevel.nil?
+         raise "Package directory structure of #{package_file} unexpected. Unable to get top level."
+      end
+      toplevel.chomp!
       # Avoid SIGPIPE, if we don't sink the rest of the output from tar
       # then tar ends up getting SIGPIPE when it tries to write to the
       # closed pipe and exits with error, which causes us to throw an
@@ -2844,6 +2850,11 @@ class Tpkg
         localpath = nil
         if File.file?(request)
           puts "parse_requests treating request as a file" if @@debug
+
+          if request !~ /\.tpkg$/
+            warn "Warning: Attempting to perform the request on #{File.expand_path(request)}. This might not be a valid package file."
+          end
+
           localpath = request
           metadata = Tpkg::metadata_from_package(request)
           source = request
@@ -3960,21 +3971,25 @@ class Tpkg
     end
   end
 
-  # TODO: update server side to accept yaml data
   def send_update_to_server
     metadata = metadata_for_installed_packages.collect{|metadata| metadata.to_hash}
     yml = YAML.dump(metadata)
     begin
-      update_uri =  URI.parse("#{@report_server}")
-      http = Tpkg::gethttp(update_uri)
-      request = {"yml"=>URI.escape(yml), "client"=>Facter['fqdn'].value}
-      post = Net::HTTP::Post.new(update_uri.path)
-      post.set_form_data(request)
-      response = http.request(post)
+      response = nil
+      # Need to set timeout otherwise tpkg can hang for a long time when having
+      # problem talking to the reporter server.
+      # I can't seem get net-ssh timeout to work so we'll just handle the timeout ourselves
+      timeout(CONNECTION_TIMEOUT) do
+        update_uri =  URI.parse("#{@report_server}")
+        http = Tpkg::gethttp(update_uri)
+        request = {"yml"=>URI.escape(yml), "client"=>Facter['fqdn'].value}
+        post = Net::HTTP::Post.new(update_uri.path)
+        post.set_form_data(request)
+        response = http.request(post)
+      end
 
       case response
       when Net::HTTPSuccess
-#       puts "Response from server:\n'#{response.body}'"
        puts "Successfully send update to reporter server"
       else
         $stderr.puts response.body
@@ -3982,10 +3997,12 @@ class Tpkg
         # just ignore error and give user warning
         puts "Failed to send update to reporter server"
       end
+    rescue Timeout::Error
+      puts "Timed out when trying to send update to reporter server"
     rescue
       puts "Failed to send update to reporter server"
     end
-  end  
+  end
 
   # Build a dependency map of currently installed packages
   # For example, if we have pkgB and pkgC which depends on pkgA, then 
