@@ -30,9 +30,28 @@ class TpkgQueryTests < Test::Unit::TestCase
     FileUtils.rm_f(apkg)
     FileUtils.rm_rf(testbase)
   end
-
+  
   def test_installed_packages
-    # FIXME
+    testbase = Tempdir.new("testbase")
+    apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '2.0' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    bpkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'b', 'version' => '2.0' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    tpkg = Tpkg.new(:base => testbase, :sources => [apkg, bpkg])
+    tpkg.install(['a', 'b'], PASSPHRASE)
+    
+    instpkgs = tpkg.installed_packages
+    assert_equal(2, instpkgs.length)
+    assert(instpkgs.any? {|instpkg| instpkg[:metadata][:name] == 'a'})
+    assert(instpkgs.any? {|instpkg| instpkg[:metadata][:name] == 'b'})
+    assert(instpkgs.all? {|instpkg| instpkg[:source] == :currently_installed})
+    assert(instpkgs.all? {|instpkg| instpkg[:prefer] == true})
+    
+    instpkgs = tpkg.installed_packages('b')
+    assert_equal(1, instpkgs.length)
+    assert_equal('b', instpkgs.first[:metadata][:name])
+    
+    FileUtils.rm_f(apkg)
+    FileUtils.rm_f(bpkg)
+    FileUtils.rm_rf(testbase)
   end
   
   def test_installed_packages_that_meet_requirement
