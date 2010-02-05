@@ -280,7 +280,7 @@ class Metadata
         end
       end if @hash[:dependencies]
     else
-      @hash = metadata_xml_to_hash
+      @hash = metadata_xml_to_hash.with_indifferent_access
     end
     return @hash
   end
