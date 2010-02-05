@@ -260,7 +260,7 @@ class Tpkg
       if errors && !errors.empty? 
         puts "Bad metadata file. Possible error(s):"
         errors.each {|e| puts e }
-        exit GENERIC_ERR unless options[:force]
+        raise "Failed to create package."  unless options[:force]
       end
 
       # file_metadata.yml hold information for files that are installed
@@ -1682,13 +1682,15 @@ class Tpkg
   end
   
   # Convert metadata_for_installed_packages into pkg hashes
-  def installed_packages
+  def installed_packages(pkgname=nil)
     instpkgs = []
     metadata_for_installed_packages.each do |metadata|
-      instpkgs << { :metadata => metadata,
-                    :source => :currently_installed,
-                    # It seems reasonable for this to default to true
-                    :prefer => true }
+      if !pkgname || metadata[:name] == pkgname
+        instpkgs << { :metadata => metadata,
+                      :source => :currently_installed,
+                      # It seems reasonable for this to default to true
+                      :prefer => true }
+      end
     end
     instpkgs
   end
@@ -1770,7 +1772,29 @@ class Tpkg
         end
       end
     else
-      installed_packages.each do |pkg|
+      pkgname = nil
+      if req && req[:name]
+        pkgname = req[:name]
+      end
+      # Passing a package name if we have one to installed_packages serves
+      # primarily to make following the debugging output of dependency
+      # resolution easier.  The dependency resolution process makes frequent
+      # calls to available_packages_that_meet_requirement, which in turn calls
+      # this method.  For available packages we're able to pre-filter based on
+      # package name before calling package_meets_requirement? because we
+      # store available packages hashed based on package name.
+      # package_meets_requirement? is fairly verbose in its debugging output,
+      # so the user sees each package it checks against a given requirement.
+      # It is therefore a bit disconcerting when trying to follow the
+      # debugging output to see the fairly clean process of checking available
+      # packages which have already been filtered to match the desired name,
+      # and then available_packages_that_meet_requirement calls this method,
+      # and the user starts to see every installed package checked against the
+      # same requirement.  It is not obvious to the someone why all of a
+      # sudden packages that aren't even remotely close to the requirement
+      # start getting checked.  Doing a pre-filter based on package name here
+      # makes the process more consistent and easier to follow.
+      installed_packages(pkgname).each do |pkg|
         if req
           if Tpkg::package_meets_requirement?(pkg, req)
             pkgs << pkg
