@@ -267,7 +267,8 @@ class Tpkg
       # by the package. For example, checksum, path, relocatable or not, etc.
       File.open(File.join(tpkgdir, "file_metadata.bin"), "w") do |file|
         filemetadata = get_filemetadata_from_directory(tpkgdir)
-        Marshal::dump(filemetadata.to_hash, file)
+        data = filemetadata.to_hash.recursively{|h| h.stringify_keys }
+        Marshal::dump(data, file)
 #        YAML::dump(filemetadata.to_hash, file)  
       end
 
