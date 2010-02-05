@@ -142,7 +142,7 @@ Rake::TestTask.new do |t|
   t.libs << "lib"
   t.verbose = true
   #t.pattern = 'test/*.rb'
-  t.test_files = Dir.glob('test/*.rb').reject {|test| test =~ /tpkgtest.rb/}
+#  t.test_files = Dir.glob('test/*.rb').reject {|test| test =~ /tpkgtest.rb/}
 end
 
 desc 'Build an tpkg client RPM on a Red Hat box'
