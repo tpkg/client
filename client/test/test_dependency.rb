@@ -437,8 +437,9 @@ class TpkgDependencyTests < Test::Unit::TestCase
     tpkg = Tpkg.new(:base => testbase, :sources => [baddep1, baddep2, notbogus, bogus])
     solution_packages = nil
     assert_nothing_raised { solution_packages = tpkg.best_solution([{:name => 'baddep', :type => :tpkg}], {}, ['baddep']) }
-    assert_equal(1, solution_packages.length)
-    assert(solution_packages.first[:source] == baddep1)
+    assert_equal(2, solution_packages.length)
+    assert(solution_packages.any? {|sp| sp[:source] == baddep1})
+    assert(solution_packages.any? {|sp| sp[:source] == notbogus})
     FileUtils.rm_rf(testbase)
   end
   
