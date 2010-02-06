@@ -1904,6 +1904,13 @@ class Tpkg
         return {:number_of_possible_solutions_checked => number_of_possible_solutions_checked}
       end
     end
+    
+    # FIXME: Should we weed out any entries in packages that don't correspond
+    # to something in requirements?  We operate later on the assumption that
+    # there are no such entries.  Because we dup packages at the right points
+    # I believe we'll never accidently end up with orphaned entries, but maybe
+    # it would be worth the compute cycles to make sure?
+    
     # Sort the packages
     [:tpkg, :native].each do |type|
       packages[type].each do |pkgname, pkgs|
@@ -1912,7 +1919,8 @@ class Tpkg
         # Anything else can score 1 at best.  This ensures
         # that we prefer the solution which leaves the most
         # currently installed packages alone.
-        if pkgs[0][:source] != :currently_installed &&
+        if pkgs[0] &&
+           pkgs[0][:source] != :currently_installed &&
            pkgs[0][:source] != :native_installed
           pkgs.unshift(nil)
         end
