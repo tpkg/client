@@ -1851,9 +1851,7 @@ class Tpkg
   # will be an array of package specs.
   MAX_POSSIBLE_SOLUTIONS_TO_CHECK = 10000
   def best_solution(requirements, packages, core_packages)
-    # Dup objects passed to us so that resolve_dependencies is free to
-    # change them without potentially messing up our caller
-    result = resolve_dependencies(requirements.dup, {:tpkg => packages.dup, :native => {}}, core_packages.dup)
+    result = resolve_dependencies(requirements, {:tpkg => packages, :native => {}}, core_packages)
     if @@debug
       if result[:solution]
         puts "bestsol picks: #{result[:solution].inspect}" if @@debug
@@ -1875,6 +1873,10 @@ class Tpkg
   # the same name.  This may be necessary if different dependencies of the
   # core packages end up needing both.
   def resolve_dependencies(requirements, packages, core_packages, number_of_possible_solutions_checked=0)
+    # We're probably going to make changes to packages, dup it now so
+    # that we don't mess up the caller's state.
+    packages = {:tpkg => packages[:tpkg].dup, :native => packages[:native].dup}
+
     # Make sure we have populated package lists for all requirements.
     # Filter the package lists against the requirements and
     # ensure we can at least satisfy the initial requirements.
@@ -2064,6 +2066,7 @@ class Tpkg
                                   if sol[:remaining_noncoredepth] == 0
                                     result = check_solution(sol, requirements, packages, core_packages, number_of_possible_solutions_checked)
                                     if result[:solution]
+                                      puts "resolvdeps returning successful solution" if @@debug
                                       return result
                                     else
                                       number_of_possible_solutions_checked = result[:number_of_possible_solutions_checked]
@@ -2087,6 +2090,7 @@ class Tpkg
       end
     end
     # No solutions found
+    puts "resolvedeps returning failure" if @@debug
     return {:number_of_possible_solutions_checked => number_of_possible_solutions_checked}
   end
   
@@ -2099,7 +2103,7 @@ class Tpkg
     end
     
     if @@debug
-      puts "checksol checking #{solution.inspect}"
+      puts "checksol checking sol #{solution.inspect}"
     end
     
     # Extract dependencies from each package in the solution
@@ -2145,14 +2149,16 @@ class Tpkg
         return {:solution => solution[:pkgs]}
       else
         puts "checksol newreqs need packages, calling resolvedeps" if @@debug
-        result = resolve_dependencies(requirements+newreqs_that_need_packages, packages.dup, core_packages, number_of_possible_solutions_checked)
+        result = resolve_dependencies(requirements+newreqs_that_need_packages, packages, core_packages, number_of_possible_solutions_checked)
         if result[:solution]
+          puts "checksol returning successful solution" if @@debug
           return result
         else
           number_of_possible_solutions_checked = result[:number_of_possible_solutions_checked]
         end
       end
     end
+    puts "checksol returning failure" if @@debug
     return {:number_of_possible_solutions_checked => number_of_possible_solutions_checked}
   end
  
