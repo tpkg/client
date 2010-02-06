@@ -2888,7 +2888,7 @@ class Tpkg
         req = Tpkg::parse_request(request, @installed_directory)
         newreqs << req
 
-        # Initialize the list of possible packages for this req
+        puts "Initializing the list of possible packages for this req" if @@debug
         if !packages[req[:name]]
           packages[req[:name]] = available_packages_that_meet_requirement(req)
         end
@@ -2953,7 +2953,7 @@ class Tpkg
         metadata = pkg[:metadata]
         req = { :name => metadata[:name], :type => :tpkg }
         # Quick sanity check that the package can be installed on this machine.
-        puts "check_requests checking that requested package works on this machine: #{pkg.inspect}" if @@debug
+        puts "check_requests checking that available package for request works on this machine: #{pkg.inspect}" if @@debug
         if !Tpkg::package_meets_requirement?(pkg, req)
           possible_errors << "  Requested package #{metadata[:filename]} doesn't match this machine's OS or architecture"
           good_package = false
