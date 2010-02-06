@@ -403,6 +403,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
     # Test with no valid solution, ensure it fails
     testbase = Tempdir.new("testbase")
     tpkg = Tpkg.new(:base => testbase, :sources => @pkgfiles)
+    solution_packages = nil
     assert_nothing_raised { solution_packages = tpkg.best_solution([{:name => 'a', :type => :tpkg}, {:name => 'c', :minimum_version => '1.3', :type => :tpkg}], {}, ['a', 'c']) }
     assert_nil(solution_packages)
     FileUtils.rm_rf(testbase)
@@ -416,6 +417,25 @@ class TpkgDependencyTests < Test::Unit::TestCase
     baddep2 = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'baddep', 'version' => '2' }, :dependencies => {'bogus' => {}}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
     baddep3 = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'baddep', 'version' => '2' }, :dependencies => {'bogus' => {}}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
     tpkg = Tpkg.new(:base => testbase, :sources => [baddep1, baddep2, baddep3])
+    solution_packages = nil
+    assert_nothing_raised { solution_packages = tpkg.best_solution([{:name => 'baddep', :type => :tpkg}], {}, ['baddep']) }
+    assert_equal(1, solution_packages.length)
+    assert(solution_packages.first[:source] == baddep1)
+    FileUtils.rm_rf(testbase)
+    
+    # This test recreates another set of circumstances that triggered a bug. 
+    # The format of the packages argument to resolve_dependencies changed and
+    # the attempts to dup it in order to avoid messing up the state of callers
+    # of resolve_dependencies were no longer effective.  Thus the state of
+    # callers of resolve_dependencies was messed up and it would fail to find
+    # valid solutions.
+    testbase = Tempdir.new("testbase")
+    baddep1 = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'baddep', 'version' => '1' }, :dependencies => {'notbogus' => {}}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    baddep2 = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'baddep', 'version' => '2' }, :dependencies => {'notbogus' => {}, 'bogus' => {}}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    notbogus = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'notbogus', 'version' => '1' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    bogus = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'bogus', 'version' => '1', 'operatingsystem' => 'bogusos' }, :remove => ['architecture', 'posix_acl', 'windows_acl'])
+    tpkg = Tpkg.new(:base => testbase, :sources => [baddep1, baddep2, notbogus, bogus])
+    solution_packages = nil
     assert_nothing_raised { solution_packages = tpkg.best_solution([{:name => 'baddep', :type => :tpkg}], {}, ['baddep']) }
     assert_equal(1, solution_packages.length)
     assert(solution_packages.first[:source] == baddep1)
