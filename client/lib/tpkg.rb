@@ -1038,6 +1038,7 @@ class Tpkg
   # 
   # servers is an array or a callback that list the remote servers where we want to deploy to
   def self.deploy(deploy_params, deploy_options, servers)
+    servers.uniq!
     deployer = Deployer.new(deploy_options)
     deployer.deploy(deploy_params, servers)
   end
@@ -3518,6 +3519,7 @@ class Tpkg
     
     packages_to_remove = nil
     if requests
+      requests.uniq!
       packages_to_remove = []
       requests.each do |request|
         req = Tpkg::parse_request(request, @installed_directory)
@@ -3922,6 +3924,7 @@ class Tpkg
     if requested_packages.nil?
       packages_to_execute_on = installed_packages_that_meet_requirement(nil)
     else
+      requested_packages.uniq!
       requested_packages.each do |request|
         req = Tpkg::parse_request(request)
         packages_to_execute_on.concat(installed_packages_that_meet_requirement(req))
