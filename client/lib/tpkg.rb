@@ -1629,7 +1629,8 @@ class Tpkg
     metadata = {}
     if File.directory?(@installed_directory)
       Dir.foreach(@installed_directory) do |entry|
-        next if entry == '.' || entry == '..' || entry == 'metadata'
+        # assuming that packages are named with the .tpkg extension
+        next if entry == '.' || entry == '..' || entry == 'metadata' || entry !~ /\.tpkg$/
         # Check the timestamp on the file to see if it is new or has
         # changed since we last loaded data
         timestamp = File.mtime(File.join(@installed_directory, entry))
