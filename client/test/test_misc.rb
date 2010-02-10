@@ -155,6 +155,20 @@ class TpkgMiscTests < Test::Unit::TestCase
   def test_prompt_for_install
     # Not quite sure how to test this method
   end
+
+  def test_valid_pkg_filename
+    # we currently accepts all string for filename as long as it
+    # doesn't begin with a do, t
+    valid_filenames = ['a.tpkg', 'pkg_with_no_extension', '_valid_pkg', './path/to/package.tpkg']
+    invalid_filenames = ['.invalid_pkg', '..invalid_pkg']
+
+    valid_filenames.each do |filename|
+      assert(Tpkg::valid_pkg_filename?(filename))
+    end
+    invalid_filenames.each do |filename|
+      assert(!Tpkg::valid_pkg_filename?(filename))
+    end
+  end
   
   def test_run_external
     extname = 'testext'

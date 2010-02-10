@@ -1092,6 +1092,11 @@ class Tpkg
     end
     return result
   end
+
+  # The only restriction right now is that the file doesn't begin with "."
+  def self.valid_pkg_filename?(filename)
+    return File.basename(filename) !~ /^\./
+  end
   
   #
   # Instance methods
@@ -1630,8 +1635,7 @@ class Tpkg
     metadata = {}
     if File.directory?(@installed_directory)
       Dir.foreach(@installed_directory) do |entry|
-        # assuming that packages are named with the .tpkg extension
-        next if entry == '.' || entry == '..' || entry == 'metadata' || entry !~ /\.tpkg$/
+        next if entry == '.' || entry == '..' || entry == 'metadata' || !Tpkg::valid_pkg_filename?(entry)
         # Check the timestamp on the file to see if it is new or has
         # changed since we last loaded data
         timestamp = File.mtime(File.join(@installed_directory, entry))
@@ -1675,7 +1679,7 @@ class Tpkg
             end
           end
           metadata[entry] = { :timestamp => timestamp,
-                              :metadata => m }
+                              :metadata => m } unless m.nil?
         end
       end
     end
@@ -2391,7 +2395,7 @@ class Tpkg
   def unpack(package_file, passphrase=nil, options={})
     ret_val = 0
     metadata = Tpkg::metadata_from_package(package_file)
-    
+
     # Unpack files in a temporary directory
     # I'd prefer to unpack on the fly so that the user doesn't need to
     # have disk space to hold three copies of the package (the package
@@ -2914,6 +2918,8 @@ class Tpkg
         source = nil
         localpath = nil
         if File.file?(request)
+          raise "Invalid package filename #{request}" if !Tpkg::valid_pkg_filename?(request)
+
           puts "parse_requests treating request as a file" if @@debug
 
           if request !~ /\.tpkg$/
@@ -3464,6 +3470,11 @@ class Tpkg
         else
           pkgfile = download(pkg[:source], pkg[:metadata][:filename])
         end
+
+        if !Tpkg::valid_pkg_filename?(pkgfile)
+          raise "Invalid package filename: #{pkgfile}"
+        end
+
         if prompt_for_conflicting_files(pkgfile, CHECK_UPGRADE)
           # If the old and new packages have overlapping externals flag them
           # to be skipped so that the external isn't removed and then
@@ -3519,7 +3530,7 @@ class Tpkg
     
     packages_to_remove = nil
     if requests
-      requests.uniq!
+      requests.uniq! if requests.is_a?(Array)
       packages_to_remove = []
       requests.each do |request|
         req = Tpkg::parse_request(request, @installed_directory)
