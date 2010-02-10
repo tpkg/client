@@ -3768,6 +3768,12 @@ class Tpkg
           end
         rescue Errno::ENOENT
           warn "File #{file} from package #{File.basename(package_file)} missing during remove"
+        # I know it's bad to have a generic rescue for all exceptions, but in this case, there
+        # can be many things that might go wrong when removing a file. We don't want tpkg
+        # to crash and leave the packages in a bad state. It's better to catch
+        # all exceptions and give the user some warnings.
+        rescue
+          warn "Failed to remove file #{file}."
         end
       end
     
