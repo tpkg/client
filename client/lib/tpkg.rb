@@ -304,7 +304,15 @@ class Tpkg
 
         # check permission/ownership of crontab files
         if tpkgfile[:crontab]
-          # TODO
+          data = {:actual_file => working_path, :metadata => metadata, :file_metadata => tpkgfile}
+          perms, uid, gid = predict_file_perms_and_ownership(data)
+          # crontab needs to be owned by root, and is not writable by group or others
+          if uid != 0 
+            warn "Warning: Your cron jobs in \"#{tpkgfile[:path]}\" might fail to run because the file is not owned by root."
+          end
+          if (perms & 0022) != 0
+            warn "Warning: Your cron jobs in \"#{tpkgfile[:path]}\" might fail to run because the file is writable by group and/or others."
+          end
         end
 
         # Encrypt any files marked for encryption
@@ -1118,6 +1126,42 @@ class Tpkg
   def self.valid_pkg_filename?(filename)
     return File.basename(filename) !~ /^\./
   end
+
+  # helper method for predicting the permissions and ownership of a file that 
+  # will be installed by tpkg. This is done by looking at:
+  #  1) its current perms & ownership
+  #  2) the file_defaults settings of the metadata file
+  #  3) the explicitly defined settings in the corresponding file section of the metadata file
+  def self.predict_file_perms_and_ownership(data)
+    perms = nil
+    uid = nil
+    gid = nil
+
+    # get current permission and ownership
+    if data[:actual_file]
+      stat = File.stat(data[:actual_file])
+      perms = stat.mode
+      uid = stat.uid
+      gid = stat.gid
+    end
+
+    # get default permission and ownership
+    metadata = data[:metadata]
+    if (metadata[:files] && metadata[:files][:file_defaults] && metadata[:files][:file_defaults][:posix])
+      uid = Tpkg::lookup_uid(metadata[:files][:file_defaults][:posix][:owner])
+      gid = Tpkg::lookup_uid(metadata[:files][:file_defaults][:posix][:group])
+      perms = metadata[:files][:file_defaults][:posix][:perms]
+    end
+
+    # get explicitly defined permission and ownership
+    file_metadata = data[:file_metadata]
+    if file_metadata && file_metadata[:posix]
+      uid = Tpkg::lookup_uid(file_metadata[:posix][:owner])
+      gid = Tpkg::lookup_uid(file_metadata[:posix][:group])
+      perms = file_metadata[:posix][:perms]
+    end
+    return perms, uid, gid
+  end 
   
   #
   # Instance methods
