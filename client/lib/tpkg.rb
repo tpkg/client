@@ -85,6 +85,8 @@ class Tpkg
   # Find GNU tar or bsdtar in ENV['PATH']
   # Raises an exception if a suitable tar cannot be found
   @@tar = nil
+  @@taroptions = ""
+  @@tartype = nil
   TARNAMES = ['tar', 'gtar', 'gnutar', 'bsdtar']
   def self.find_tar
     if !@@tar
@@ -94,7 +96,12 @@ class Tpkg
             if File.executable?(File.join(path, tarname))
               IO.popen("#{File.join(path, tarname)} --version 2>/dev/null") do |pipe|
                 pipe.each_line do |line|
-                  if line.include?('GNU tar') || line.include?('bsdtar')
+                  if line.include?('GNU tar') 
+                    @@tartype = 'gnu'
+                    @@tar = File.join(path, tarname)
+                    throw :tar_found
+                  elsif line.include?('bsdtar')
+                    @@tartype = 'bsd'
                     @@tar = File.join(path, tarname)
                     throw :tar_found
                   end
@@ -106,6 +113,15 @@ class Tpkg
         # Raise an exception if we didn't find a suitable tar
         raise "Unable to find GNU tar or bsdtar in PATH"
       end
+    end
+    # bsdtar uses pax format by default. This format allows for vendor extensions, such 
+    # as the SCHILY.* extensions which were introduced by star). bsdtar actually uses
+    # these extensions. These extension headers includde useful, but not vital information.
+    # gnu tar should just ignore them and gives a warning. This is what the latest gnu tar
+    # will do. However, on older gnu tar, it only threw an error at the end. The work 
+    # around is to explicitly tell gnu tar to ignore those extensions.
+    if @@tartype == 'gnu'
+      @@taroptions = "--pax-option='delete=SCHILY.*'"
     end
     @@tar.dup
   end
@@ -286,6 +302,11 @@ class Tpkg
           raise "File #{tpkg_path} referenced in tpkg.yml but not found"
         end
 
+        # check permission/ownership of crontab files
+        if tpkgfile[:crontab]
+          # TODO
+        end
+
         # Encrypt any files marked for encryption
         if tpkgfile[:encrypt]
           if tpkgfile[:encrypt] == 'precrypt'
@@ -350,7 +371,7 @@ class Tpkg
     toplevel = nil
     # FIXME: This is so lame, to read the whole package to get the
     # first filename.  Blech.
-    IO.popen("#{find_tar} -tf #{package_file}") do |pipe|
+    IO.popen("#{find_tar} -tf #{package_file} #{@@taroptions}") do |pipe|
       toplevel = pipe.gets
       if toplevel.nil?
          raise "Package directory structure of #{package_file} unexpected. Unable to get top level."
@@ -454,7 +475,7 @@ class Tpkg
     topleveldir = package_toplevel_directory(package_file)
     # Extract checksum.xml from the package
     checksum_xml = nil
-    IO.popen("#{find_tar} -xf #{package_file} -O #{File.join(topleveldir, 'checksum.xml')}") do |pipe|
+    IO.popen("#{find_tar} -xf #{package_file} -O #{File.join(topleveldir, 'checksum.xml')} #{@@taroptions}") do |pipe|
       checksum_xml = REXML::Document.new(pipe.read)
     end
     if !$?.success?
@@ -479,7 +500,7 @@ class Tpkg
         raise("Unrecognized checksum algorithm #{checksum.elements['algorithm']}")
       end
       # Extract tpkg.tar from the package and digest it
-      IO.popen("#{find_tar} -xf #{package_file} -O #{File.join(topleveldir, 'tpkg.tar')}") do |pipe|
+      IO.popen("#{find_tar} -xf #{package_file} -O #{File.join(topleveldir, 'tpkg.tar')} #{@@taroptions}") do |pipe|
         # Package files can be quite large, so we digest the package in
         # chunks.  A survey of the Internet turns up someone who tested
         # various chunk sizes on various platforms and found 4k to be
@@ -911,7 +932,7 @@ class Tpkg
     files[:root] = []
     files[:reloc] = []
     topleveldir = package_toplevel_directory(package_file)
-    IO.popen("#{find_tar} -xf #{package_file} -O #{File.join(topleveldir, 'tpkg.tar')} | #{find_tar} -tf -") do |pipe|
+    IO.popen("#{find_tar} -xf #{package_file} -O #{File.join(topleveldir, 'tpkg.tar')} #{@@taroptions}| #{find_tar} #{@@taroptions} -tf -") do |pipe|
       pipe.each do |file|
         file.chomp!
         if file =~ Regexp.new(File.join('tpkg', 'root'))
@@ -1075,7 +1096,7 @@ class Tpkg
     begin
       topleveldir = Tpkg::package_toplevel_directory(package_file)
       workdir = Tpkg::tempdir(topleveldir)
-      system("#{find_tar} -xf #{package_file} -O #{File.join(topleveldir, 'tpkg.tar')} | #{find_tar} -C #{workdir} -xpf -")
+      system("#{find_tar} -xf #{package_file} -O #{File.join(topleveldir, 'tpkg.tar')} #{@@taroptions}| #{find_tar} #{@@taroptions} -C #{workdir} -xpf -")
      
       if File.exist?(File.join(workdir,"tpkg", "tpkg.yml"))
         metadata_file = File.join(workdir,"tpkg", "tpkg.yml")
@@ -2405,7 +2426,7 @@ class Tpkg
     # directory structure in the package.
     topleveldir = Tpkg::package_toplevel_directory(package_file)
     workdir = Tpkg::tempdir(topleveldir, @tmp_directory)
-    system("#{@tar} -xf #{package_file} -O #{File.join(topleveldir, 'tpkg.tar')} | #{@tar} -C #{workdir} -xpf -")
+    system("#{@tar} -xf #{package_file} -O #{File.join(topleveldir, 'tpkg.tar')} #{@@taroptions} | #{@tar} #{@@taroptions} -C #{workdir} -xpf -")
     files_info = {} # store perms, uid, gid, etc. for files
     checksums_of_decrypted_files = {}
     root_dir = File.join(workdir, 'tpkg', 'root')
@@ -2416,7 +2437,7 @@ class Tpkg
     # Get list of conflicting files/directories & store their perm/ownership. That way, we can
     # set them to the correct values later on in order to preserve them.
     # TODO: verify this command works on all platforms
-    files = `#{@tar} -xf #{package_file} -O #{File.join(topleveldir, 'tpkg.tar')} | #{@tar} -tf -`
+    files = `#{@tar} -xf #{package_file} -O #{File.join(topleveldir, 'tpkg.tar')} #{@@taroptions} | #{@tar} #{@@taroptions} -tf -`
     files = files.split("\n")
     conflicting_files = {}
     files.each do | file |
@@ -3488,7 +3509,7 @@ class Tpkg
           end if pkg[:metadata][:externals]
 
           # Remove the old package if we haven't done so
-          unless removed_pkgs.include?(pkg[:metadata][:name])
+          unless oldpkgs.nil? or oldpkgs.empty? or removed_pkgs.include?(pkg[:metadata][:name])
             remove([pkg[:metadata][:name]], :upgrade => true, :externals_to_skip => externals_to_skip)
             removed_pkgs << pkg[:metadata][:name]  
           end
@@ -3638,7 +3659,7 @@ class Tpkg
     
       topleveldir = Tpkg::package_toplevel_directory(package_file)
       workdir = Tpkg::tempdir(topleveldir, @tmp_directory)
-      system("#{@tar} -xf #{package_file} -O #{File.join(topleveldir, 'tpkg.tar')} | #{@tar} -C #{workdir} -xpf -")
+      system("#{@tar} -xf #{package_file} -O #{File.join(topleveldir, 'tpkg.tar')} #{@@taroptions} | #{@tar} #{@@taroptions} -C #{workdir} -xpf -")
     
       # Run preremove script
       if File.exist?(File.join(workdir, 'tpkg', 'preremove'))
