@@ -18,7 +18,7 @@ module TpkgTests
   TESTPKGDIR = File.join(File.dirname(__FILE__), 'testpkg')
   # Passphrase used for encrypting/decrypting packages
   PASSPHRASE = 'password'
-  
+
   # Make up our regular test package, substituting any fields and adding
   # dependencies as requested by the caller
   def make_package(options={})
@@ -29,6 +29,10 @@ module TpkgTests
     remove = []
     if options[:remove]
       remove = options[:remove]
+    end
+    file_defaults = {}
+    if options[:file_defaults]
+      file_defaults = options[:file_defaults]
     end
     files = {}
     if options[:files]
@@ -129,6 +133,21 @@ module TpkgTests
             tpkgdst.puts('    </external>')
           end
           tpkgdst.puts('  </externals>')
+        end
+
+        # Insert file_defaults settings at the end of the files section
+        if line =~ /^\s*<\/files>/ && !file_defaults.empty?
+          tpkgdst.puts('    <file_defaults>')
+          if file_defaults['owner'] || file_defaults['group'] || file_defaults['perms']
+            tpkgdst.puts('      <posix>')
+            ['owner', 'group', 'perms'].each do |opt|
+              if file_defaults[opt]
+                tpkgdst.puts("        <#{opt}>#{file_defaults[opt]}</#{opt}>")
+              end
+            end
+            tpkgdst.puts('      </posix>')
+          end
+          tpkgdst.puts('    </file_defaults>')
         end
         
         # Insert additional file entries at the end of the files section
