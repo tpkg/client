@@ -143,6 +143,35 @@ Rake::TestTask.new do |t|
   t.verbose = true
 end
 
+# FlogTask is broken...
+# begin
+#   require 'flog_task'
+#   FlogTask.new do |t|
+#     t.dirs = ['lib']
+#   end
+# rescue LoadError
+#   warn "Flog not installed"
+# end
+desc 'Run flog on code'
+task :flog do
+  system("flog -g lib")
+end
+namespace :flog do
+  desc 'Just the flog summary'
+  task :summary do
+    system("flog -s lib")
+  end
+end
+begin
+  require 'flay'
+  require 'flay_task'
+  FlayTask.new do |t|
+    t.dirs = ['lib']
+  end
+rescue LoadError
+  warn "Flay not installed"
+end
+
 desc 'Build an tpkg client RPM on a Red Hat box'
 task :redhat => [:redhatprep, :rpm]
 desc 'Prep a Red Hat box for building an RPM'
