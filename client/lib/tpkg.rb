@@ -2730,119 +2730,8 @@ class Tpkg
       system("#{@tar} -C #{File.join(workdir, 'tpkg', 'reloc')} -cf - . | #{@tar} -C #{@base} -xpf -")
     end
     
-    # Install any init scripts
-    init_links(metadata).each do |link, init_script|
-      # We don't have to any anything if there's already symlink to our init script.
-      # This can happen if user removes pkg manually without removing
-      # init symlink
-      next if File.symlink?(link) && File.readlink(link) == init_script
-      begin
-        if !File.exist?(File.dirname(link))
-          FileUtils.mkdir_p(File.dirname(link))
-        end
-        begin
-          File.symlink(init_script, link)
-        rescue Errno::EEXIST
-          # The link name that init_links provides is not guaranteed to
-          # be unique.  It might collide with a base system init script
-          # or an init script from another tpkg.  If the link name
-          # supplied by init_links results in EEXIST then try appending
-          # a number to the end of the link name.
-          catch :init_link_done do
-            1.upto(9) do |i|
-              begin
-                File.symlink(init_script, link + i.to_s)
-                throw :init_link_done
-              rescue Errno::EEXIST
-              end
-            end
-            # If we get here (i.e. we never reached the throw) then we
-            # failed to create any of the possible link names.
-            raise "Failed to install init script #{init_script} -> #{link} for #{File.basename(package_file)}"
-          end
-        end
-      rescue Errno::EPERM
-        # If creating the link fails due to permission problems and
-        # we're not running as root just warn the user, allowing folks
-        # to run tpkg as a non-root user with reduced functionality.
-        if Process.euid == 0
-          raise
-        else
-          warn "Failed to install init script for #{File.basename(package_file)}, probably due to lack of root privileges"
-        end
-      end
-    end
-    
-    # Install any crontabs
-    crontab_destinations(metadata).each do |crontab, destination|
-      begin
-        if destination[:link]
-          next if File.symlink?(destination[:link]) && File.readlink(destination[:link]) == crontab
-          if !File.exist?(File.dirname(destination[:link]))
-            FileUtils.mkdir_p(File.dirname(destination[:link]))
-          end
-          begin
-            File.symlink(crontab, destination[:link])
-          rescue Errno::EEXIST
-            # The link name that crontab_destinations provides is not
-            # guaranteed to be unique.  It might collide with a base
-            # system crontab or a crontab from another tpkg.  If the
-            # link name supplied by crontab_destinations results in
-            # EEXIST then try appending a number to the end of the link
-            # name.
-            catch :crontab_link_done do
-              1.upto(9) do |i|
-                begin
-                  File.symlink(crontab, destination[:link] + i.to_s)
-                  throw :crontab_link_done
-                rescue Errno::EEXIST
-                end
-              end
-              # If we get here (i.e. we never reached the throw) then we
-              # failed to create any of the possible link names.
-              raise "Failed to install crontab #{crontab} -> #{destination[:link]} for #{File.basename(package_file)}"
-            end
-          end
-        elsif destination[:file]
-          if !File.exist?(File.dirname(destination[:file]))
-            FileUtils.mkdir_p(File.dirname(destination[:file]))
-          end
-          tmpfile = Tempfile.new(File.basename(destination[:file]), File.dirname(destination[:file]))
-          if File.exist?(destination[:file])
-            # Match permissions and ownership of current crontab
-            st = File.stat(destination[:file])
-            File.chmod(st.mode & 07777, tmpfile.path)
-            File.chown(st.uid, st.gid, tmpfile.path)
-            # Insert the contents of the current crontab file
-            File.open(destination[:file]) { |file| tmpfile.write(file.read) }
-          end
-          # Insert a header line so we can find this section to remove later
-          tmpfile.puts "### TPKG START - #{@base} - #{File.basename(package_file)}"
-          # Insert the package crontab contents
-          crontab_contents = IO.read(crontab)
-          tmpfile.write(crontab_contents)
-          # Insert a newline if the crontab doesn't end with one
-          if crontab_contents.chomp == crontab_contents
-            tmpfile.puts
-          end
-          # Insert a footer line
-          tmpfile.puts "### TPKG END - #{@base} - #{File.basename(package_file)}"
-          tmpfile.close
-          File.rename(tmpfile.path, destination[:file])
-          # FIXME: On Solaris we should bounce cron or use the crontab
-          # command, otherwise cron won't pick up the changes
-        end
-      rescue Errno::EPERM
-        # If installing the crontab fails due to permission problems and
-        # we're not running as root just warn the user, allowing folks
-        # to run tpkg as a non-root user with reduced functionality.
-        if Process.euid == 0
-          raise
-        else
-          warn "Failed to install crontab for #{File.basename(package_file)}, probably due to lack of root privileges"
-        end
-      end
-    end
+    install_init_scripts(metadata)
+    install_crontabs(metadata)
     
     # Run postinstall script
     if File.exist?(File.join(workdir, 'tpkg', 'postinstall'))
@@ -2911,6 +2800,243 @@ class Tpkg
     # Cleanup
     FileUtils.rm_rf(workdir)
     return ret_val
+  end
+  
+  def install_init_scripts(metadata)
+    init_links(metadata).each do |link, init_script|
+      # We don't have to do anything if there's already symlink to our init
+      # script. This can happen if the user removes a package manually without
+      # removing the init symlink
+      next if File.symlink?(link) && File.readlink(link) == init_script
+      begin
+        if !File.exist?(File.dirname(link))
+          FileUtils.mkdir_p(File.dirname(link))
+        end
+        begin
+          File.symlink(init_script, link)
+        rescue Errno::EEXIST
+          # The link name that init_links provides is not guaranteed to
+          # be unique.  It might collide with a base system init script
+          # or an init script from another tpkg.  If the link name
+          # supplied by init_links results in EEXIST then try appending
+          # a number to the end of the link name.
+          catch :init_link_done do
+            1.upto(9) do |i|
+              begin
+                File.symlink(init_script, link + i.to_s)
+                throw :init_link_done
+              rescue Errno::EEXIST
+              end
+            end
+            # If we get here (i.e. we never reached the throw) then we
+            # failed to create any of the possible link names.
+            raise "Failed to install init script #{init_script} -> #{link} for #{File.basename(metadata[:filename].to_s)}, too many overlapping filenames"
+          end
+        end
+      # EACCES for file/directory permissions issues
+      rescue Errno::EACCES => e
+        # If creating the link fails due to permission problems and
+        # we're not running as root just warn the user, allowing folks
+        # to run tpkg as a non-root user with reduced functionality.
+        if Process.euid != 0
+          warn "Failed to install init script for #{File.basename(metadata[:filename].to_s)}, probably due to lack of root privileges: #{e.message}"
+        else
+          raise e
+        end
+      end
+    end
+  end
+  def remove_init_scripts(metadata)
+    init_links(metadata).each do |link, init_script|
+      # The link we ended up making when we unpacked the package could be any
+      # of a series (see the code in install_init_scripts for the reasoning),
+      # we need to check them all.
+      links = [link]
+      links.concat((1..9).to_a.map { |i| link + i.to_s })
+      links.each do |l|
+        if File.symlink?(l) && File.readlink(l) == init_script
+          begin
+            File.delete(l)
+          # EACCES for file/directory permissions issues
+          rescue Errno::EACCES => e
+            # If removing the link fails due to permission problems and
+            # we're not running as root just warn the user, allowing folks
+            # to run tpkg as a non-root user with reduced functionality.
+            if Process.euid != 0
+              warn "Failed to remove init script for #{File.basename(metadata[:filename].to_s)}, probably due to lack of root privileges: #{e.message}"
+            else
+              raise e
+            end
+          end
+        end
+      end
+    end
+  end
+  
+  def install_crontabs(metadata)
+    crontab_destinations(metadata).each do |crontab, destination|
+      begin
+        if destination[:link]
+          install_crontab_link(metadata, crontab, destination)
+        elsif destination[:file]
+          install_crontab_file(metadata, crontab, destination)
+        end
+      # EACCES for file/directory permissions issues
+      rescue Errno::EACCES => e
+        # If installing the crontab fails due to permission problems and
+        # we're not running as root just warn the user, allowing folks
+        # to run tpkg as a non-root user with reduced functionality.
+        if Process.euid != 0
+          warn "Failed to install crontab for #{File.basename(metadata[:filename].to_s)}, probably due to lack of root privileges: #{e.message}"
+        else
+          raise e
+        end
+      rescue RuntimeError => e
+        if e.message.include?('cannot generate tempfile') && Process.euid != 0
+          warn "Failed to install crontab for #{File.basename(metadata[:filename].to_s)}, probably due to lack of root privileges: #{e.message}"
+        else
+          raise e
+        end
+      end
+    end
+  end
+  def install_crontab_link(metadata, crontab, destination)
+    return if File.symlink?(destination[:link]) && File.readlink(destination[:link]) == crontab
+    if !File.exist?(File.dirname(destination[:link]))
+      FileUtils.mkdir_p(File.dirname(destination[:link]))
+    end
+    begin
+      File.symlink(crontab, destination[:link])
+    rescue Errno::EEXIST
+      # The link name that crontab_destinations provides is not
+      # guaranteed to be unique.  It might collide with a base
+      # system crontab or a crontab from another tpkg.  If the
+      # link name supplied by crontab_destinations results in
+      # EEXIST then try appending a number to the end of the link
+      # name.
+      catch :crontab_link_done do
+        1.upto(9) do |i|
+          begin
+            File.symlink(crontab, destination[:link] + i.to_s)
+            throw :crontab_link_done
+          rescue Errno::EEXIST
+          end
+        end
+        # If we get here (i.e. we never reached the throw) then we
+        # failed to create any of the possible link names.
+        raise "Failed to install crontab #{crontab} -> #{destination[:link]} for #{File.basename(metadata[:filename].to_s)}, too many overlapping filenames"
+      end
+    end
+  end
+  def install_crontab_file(metadata, crontab, destination)
+    if !File.exist?(File.dirname(destination[:file]))
+      FileUtils.mkdir_p(File.dirname(destination[:file]))
+    end
+    tmpfile = Tempfile.new(File.basename(destination[:file]), File.dirname(destination[:file]))
+    if File.exist?(destination[:file])
+      # Match permissions and ownership of current crontab
+      st = File.stat(destination[:file])
+      begin
+        File.chmod(st.mode & 07777, tmpfile.path)
+        File.chown(st.uid, st.gid, tmpfile.path)
+      # EPERM for attempts to chown/chmod as non-root user
+      rescue Errno::EPERM => e
+        # If installing the crontab fails due to permission problems and
+        # we're not running as root just warn the user, allowing folks
+        # to run tpkg as a non-root user with reduced functionality.
+        if Process.euid != 0
+          warn "Failed to install crontab for #{File.basename(metadata[:filename].to_s)}, probably due to lack of root privileges: #{e.message}"
+        else
+          raise e
+        end
+      end
+      # Insert the contents of the current crontab file
+      File.open(destination[:file]) { |file| tmpfile.write(file.read) }
+    end
+    # Insert a header line so we can find this section to remove later
+    tmpfile.puts "### TPKG START - #{@base} - #{File.basename(metadata[:filename].to_s)}"
+    # Insert the package crontab contents
+    crontab_contents = IO.read(crontab)
+    tmpfile.write(crontab_contents)
+    # Insert a newline if the crontab doesn't end with one
+    if crontab_contents.chomp == crontab_contents
+      tmpfile.puts
+    end
+    # Insert a footer line
+    tmpfile.puts "### TPKG END - #{@base} - #{File.basename(metadata[:filename].to_s)}"
+    tmpfile.close
+    File.rename(tmpfile.path, destination[:file])
+    # FIXME: On Solaris we should bounce cron or use the crontab
+    # command, otherwise cron won't pick up the changes
+  end
+  def remove_crontabs(metadata)
+    crontab_destinations(metadata).each do |crontab, destination|
+      begin
+        if destination[:link]
+          remove_crontab_link(metadata, crontab, destination)
+        elsif destination[:file]
+          remove_crontab_file(metadata, crontab, destination)
+        end
+      # EACCES for file/directory permissions issues
+      rescue Errno::EACCES => e
+        # If removing the crontab fails due to permission problems and
+        # we're not running as root just warn the user, allowing folks
+        # to run tpkg as a non-root user with reduced functionality.
+        if Process.euid != 0
+          warn "Failed to remove crontab for #{File.basename(metadata[:filename].to_s)}, probably due to lack of root privileges: #{e.message}"
+        else
+          raise e
+        end
+      end
+    end
+  end
+  def remove_crontab_link(metadata, crontab, destination)
+    # The link we ended up making when we unpacked the package could
+    # be any of a series (see the code in unpack for the reasoning),
+    # we need to check them all.
+    links = [destination[:link]]
+    links.concat((1..9).to_a.map { |i| destination[:link] + i.to_s })
+    links.each do |l|
+      if File.symlink?(l) && File.readlink(l) == crontab
+        File.delete(l)
+      end
+    end
+  end
+  def remove_crontab_file(metadata, crontab, destination)
+    if File.exist?(destination[:file])
+      tmpfile = Tempfile.new(File.basename(destination[:file]), File.dirname(destination[:file]))
+      # Match permissions and ownership of current crontab
+      st = File.stat(destination[:file])
+      begin
+        File.chmod(st.mode & 07777, tmpfile.path)
+        File.chown(st.uid, st.gid, tmpfile.path)
+      # EPERM for attempts to chown/chmod as non-root user
+      rescue Errno::EPERM => e
+        # If installing the crontab fails due to permission problems and
+        # we're not running as root just warn the user, allowing folks
+        # to run tpkg as a non-root user with reduced functionality.
+        if Process.euid != 0
+          warn "Failed to install crontab for #{File.basename(metadata[:filename].to_s)}, probably due to lack of root privileges: #{e.message}"
+        else
+          raise
+        end
+      end
+      # Remove section associated with this package
+      skip = false
+      IO.foreach(destination[:file]) do |line|
+        if line == "### TPKG START - #{@base} - #{File.basename(metadata[:filename].to_s)}\n"
+          skip = true
+        elsif line == "### TPKG END - #{@base} - #{File.basename(metadata[:filename].to_s)}\n"
+          skip = false
+        elsif !skip
+          tmpfile.write(line)
+        end
+      end
+      tmpfile.close
+      File.rename(tmpfile.path, destination[:file])
+      # FIXME: On Solaris we should bounce cron or use the crontab
+      # command, otherwise cron won't pick up the changes
+    end
   end
   
   def requirements_for_currently_installed_package(pkgname=nil)
@@ -3726,86 +3852,9 @@ class Tpkg
         # Switch back to our previous directory
         Dir.chdir(pwd)
       end
-    
-      # Remove any init scripts
-      init_links(pkg[:metadata]).each do |link, init_script|
-        # The link we ended up making when we unpacked the package could
-        # be any of a series (see the code in unpack for the reasoning),
-        # we need to check them all.
-        links = [link]
-        links.concat((1..9).to_a.map { |i| link + i.to_s })
-        links.each do |l|
-          if File.symlink?(l) && File.readlink(l) == init_script
-            begin
-              File.delete(l)
-            rescue Errno::EPERM
-              if Process.euid == 0
-                raise
-              else
-                warn "Failed to remove init script for #{File.basename(package_file)}, probably due to lack of root privileges"
-              end
-            end
-          end
-        end
-      end
-    
-      # Remove any crontabs
-      crontab_destinations(pkg[:metadata]).each do |crontab, destination|
-        begin
-          if destination[:link]
-            # The link we ended up making when we unpacked the package could
-            # be any of a series (see the code in unpack for the reasoning),
-            # we need to check them all.
-            links = [destination[:link]]
-            links.concat((1..9).to_a.map { |i| destination[:link] + i.to_s })
-            links.each do |l|
-              if File.symlink?(l) && File.readlink(l) == crontab
-                begin
-                  File.delete(l)
-                rescue Errno::EPERM
-                  if Process.euid == 0
-                    raise
-                  else
-                    warn "Failed to remove crontab for #{File.basename(package_file)}, probably due to lack of root privileges"
-                  end
-                end
-              end
-            end
-          elsif destination[:file]
-            if File.exist?(destination[:file])
-              tmpfile = Tempfile.new(File.basename(destination[:file]), File.dirname(destination[:file]))
-              # Match permissions and ownership of current crontab
-              st = File.stat(destination[:file])
-              File.chmod(st.mode & 07777, tmpfile.path)
-              File.chown(st.uid, st.gid, tmpfile.path)
-              # Remove section associated with this package
-              skip = false
-              IO.foreach(destination[:file]) do |line|
-                if line == "### TPKG START - #{@base} - #{File.basename(package_file)}\n"
-                  skip = true
-                elsif line == "### TPKG END - #{@base} - #{File.basename(package_file)}\n"
-                  skip = false
-                elsif !skip
-                  tmpfile.write(line)
-                end
-              end
-              tmpfile.close
-              File.rename(tmpfile.path, destination[:file])
-              # FIXME: On Solaris we should bounce cron or use the crontab
-              # command, otherwise cron won't pick up the changes
-            end
-          end
-        rescue Errno::EPERM
-          # If removing the crontab fails due to permission problems and
-          # we're not running as root just warn the user, allowing folks
-          # to run tpkg as a non-root user with reduced functionality.
-          if Process.euid == 0
-            raise
-          else
-            warn "Failed to remove crontab for #{File.basename(package_file)}, probably due to lack of root privileges"
-          end
-        end
-      end
+      
+      remove_init_scripts(pkg[:metadata])
+      remove_crontabs(pkg[:metadata])
       
       # Run any externals
       pkg[:metadata][:externals].each do |external|
