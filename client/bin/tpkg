@@ -329,6 +329,10 @@ if @deploy
   exit
 end
 
+if @action_value.is_a?(Array)
+  @action_value.uniq!
+end
+
 ret_val = 0
 case @action
 when :make
