@@ -718,6 +718,12 @@ class Tpkg
          Facter['lsbmajdistrelease'].value &&
          !Facter['lsbmajdistrelease'].value.empty?
         osver = Facter['lsbmajdistrelease'].value
+      elsif operatingsystem == 'Ubuntu'
+        # Work around lack of lsbmajdistrelease on older versions of Ubuntu
+        # due to older version of facter.  Support for lsbmajdistrelease on
+        # Ubuntu was added in facter 1.5.3, but there's no good way to force
+        # older Ubuntu systems to a newer version of facter.
+        osver = Facter['lsbdistrelease'].value.split('.').first
       elsif Facter['kernel'] &&
             Facter['kernel'].value == 'Darwin' &&
             Facter['macosx_productversion'] &&
