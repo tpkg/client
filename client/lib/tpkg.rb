@@ -86,7 +86,7 @@ class Tpkg
   # Raises an exception if a suitable tar cannot be found
   @@tar = nil
   @@taroptions = ""
-  @@tartype = nil
+  @@tarinfo = {:version => 'unknown'}
   TARNAMES = ['tar', 'gtar', 'gnutar', 'bsdtar']
   def self.find_tar
     if !@@tar
@@ -96,15 +96,17 @@ class Tpkg
             if File.executable?(File.join(path, tarname))
               IO.popen("#{File.join(path, tarname)} --version 2>/dev/null") do |pipe|
                 pipe.each_line do |line|
-                  if line.include?('GNU tar') 
-                    @@tartype = 'gnu'
+                  if line.include?('GNU tar')
+                    @@tarinfo[:type] = 'gnu'
                     @@tar = File.join(path, tarname)
-                    throw :tar_found
                   elsif line.include?('bsdtar')
-                    @@tartype = 'bsd'
+                    @@tarinfo[:type] = 'bsd'
                     @@tar = File.join(path, tarname)
-                    throw :tar_found
                   end
+                  if line =~ /(?:(\d+)\.)?(?:(\d+)\.)?(\*|\d+)/
+                    @@tarinfo[:version] = [$1, $2, $3].compact.join(".")
+                  end
+                  throw :tar_found if @@tar
                 end
               end
             end
@@ -120,7 +122,7 @@ class Tpkg
     # gnu tar should just ignore them and gives a warning. This is what the latest gnu tar
     # will do. However, on older gnu tar, it only threw an error at the end. The work 
     # around is to explicitly tell gnu tar to ignore those extensions.
-    if @@tartype == 'gnu'
+    if @@tarinfo[:type] == 'gnu' && @@tarinfo[:version] != 'unknown' && @@tarinfo[:version] >= '1.15.1'
       @@taroptions = "--pax-option='delete=SCHILY.*'"
     end
     @@tar.dup
@@ -625,6 +627,7 @@ class Tpkg
       metadata_lists.each do | metadata_text |
         if metadata_text =~ /^:?filename:(.+)/
            filename = $1.strip
+puts "existing #{filename}"
            existing_metadata[filename] = Metadata.new(metadata_text,'yml')
         end
       end
@@ -671,7 +674,8 @@ class Tpkg
     # And write that out to metadata.yml
     metadata_tmpfile = Tempfile.new('metadata.yml', dest)
     metadata.each do | metadata |
-      YAML::dump(metadata.to_hash, metadata_tmpfile)  
+      YAML::dump(metadata.to_hash.recursively{|h| h.stringify_keys }, metadata_tmpfile)  
+      #YAML::dump(metadata.to_hash, metadata_tmpfile)  
     end
     metadata_tmpfile.close
     File.chmod(0644, metadata_tmpfile.path)
