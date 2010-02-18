@@ -1518,7 +1518,11 @@ class Tpkg
             else
               version = debversion
             end
-            if status =~ /installed/
+	    # We want packages with a state of "installed".  However,
+	    # there's also a state of "not-installed", and the state
+	    # field contains several space-seperated values, so we have
+	    # to be somewhat careful to pick out "installed".
+            if status.split(' ').include?('installed')
               pkg = pkg_for_native_package(name, version, package_version, :native_installed)
               native_packages << pkg
             end
