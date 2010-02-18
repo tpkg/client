@@ -33,7 +33,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
     testbase = Tempdir.new("testbase")
     FileUtils.mkdir_p(File.join(testbase, 'home', 'tpkg'))
     tpkg = Tpkg.new(:file_system_root => testbase, :base => File.join('home', 'tpkg'), :sources => [@pkgfile])
-    assert_nothing_raised { tpkg.unpack(@pkgfile, PASSPHRASE) }
+    assert_nothing_raised { tpkg.unpack(@pkgfile, :passphrase => PASSPHRASE) }
     # This file should have the default 0444 perms
     assert(File.exist?(File.join(testbase, 'home', 'tpkg', 'file')))
     assert_equal(0444, File.stat(File.join(testbase, 'home', 'tpkg', 'file')).mode & 07777)
@@ -48,7 +48,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
     # Change the package base and unpack
     testbase2 = Tempdir.new("testbase2")
     tpkg2 = Tpkg.new(:file_system_root => testbase2, :base => File.join('home', 'tpkg'), :sources => [@pkgfile])
-    assert_nothing_raised { tpkg2.unpack(@pkgfile, PASSPHRASE) }
+    assert_nothing_raised { tpkg2.unpack(@pkgfile, :passphrase => PASSPHRASE) }
     # Check that the files from the package ended up in the right place
     assert(File.exist?(File.join(testbase2, 'home', 'tpkg', 'file')))
     
@@ -59,7 +59,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
     # package, skipping the unencrypted files
     testbase = Tempdir.new("testbase")
     tpkg = Tpkg.new(:file_system_root => testbase, :base => File.join('home', 'tpkg'), :sources => [@pkgfile])
-    assert_nothing_raised { tpkg.unpack(@pkgfile, nil) }
+    assert_nothing_raised { tpkg.unpack(@pkgfile) }
     # Check that the files from the package ended up in the right place
     assert(File.exist?(File.join(testbase, 'home', 'tpkg', 'file')))
     assert(!File.exist?(File.join(testbase, 'home', 'tpkg', 'encfile')))
@@ -95,7 +95,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
     # so that we know tpkg is enforcing the desired permissions.
     oldumask = File.umask
     File.umask(0)
-    assert_nothing_raised { tpkg.unpack(pkg, nil) }
+    assert_nothing_raised { tpkg.unpack(pkg) }
     File.umask(oldumask)
     # This file should have the 0666 perms we specified above
     assert_equal(0666, File.stat(File.join(testbase, 'home', 'tpkg', 'etc', '666file')).mode & 07777)
@@ -127,7 +127,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
     # so that we know tpkg is enforcing the desired permissions.
     oldumask = File.umask
     File.umask(0)
-    assert_nothing_raised { tpkg.unpack(pkg, nil) }
+    assert_nothing_raised { tpkg.unpack(pkg) }
     File.umask(oldumask)
     # This dir should have the 0555 perms we specified in the tpkg-dir-default.xml file
     assert_equal(0555, File.stat(File.join(testbase, 'dir1')).mode & 07777)
@@ -176,7 +176,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
     testroot = Tempdir.new("testroot")
     testbase = File.join(testroot, 'home', 'tpkg')
     tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [pkgfile])
-    assert_nothing_raised { tpkg.unpack(pkgfile, PASSPHRASE) }
+    assert_nothing_raised { tpkg.unpack(pkgfile, :passphrase => PASSPHRASE) }
     # FIXME: Need a way to test that the package install occurred between the two scripts
     assert(File.stat(scriptfiles['preinstall'].path).mtime < File.stat(scriptfiles['postinstall'].path).mtime)
     FileUtils.rm_rf(testroot)
@@ -327,7 +327,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
     # And run the test
     tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [pkg])
     metadata  = Tpkg::metadata_from_package(pkg)
-    assert_nothing_raised { tpkg.unpack(pkg, PASSPHRASE) }
+    assert_nothing_raised { tpkg.unpack(pkg, :passphrase => PASSPHRASE) }
     assert_equal(extdata, IO.read(exttmpfile.path))
     FileUtils.rm_rf(testroot)
     FileUtils.rm_f(pkg)
@@ -362,7 +362,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
     # And run the test
     tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [pkg])
     metadata  = Tpkg::metadata_from_package(pkg)
-    assert_nothing_raised { tpkg.unpack(pkg, PASSPHRASE) }
+    assert_nothing_raised { tpkg.unpack(pkg, :passphrase => PASSPHRASE) }
     assert_equal(extdata, IO.read(exttmpfile.path))
     FileUtils.rm_rf(testroot)
     FileUtils.rm_f(pkg)
@@ -400,7 +400,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
     # And run the test
     tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [pkg])
     metadata  = Tpkg::metadata_from_package(pkg)
-    assert_nothing_raised { tpkg.unpack(pkg, PASSPHRASE) }
+    assert_nothing_raised { tpkg.unpack(pkg, :passphrase => PASSPHRASE) }
     assert_equal(extdata, IO.read(exttmpfile.path))
     FileUtils.rm_rf(testroot)
     FileUtils.rm_f(pkg)
@@ -425,7 +425,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
     File.chmod(0707, File.join(testbase, 'etc', 'rootfile'))
 #    system("chmod 707 #{File.join(testbase, 'etc', 'rootfile')}")
    
-    assert_nothing_raised { tpkg.unpack(@pkgfile, PASSPHRASE) }
+    assert_nothing_raised { tpkg.unpack(@pkgfile, :passphrase => PASSPHRASE) }
 
     # This file should have the default 0444 perms
     # but the file already exists. So it should keep its old perms, which is 707
@@ -650,6 +650,18 @@ class TpkgUnpackTests < Test::Unit::TestCase
     # privileges here to set the file ownership to another user.
     
     FileUtils.rm_rf(testroot)
+  end
+  
+  def test_run_preinstall
+  end
+  
+  def test_run_postinstall
+  end
+  
+  def test_run_externals_for_install
+  end
+  
+  def test_save_package_metadata
   end
   
   def teardown

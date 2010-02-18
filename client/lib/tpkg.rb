@@ -2471,7 +2471,7 @@ puts "existing #{filename}"
   # permissions and ownership, etc.  Does not check for conflicting
   # files or packages, etc.  Those checks (if desired) must be done before
   # calling this method.
-  def unpack(package_file, passphrase=nil, options={})
+  def unpack(package_file, options={})
     ret_val = 0
     metadata = Tpkg::metadata_from_package(package_file)
 
@@ -2509,59 +2509,9 @@ puts "existing #{filename}"
       end
     end
     
-    # Run preinstall script
-    if File.exist?(File.join(workdir, 'tpkg', 'preinstall'))
-      pwd = Dir.pwd
-      # chdir into the working directory so that the user can specify a
-      # relative path to their file/script.
-      Dir.chdir(File.join(workdir, 'tpkg'))
-
-      # Warn the user about non-executable files, as system will just
-      # silently fail and exit if that's the case.
-      if !File.executable?(File.join(workdir, 'tpkg', 'preinstall'))
-        warn "Warning: preinstall script for #{File.basename(package_file)} is not executable, execution will likely fail"
-      end
-      if @force
-        system(File.join(workdir, 'tpkg', 'preinstall')) || warn("Warning: preinstall for #{File.basename(package_file)} failed with exit value #{$?.exitstatus}")
-      else
-        system(File.join(workdir, 'tpkg', 'preinstall')) || raise("Error: preinstall for #{File.basename(package_file)} failed with exit value #{$?.exitstatus}")
-      end
-      # Switch back to our previous directory
-      Dir.chdir(pwd)
-    end
+    run_preinstall(workdir)
     
-    # Run any externals
-    metadata[:externals].each do |external|
-      # If the external references a datafile or datascript then read/run it
-      # now that we've unpacked the package contents and have the file/script
-      # available.  This will get us the data for the external.
-      if external[:datafile] || external[:datascript]
-        pwd = Dir.pwd
-        # chdir into the working directory so that the user can specify a
-        # relative path to their file/script.
-        Dir.chdir(File.join(workdir, 'tpkg'))
-        if external[:datafile]
-          # Read the file
-          external[:data] = IO.read(external[:datafile])
-          # Drop the datafile key so that we don't waste time re-reading the
-          # datafile again in the future.
-          external.delete(:datafile)
-        elsif external[:datascript]
-          # Run the script
-          IO.popen(external[:datascript]) do |pipe|
-            external[:data] = pipe.read
-          end
-          # Drop the datascript key so that we don't waste time re-running the
-          # datascript again in the future.
-          external.delete(:datascript)
-        end
-        # Switch back to our previous directory
-        Dir.chdir(pwd)
-      end
-      if !options[:externals_to_skip] || !options[:externals_to_skip].include?(external)
-        run_external(metadata[:filename], :install, external[:name], external[:data])
-      end
-    end if metadata[:externals]
+    run_externals_for_install(metadata, workdir, options[:externals_to_skip])
     
     # Since we're stuck with unpacking to a temporary folder take
     # advantage of that to handle permissions, ownership and decryption
@@ -2679,7 +2629,7 @@ puts "existing #{filename}"
       
       # Decrypt any files marked for decryption
       if tpkgfile[:encrypt]
-        if passphrase.nil?
+        if !options[:passphrase]
           # If the user didn't supply a passphrase then just remove the
           # encrypted file.  This allows users to install packages that
           # contain encrypted files for which they don't have the
@@ -2689,7 +2639,7 @@ puts "existing #{filename}"
         else
           (1..3).each do | i |
             begin
-              Tpkg::decrypt(metadata[:name], working_path, passphrase)
+              Tpkg::decrypt(metadata[:name], working_path, options[:passphrase])
               break 
             rescue OpenSSL::CipherError
               @@passphrase = nil
@@ -2700,8 +2650,7 @@ puts "existing #{filename}"
               end
             end
           end
-
-          #digest = Digest::SHA256.file(working_path).hexdigest
+          
           digest = Digest::SHA256.hexdigest(File.read(working_path))
           # get checksum for the decrypted file. Will be used for creating file_metadata.xml
           checksums_of_decrypted_files[File.expand_path(tpkg_path)] = digest 
@@ -2747,67 +2696,10 @@ puts "existing #{filename}"
     install_init_scripts(metadata)
     install_crontabs(metadata)
     
-    # Run postinstall script
-    if File.exist?(File.join(workdir, 'tpkg', 'postinstall'))
-      pwd = Dir.pwd
-      # chdir into the working directory so that the user can specify a
-      # relative path to their file/script.
-      Dir.chdir(File.join(workdir, 'tpkg'))
-
-      # Warn the user about non-executable files, as system will just
-      # silently fail and exit if that's the case.
-      if !File.executable?(File.join(workdir, 'tpkg', 'postinstall'))
-        warn "Warning: postinstall script for #{File.basename(package_file)} is not executable, execution will likely fail"
-      end
-      # Note this only warns the user if the postinstall fails, it does
-      # not raise an exception like we do if preinstall fails.  Raising
-      # an exception would leave the package's files installed but the
-      # package not registered as installed, which does not seem
-      # desirable.  We could remove the package's files and raise an
-      # exception, but this seems the best approach to me.
-      system(File.join(workdir, 'tpkg', 'postinstall')) || warn("Warning: postinstall for #{File.basename(package_file)} failed with exit value #{$?.exitstatus}")
-      ret_val = POSTINSTALL_ERR if $?.exitstatus > 0
-
-      # Switch back to our previous directory
-      Dir.chdir(pwd)
-    end
+    ret_val = run_postinstall(workdir)
     
-    # Save metadata for this pkg
-    package_name = File.basename(package_file, File.extname(package_file))
-    package_metadata_dir = File.join(@metadata_directory, package_name)
-    FileUtils.mkdir_p(package_metadata_dir)
-    metadata_file = File.new(File.join(package_metadata_dir, "tpkg.yml"), "w")
-    metadata.write(metadata_file)
-    metadata_file.close    
-
-    # Save file_metadata.yml for this pkg
-    if File.exist?(File.join(workdir, 'tpkg', 'file_metadata.bin'))
-      file_metadata = FileMetadata.new(File.read(File.join(workdir, 'tpkg', 'file_metadata.bin')), 'bin')
-    elsif File.exist?(File.join(workdir, 'tpkg', 'file_metadata.yml'))
-      file_metadata = FileMetadata.new(File.read(File.join(workdir, 'tpkg', 'file_metadata.yml')), 'yml')
-    elsif File.exists?(File.join(workdir, 'tpkg', 'file_metadata.xml'))
-      file_metadata = FileMetadata.new(File.read(File.join(workdir, 'tpkg', 'file_metadata.xml')), 'xml')
-    end
-    if file_metadata
-      file_metadata[:package_file] = File.basename(package_file)
-      file_metadata[:files].each do |file|
-        acl = files_info[file[:path]] 
-        file.merge!(acl) unless acl.nil?
-        digest = checksums_of_decrypted_files[File.expand_path(file[:path])]
-        if digest
-          digests = file[:checksum][:digests]
-          digests[0][:encrypted] = true
-          digests[1] = {:decrypted => true, :value => digest}
-        end
-      end
-      
-      file = File.open(File.join(package_metadata_dir, "file_metadata.bin"), "w")
-      Marshal.dump(file_metadata.to_hash, file)
-      file.close
-    else
-      warn "Warning: package #{File.basename(package_file)} does not include file_metadata information."
-    end
-
+    save_package_metadata(package_file, workdir, metadata, files_info, checksums_of_decrypted_files)
+    
     # Copy the package file to the directory for installed packages
     FileUtils.cp(package_file, @installed_directory)
     
@@ -3050,6 +2942,130 @@ puts "existing #{filename}"
       File.rename(tmpfile.path, destination[:file])
       # FIXME: On Solaris we should bounce cron or use the crontab
       # command, otherwise cron won't pick up the changes
+    end
+  end
+  
+  def run_preinstall(workdir)
+    if File.exist?(File.join(workdir, 'tpkg', 'preinstall'))
+      pwd = Dir.pwd
+      # chdir into the working directory so that the user can specify
+      # relative paths to other files in the package.
+      Dir.chdir(File.join(workdir, 'tpkg'))
+      
+      # Warn the user about non-executable files, as system will just
+      # silently fail and exit if that's the case.
+      if !File.executable?(File.join(workdir, 'tpkg', 'preinstall'))
+        warn "Warning: preinstall script for #{File.basename(package_file)} is not executable, execution will likely fail"
+      end
+      if @force
+        system(File.join(workdir, 'tpkg', 'preinstall')) || warn("Warning: preinstall for #{File.basename(package_file)} failed with exit value #{$?.exitstatus}")
+      else
+        system(File.join(workdir, 'tpkg', 'preinstall')) || raise("Error: preinstall for #{File.basename(package_file)} failed with exit value #{$?.exitstatus}")
+      end
+      # Switch back to our previous directory
+      Dir.chdir(pwd)
+    end
+  end
+  def run_postinstall(workdir)
+    r = 0
+    if File.exist?(File.join(workdir, 'tpkg', 'postinstall'))
+      pwd = Dir.pwd
+      # chdir into the working directory so that the user can specify
+      # relative paths to other files in the package.
+      Dir.chdir(File.join(workdir, 'tpkg'))
+      
+      # Warn the user about non-executable files, as system will just
+      # silently fail and exit if that's the case.
+      if !File.executable?(File.join(workdir, 'tpkg', 'postinstall'))
+        warn "Warning: postinstall script for #{File.basename(package_file)} is not executable, execution will likely fail"
+      end
+      # Note this only warns the user if the postinstall fails, it does
+      # not raise an exception like we do if preinstall fails.  Raising
+      # an exception would leave the package's files installed but the
+      # package not registered as installed, which does not seem
+      # desirable.  We could remove the package's files and raise an
+      # exception, but this seems the best approach to me.
+      system(File.join(workdir, 'tpkg', 'postinstall'))
+      if !$?.success?
+        warn("Warning: postinstall for #{File.basename(package_file)} failed with exit value #{$?.exitstatus}")
+        r = POSTINSTALL_ERR
+      end
+      
+      # Switch back to our previous directory
+      Dir.chdir(pwd)
+    end
+    r
+  end
+  
+  def run_externals_for_install(metadata, workdir, externals_to_skip)
+    metadata[:externals].each do |external|
+      # If the external references a datafile or datascript then read/run it
+      # now that we've unpacked the package contents and have the file/script
+      # available.  This will get us the data for the external.
+      if external[:datafile] || external[:datascript]
+        pwd = Dir.pwd
+        # chdir into the working directory so that the user can specify a
+        # relative path to their file/script.
+        Dir.chdir(File.join(workdir, 'tpkg'))
+        if external[:datafile]
+          # Read the file
+          external[:data] = IO.read(external[:datafile])
+          # Drop the datafile key so that we don't waste time re-reading the
+          # datafile again in the future.
+          external.delete(:datafile)
+        elsif external[:datascript]
+          # Run the script
+          IO.popen(external[:datascript]) do |pipe|
+            external[:data] = pipe.read
+          end
+          # Drop the datascript key so that we don't waste time re-running the
+          # datascript again in the future.
+          external.delete(:datascript)
+        end
+        # Switch back to our previous directory
+        Dir.chdir(pwd)
+      end
+      if !externals_to_skip || !externals_to_skip.include?(external)
+        run_external(metadata[:filename], :install, external[:name], external[:data])
+      end
+    end if metadata[:externals]
+  end
+  
+  def save_package_metadata(package_file, workdir, metadata, files_info, checksums_of_decrypted_files)
+    # Save metadata for this pkg
+    package_name = File.basename(package_file, File.extname(package_file))
+    package_metadata_dir = File.join(@metadata_directory, package_name)
+    FileUtils.mkdir_p(package_metadata_dir)
+    metadata_file = File.new(File.join(package_metadata_dir, "tpkg.yml"), "w")
+    metadata.write(metadata_file)
+    metadata_file.close
+    
+    # Save file_metadata.yml for this pkg
+    if File.exist?(File.join(workdir, 'tpkg', 'file_metadata.bin'))
+      file_metadata = FileMetadata.new(File.read(File.join(workdir, 'tpkg', 'file_metadata.bin')), 'bin')
+    elsif File.exist?(File.join(workdir, 'tpkg', 'file_metadata.yml'))
+      file_metadata = FileMetadata.new(File.read(File.join(workdir, 'tpkg', 'file_metadata.yml')), 'yml')
+    elsif File.exists?(File.join(workdir, 'tpkg', 'file_metadata.xml'))
+      file_metadata = FileMetadata.new(File.read(File.join(workdir, 'tpkg', 'file_metadata.xml')), 'xml')
+    end
+    if file_metadata
+      file_metadata[:package_file] = File.basename(package_file)
+      file_metadata[:files].each do |file|
+        acl = files_info[file[:path]] 
+        file.merge!(acl) unless acl.nil?
+        digest = checksums_of_decrypted_files[File.expand_path(file[:path])]
+        if digest
+          digests = file[:checksum][:digests]
+          digests[0][:encrypted] = true
+          digests[1] = {:decrypted => true, :value => digest}
+        end
+      end
+      
+      file = File.open(File.join(package_metadata_dir, "file_metadata.bin"), "w")
+      Marshal.dump(file_metadata.to_hash, file)
+      file.close
+    else
+      warn "Warning: package #{File.basename(package_file)} does not include file_metadata information."
     end
   end
   
@@ -3475,7 +3491,7 @@ puts "existing #{filename}"
           warn "Skipping #{File.basename(pkgfile)}, already installed"
         else
           if prompt_for_conflicting_files(pkgfile)
-            ret_val |= unpack(pkgfile, passphrase)
+            ret_val |= unpack(pkgfile, :passphrase => passphrase)
           end
         end
       end
@@ -3711,7 +3727,7 @@ puts "existing #{filename}"
             end
           end if pkg[:metadata][:dependencies]
           if can_unpack
-            ret_val |= unpack(pkgfile, passphrase, :externals_to_skip => externals_to_skip)
+            ret_val |= unpack(pkgfile, :passphrase => passphrase, :externals_to_skip => externals_to_skip)
           end
 
           has_updates = true
