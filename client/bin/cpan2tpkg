@@ -29,6 +29,8 @@ Usage: cpan2tpkg
        Extra dependencies to add to the package
     [--native-deps foo,1.0,1.9999,bar,4.5,4.5,blah,,,]
        Native dependencies to add to the package
+    [--force]
+       Force the install and packaging even if tests fail
     [--help]
        Show this message
 
@@ -42,6 +44,7 @@ my %extradeps = ();
 my $extradepsopts = '';
 my %nativedeps = ();
 my $nativedepsopts = '';
+my $force;
 my $help;
 
 my $getopt = GetOptions(
@@ -49,6 +52,7 @@ my $getopt = GetOptions(
 	'package-version=s' => \$pkgver,
 	'extra-deps=s' => \$extradepsopts,
 	'native-deps=s' => \$nativedepsopts,
+        'force' => \$force,
 	'help' => \$help);
 
 my $module = shift @ARGV;
@@ -131,7 +135,14 @@ CPAN::Shell->o('conf', 'mbuildpl_arg', "--destdir=$workdir");
 #CPAN::Shell->o('conf', 'prerequisites_policy', "ask");
 
 # Install the module
-$modobj->install;
+if ($force)
+{
+	CPAN::Shell->force('install', $module);
+}
+else
+{
+	$modobj->install;
+}
 
 # It is not nearly as straightforward as one might wish to get
 # ExtUtils::Installed to inspect only a specified directory structure and not
