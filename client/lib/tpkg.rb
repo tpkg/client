@@ -2509,7 +2509,7 @@ puts "existing #{filename}"
       end
     end
     
-    run_preinstall(workdir)
+    run_preinstall(package_file, workdir)
     
     run_externals_for_install(metadata, workdir, options[:externals_to_skip])
     
@@ -2696,7 +2696,7 @@ puts "existing #{filename}"
     install_init_scripts(metadata)
     install_crontabs(metadata)
     
-    ret_val = run_postinstall(workdir)
+    ret_val = run_postinstall(package_file, workdir)
     
     save_package_metadata(package_file, workdir, metadata, files_info, checksums_of_decrypted_files)
     
@@ -2945,7 +2945,7 @@ puts "existing #{filename}"
     end
   end
   
-  def run_preinstall(workdir)
+  def run_preinstall(package_file, workdir)
     if File.exist?(File.join(workdir, 'tpkg', 'preinstall'))
       pwd = Dir.pwd
       # chdir into the working directory so that the user can specify
@@ -2966,7 +2966,7 @@ puts "existing #{filename}"
       Dir.chdir(pwd)
     end
   end
-  def run_postinstall(workdir)
+  def run_postinstall(package_file, workdir)
     r = 0
     if File.exist?(File.join(workdir, 'tpkg', 'postinstall'))
       pwd = Dir.pwd
