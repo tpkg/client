@@ -2952,18 +2952,21 @@ puts "existing #{filename}"
       # relative paths to other files in the package.
       Dir.chdir(File.join(workdir, 'tpkg'))
       
-      # Warn the user about non-executable files, as system will just
-      # silently fail and exit if that's the case.
-      if !File.executable?(File.join(workdir, 'tpkg', 'preinstall'))
-        warn "Warning: preinstall script for #{File.basename(package_file)} is not executable, execution will likely fail"
+      begin
+        # Warn the user about non-executable files, as system will just
+        # silently fail and exit if that's the case.
+        if !File.executable?(File.join(workdir, 'tpkg', 'preinstall'))
+          warn "Warning: preinstall script for #{File.basename(package_file)} is not executable, execution will likely fail"
+        end
+        if @force
+          system(File.join(workdir, 'tpkg', 'preinstall')) || warn("Warning: preinstall for #{File.basename(package_file)} failed with exit value #{$?.exitstatus}")
+        else
+          system(File.join(workdir, 'tpkg', 'preinstall')) || raise("Error: preinstall for #{File.basename(package_file)} failed with exit value #{$?.exitstatus}")
+        end
+      ensure
+        # Switch back to our previous directory
+        Dir.chdir(pwd)
       end
-      if @force
-        system(File.join(workdir, 'tpkg', 'preinstall')) || warn("Warning: preinstall for #{File.basename(package_file)} failed with exit value #{$?.exitstatus}")
-      else
-        system(File.join(workdir, 'tpkg', 'preinstall')) || raise("Error: preinstall for #{File.basename(package_file)} failed with exit value #{$?.exitstatus}")
-      end
-      # Switch back to our previous directory
-      Dir.chdir(pwd)
     end
   end
   def run_postinstall(package_file, workdir)
@@ -2974,25 +2977,27 @@ puts "existing #{filename}"
       # relative paths to other files in the package.
       Dir.chdir(File.join(workdir, 'tpkg'))
       
-      # Warn the user about non-executable files, as system will just
-      # silently fail and exit if that's the case.
-      if !File.executable?(File.join(workdir, 'tpkg', 'postinstall'))
-        warn "Warning: postinstall script for #{File.basename(package_file)} is not executable, execution will likely fail"
+      begin
+        # Warn the user about non-executable files, as system will just
+        # silently fail and exit if that's the case.
+        if !File.executable?(File.join(workdir, 'tpkg', 'postinstall'))
+          warn "Warning: postinstall script for #{File.basename(package_file)} is not executable, execution will likely fail"
+        end
+        # Note this only warns the user if the postinstall fails, it does
+        # not raise an exception like we do if preinstall fails.  Raising
+        # an exception would leave the package's files installed but the
+        # package not registered as installed, which does not seem
+        # desirable.  We could remove the package's files and raise an
+        # exception, but this seems the best approach to me.
+        system(File.join(workdir, 'tpkg', 'postinstall'))
+        if !$?.success?
+          warn("Warning: postinstall for #{File.basename(package_file)} failed with exit value #{$?.exitstatus}")
+          r = POSTINSTALL_ERR
+        end
+      ensure
+        # Switch back to our previous directory
+        Dir.chdir(pwd)
       end
-      # Note this only warns the user if the postinstall fails, it does
-      # not raise an exception like we do if preinstall fails.  Raising
-      # an exception would leave the package's files installed but the
-      # package not registered as installed, which does not seem
-      # desirable.  We could remove the package's files and raise an
-      # exception, but this seems the best approach to me.
-      system(File.join(workdir, 'tpkg', 'postinstall'))
-      if !$?.success?
-        warn("Warning: postinstall for #{File.basename(package_file)} failed with exit value #{$?.exitstatus}")
-        r = POSTINSTALL_ERR
-      end
-      
-      # Switch back to our previous directory
-      Dir.chdir(pwd)
     end
     r
   end
