@@ -653,9 +653,112 @@ class TpkgUnpackTests < Test::Unit::TestCase
   end
   
   def test_run_preinstall
+    testroot = Tempdir.new("testroot")
+    testbase = File.join(testroot, 'home', 'tpkg')
+    FileUtils.mkdir_p(testbase)
+    tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'))
+    
+    workdir = Tempdir.new('test_run_preinstall')
+    FileUtils.mkdir(File.join(workdir, 'tpkg'))
+    
+    # workdir/preinstall doesn't exist, nothing done
+    assert_nothing_raised { tpkg.run_preinstall('mypkg.tpkg', workdir) }
+    
+    # Now test when preinstall does exist
+    outputfile = Tempfile.new('test_run_preinstall')
+    File.open(File.join(workdir, 'tpkg', 'preinstall'), 'w') do |file|
+      file.puts '#!/bin/sh'
+      file.puts "echo preinstall >> #{outputfile.path}"
+      file.puts "cat otherfile >> #{outputfile.path}"
+    end
+    File.chmod(0755, File.join(workdir, 'tpkg', 'preinstall'))
+    File.open(File.join(workdir, 'tpkg', 'otherfile'), 'w') do |file|
+      file.puts 'otherfile contents'
+    end
+    pwd = Dir.pwd
+    r = tpkg.run_preinstall('mypkg.tpkg', workdir)
+    # Verify that the script was run and the working directory was changed
+    # such that the script's relative path to otherfile was valid.
+    assert_match(/preinstall/, File.read(outputfile.path))
+    assert_match(/otherfile contents/, File.read(outputfile.path))
+    # Verify that our pwd was restored
+    assert_equal(pwd, Dir.pwd)
+    
+    # Ensure that the user is warned of a non-executable script
+    File.chmod(0644, File.join(workdir, 'tpkg', 'preinstall'))
+    assert_raise(RuntimeError) { tpkg.run_preinstall('mypkg.tpkg', workdir) }
+    # FIXME: need to capture stderr to confirm that a warning was displayed
+    
+    # Verify that by default run_preinstall raises an exception if the script
+    # did not run succesfully
+    File.open(File.join(workdir, 'tpkg', 'preinstall'), 'w') do |file|
+      file.puts '#!/bin/sh'
+      file.puts "exit 1"
+    end
+    File.chmod(0755, File.join(workdir, 'tpkg', 'preinstall'))
+    assert_raise(RuntimeError) { tpkg.run_preinstall('mypkg.tpkg', workdir) }
+    # And verify that our pwd was restored
+    assert_equal(pwd, Dir.pwd)
+    
+    # Verify that run_preinstall only displays a warning if the script
+    # did not run succesfully and the user specified the force option.
+    tpkgforce = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :force => true)
+    assert_nothing_raised { tpkg.run_postinstall('mypkg.tpkg', workdir) }
+    # FIXME: need to capture stderr to confirm that a warning was displayed
+    # And verify that our pwd was restored
+    assert_equal(pwd, Dir.pwd)
   end
   
   def test_run_postinstall
+    testroot = Tempdir.new("testroot")
+    testbase = File.join(testroot, 'home', 'tpkg')
+    FileUtils.mkdir_p(testbase)
+    tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'))
+    
+    workdir = Tempdir.new('test_run_postinstall')
+    FileUtils.mkdir(File.join(workdir, 'tpkg'))
+    
+    # workdir/postinstall doesn't exist, nothing done
+    assert_nothing_raised { tpkg.run_postinstall('mypkg.tpkg', workdir) }
+    
+    # Now test when postinstall does exist
+    outputfile = Tempfile.new('test_run_postinstall')
+    File.open(File.join(workdir, 'tpkg', 'postinstall'), 'w') do |file|
+      file.puts '#!/bin/sh'
+      file.puts "echo postinstall >> #{outputfile.path}"
+      file.puts "cat otherfile >> #{outputfile.path}"
+    end
+    File.chmod(0755, File.join(workdir, 'tpkg', 'postinstall'))
+    File.open(File.join(workdir, 'tpkg', 'otherfile'), 'w') do |file|
+      file.puts 'otherfile contents'
+    end
+    pwd = Dir.pwd
+    r = tpkg.run_postinstall('mypkg.tpkg', workdir)
+    # Verify that the script was run and the working directory was changed
+    # such that the script's relative path to otherfile was valid.
+    assert_match(/postinstall/, File.read(outputfile.path))
+    assert_match(/otherfile contents/, File.read(outputfile.path))
+    # Verify that run_postinstall returns 0 if the script ran succesfully
+    assert_equal(0, r)
+    # Verify that our pwd was restored
+    assert_equal(pwd, Dir.pwd)
+    
+    # Ensure that the user is warned of a non-executable script
+    File.chmod(0644, File.join(workdir, 'tpkg', 'postinstall'))
+    tpkg.run_postinstall('mypkg.tpkg', workdir)
+    # FIXME: need to capture stderr to confirm that a warning was displayed
+    
+    # Verify that run_postinstall returns Tpkg::POSTINSTALL_ERR if the script
+    # did not run succesfully
+    File.open(File.join(workdir, 'tpkg', 'postinstall'), 'w') do |file|
+      file.puts '#!/bin/sh'
+      file.puts "exit 1"
+    end
+    File.chmod(0755, File.join(workdir, 'tpkg', 'postinstall'))
+    r = tpkg.run_postinstall('mypkg.tpkg', workdir)
+    assert_equal(Tpkg::POSTINSTALL_ERR, r)
+    # And verify that our pwd was restored
+    assert_equal(pwd, Dir.pwd)
   end
   
   def test_run_externals_for_install
