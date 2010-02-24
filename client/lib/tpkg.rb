@@ -267,14 +267,18 @@ class Tpkg
       metadata_text = File.read(metadata_file)
       metadata = Metadata.new(metadata_text, metadata_format)
 
+      # This is for when we're in developement mode or when installed as gem
+      if File.exists?(File.join(File.dirname(File.dirname(__FILE__)), "schema"))
+        schema_dir = File.join(File.dirname(File.dirname(__FILE__)), "schema")
       # This is the directory where we put our dtd/schema for validating
       # the metadata file
-      if File.exist?(File.join(CONFIGDIR, 'tpkg', 'schema'))
+      elsif File.exist?(File.join(CONFIGDIR, 'tpkg', 'schema'))
         schema_dir = File.join(CONFIGDIR, 'tpkg', 'schema')
-      else # This is for when we're in developement mode or when installed as gem
-        schema_dir = File.join(File.dirname(File.dirname(__FILE__)), "schema")
+      else
+        warn "Warning: unable to find schema for tpkg.yml"
       end
-      errors = metadata.validate(schema_dir)
+      
+      errors = metadata.validate(schema_dir) if schema_dir
       if errors && !errors.empty? 
         puts "Bad metadata file. Possible error(s):"
         errors.each {|e| puts e }
@@ -364,6 +368,11 @@ class Tpkg
         csx.puts('</tpkg_checksums>')
       end
       
+      # compress if needed
+      if options[:compress]
+        tpkgfile = compress_file(tpkgfile, options[:compress]) 
+      end
+
       # Tar up checksum.xml and the main tarball
       system("#{find_tar} -C #{workdir} -cf #{pkgfile} #{package_filename}") || raise("Final package creation failed")
     ensure
@@ -510,7 +519,9 @@ class Tpkg
         raise("Unrecognized checksum algorithm #{checksum.elements['algorithm']}")
       end
       # Extract tpkg.tar from the package and digest it
-      IO.popen("#{find_tar} -xf #{package_file} -O #{File.join(topleveldir, 'tpkg.tar')} #{@@taroptions}") do |pipe|
+      extract_tpkg_tar_command = cmd_to_extract_tpkg_tar(package_file, topleveldir)
+      IO.popen(extract_tpkg_tar_command) do |pipe|
+      #IO.popen("#{find_tar} -xf #{package_file} -O #{File.join(topleveldir, 'tpkg.tar')} #{@@taroptions}") do |pipe|
         # Package files can be quite large, so we digest the package in
         # chunks.  A survey of the Internet turns up someone who tested
         # various chunk sizes on various platforms and found 4k to be
@@ -539,10 +550,13 @@ class Tpkg
     ['yml','xml'].each do |format|
       file = File.join('tpkg', "tpkg.#{format}")
 
+      extract_tpkg_tar_command = cmd_to_extract_tpkg_tar(package_file, topleveldir)
+
       # use popen3 instead of popen because popen display stderr when there's an error such as
       # tpkg.yml not being there, which is something we want to ignore since old tpkg doesn't 
       # have tpkg.yml file
-      stdin, stdout, stderr = Open3.popen3("#{find_tar} -xf #{package_file} -O #{File.join(topleveldir, 'tpkg.tar')} | #{find_tar} -xf - -O #{file}") 
+      #stdin, stdout, stderr = Open3.popen3("#{find_tar} -xf #{package_file} -O #{File.join(topleveldir, 'tpkg.tar')} | #{find_tar} -xf - -O #{file}") 
+      stdin, stdout, stderr = Open3.popen3("#{extract_tpkg_tar_command} | #{find_tar} -xf - -O #{file}") 
       filecontent = stdout.read
       if filecontent.nil? or filecontent.empty?
         next
@@ -568,7 +582,8 @@ class Tpkg
     verify_package_checksum(package_file)
     # Extract and parse tpkg.xml
     tpkg_xml = nil
-    IO.popen("#{find_tar} -xf #{package_file} -O #{File.join(topleveldir, 'tpkg.tar')} | #{find_tar} -xf - -O #{File.join('tpkg', 'tpkg.xml')}") do |pipe|
+    extract_tpkg_tar_command = cmd_to_extract_tpkg_tar(package_file, topleveldir)
+    IO.popen("#{extract_tpkg_tar_command} | #{find_tar} -xf - -O #{File.join('tpkg', 'tpkg.xml')}") do |pipe|
       tpkg_xml = REXML::Document.new(pipe.read)
     end
     if !$?.success?
@@ -627,7 +642,6 @@ class Tpkg
       metadata_lists.each do | metadata_text |
         if metadata_text =~ /^:?filename:(.+)/
            filename = $1.strip
-puts "existing #{filename}"
            existing_metadata[filename] = Metadata.new(metadata_text,'yml')
         end
       end
@@ -950,7 +964,8 @@ puts "existing #{filename}"
     files[:root] = []
     files[:reloc] = []
     topleveldir = package_toplevel_directory(package_file)
-    IO.popen("#{find_tar} -xf #{package_file} -O #{File.join(topleveldir, 'tpkg.tar')} #{@@taroptions}| #{find_tar} #{@@taroptions} -tf -") do |pipe|
+    extract_tpkg_tar_cmd = cmd_to_extract_tpkg_tar(package_file, topleveldir)
+    IO.popen("#{extract_tpkg_tar_cmd} | #{find_tar} #{@@taroptions} -tf -") do |pipe|
       pipe.each do |file|
         file.chomp!
         if file =~ Regexp.new(File.join('tpkg', 'root'))
@@ -1114,7 +1129,8 @@ puts "existing #{filename}"
     begin
       topleveldir = Tpkg::package_toplevel_directory(package_file)
       workdir = Tpkg::tempdir(topleveldir)
-      system("#{find_tar} -xf #{package_file} -O #{File.join(topleveldir, 'tpkg.tar')} #{@@taroptions}| #{find_tar} #{@@taroptions} -C #{workdir} -xpf -")
+      extract_tpkg_tar_command = cmd_to_extract_tpkg_tar(package_file, topleveldir)
+      system("#{extract_tpkg_tar_command} | #{find_tar} #{@@taroptions} -C #{workdir} -xpf -")
      
       if File.exist?(File.join(workdir,"tpkg", "tpkg.yml"))
         metadata_file = File.join(workdir,"tpkg", "tpkg.yml")
@@ -1172,6 +1188,53 @@ puts "existing #{filename}"
     end
     return perms, uid, gid
   end 
+
+  # Given a package file, figure out of tpkg.tar was compressed
+  def self.get_compression(package_file)
+    compression = nil
+    IO.popen("#{find_tar} -tf #{package_file} #{@@taroptions}") do |pipe|
+      pipe.each do |file|
+        if file =~ /tpkg.tar.gz$/
+          compression = "gzip" 
+        elsif file =~ /tpkg.tar.bz2$/
+          compression = "bz2"
+        end
+      end
+    end
+    return compression
+  end
+
+  # Given a .tpkg file and the topleveldir, generate the command for
+  # extracting tpkg.tar
+  def self.cmd_to_extract_tpkg_tar(package_file, topleveldir)
+    compression = get_compression(package_file)
+    if compression == "gzip"
+      cmd = "#{find_tar} -xf #{package_file} -O #{File.join(topleveldir, 'tpkg.tar.gz')} #{@@taroptions} | gunzip -c"
+    elsif compression == "bz2"
+      cmd = "#{find_tar} -xf #{package_file} -O #{File.join(topleveldir, 'tpkg.tar.bz2')} #{@@taroptions} | bunzip2 -c"
+    else
+      cmd = "#{find_tar} -xf #{package_file} -O #{File.join(topleveldir, 'tpkg.tar')} #{@@taroptions}"
+    end
+  end
+ 
+  # Compresses the file using the compression type
+  # specified by the compress flag 
+  # Returns the compressed file
+  def self.compress_file(file, compress)
+    if compress == true or compress == "gzip"
+      result = "#{file}.gz"
+      system("gzip #{file}")
+    elsif compress == "bz2"
+      result = "#{file}.bz2"
+      system("bzip2 #{file}")
+    else
+      raise "Compression #{compress} is not supported"
+    end
+    if !$?.success? or !File.exists?(result)
+      raise "Failed to compress the package" 
+    end
+    return result
+  end
   
   #
   # Instance methods
@@ -2484,7 +2547,8 @@ puts "existing #{filename}"
     # directory structure in the package.
     topleveldir = Tpkg::package_toplevel_directory(package_file)
     workdir = Tpkg::tempdir(topleveldir, @tmp_directory)
-    system("#{@tar} -xf #{package_file} -O #{File.join(topleveldir, 'tpkg.tar')} #{@@taroptions} | #{@tar} #{@@taroptions} -C #{workdir} -xpf -")
+    extract_tpkg_tar_cmd = Tpkg::cmd_to_extract_tpkg_tar(package_file, topleveldir)
+    system("#{extract_tpkg_tar_cmd} | #{@tar} #{@@taroptions} -C #{workdir} -xpf -")
     files_info = {} # store perms, uid, gid, etc. for files
     checksums_of_decrypted_files = {}
     root_dir = File.join(workdir, 'tpkg', 'root')
@@ -2495,7 +2559,7 @@ puts "existing #{filename}"
     # Get list of conflicting files/directories & store their perm/ownership. That way, we can
     # set them to the correct values later on in order to preserve them.
     # TODO: verify this command works on all platforms
-    files = `#{@tar} -xf #{package_file} -O #{File.join(topleveldir, 'tpkg.tar')} #{@@taroptions} | #{@tar} #{@@taroptions} -tf -`
+    files = `#{extract_tpkg_tar_cmd} | #{@tar} #{@@taroptions} -tf -`
     files = files.split("\n")
     conflicting_files = {}
     files.each do | file |
@@ -3864,7 +3928,8 @@ puts "existing #{filename}"
     
       topleveldir = Tpkg::package_toplevel_directory(package_file)
       workdir = Tpkg::tempdir(topleveldir, @tmp_directory)
-      system("#{@tar} -xf #{package_file} -O #{File.join(topleveldir, 'tpkg.tar')} #{@@taroptions} | #{@tar} #{@@taroptions} -C #{workdir} -xpf -")
+      extract_tpkg_tar_command = Tpkg::cmd_to_extract_tpkg_tar(package_file, topleveldir)
+      system("#{extract_tpkg_tar_command} | #{@tar} #{@@taroptions} -C #{workdir} -xpf -")
     
       # Run preremove script
       if File.exist?(File.join(workdir, 'tpkg', 'preremove'))

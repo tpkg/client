@@ -212,8 +212,7 @@ module TpkgTests
     system("#{Tpkg::find_tar} -C #{source_directory} --exclude .svn -cf - . | #{Tpkg::find_tar} -C #{pkgdir} -xpf -")
     
     create_metadata_file(File.join(pkgdir, 'tpkg.xml'), options)
-    
-    pkgfile = Tpkg.make_package(pkgdir, passphrase)
+    pkgfile = Tpkg.make_package(pkgdir, passphrase, options)
     FileUtils.rm_rf(pkgdir)
     
     # move the pkgfile to designated directory (if user specifies it)
