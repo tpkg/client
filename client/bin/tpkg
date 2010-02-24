@@ -32,10 +32,15 @@ require 'tpkg'
 @init_options = {}           
 @compress = nil
 
+
 def rerun_with_sudo_if_necessary
   if Process.euid != 0 && @sudo
     warn "Executing with sudo"
-    exec('sudo', $0, *ARGV)
+    if ENV['TPKG_HOME']
+      exec('sudo', 'env', "TPKG_HOME=#{ENV['TPKG_HOME']}", $0, *ARGV)
+    else
+      exec('sudo', $0, *ARGV)
+    end
   end
 end
 
