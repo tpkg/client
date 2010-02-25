@@ -1,7 +1,7 @@
 #!/bin/sh
 
 PKG=sqlite
-VER=3.6.15
+VER=3.6.22
 PKGVER=1
 OSMAJOR=`facter | grep lsbmajdistrelease | cut -d' ' -f3`
 ARCH=`facter hardwaremodel`
