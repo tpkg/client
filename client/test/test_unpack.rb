@@ -33,7 +33,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
     testbase = Tempdir.new("testbase")
     FileUtils.mkdir_p(File.join(testbase, 'home', 'tpkg'))
     tpkg = Tpkg.new(:file_system_root => testbase, :base => File.join('home', 'tpkg'), :sources => [@pkgfile])
-    assert_nothing_raised { tpkg.unpack(@pkgfile, PASSPHRASE) }
+    assert_nothing_raised { tpkg.unpack(@pkgfile, :passphrase => PASSPHRASE) }
     # This file should have the default 0444 perms
     assert(File.exist?(File.join(testbase, 'home', 'tpkg', 'file')))
     assert_equal(0444, File.stat(File.join(testbase, 'home', 'tpkg', 'file')).mode & 07777)
@@ -48,7 +48,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
     # Change the package base and unpack
     testbase2 = Tempdir.new("testbase2")
     tpkg2 = Tpkg.new(:file_system_root => testbase2, :base => File.join('home', 'tpkg'), :sources => [@pkgfile])
-    assert_nothing_raised { tpkg2.unpack(@pkgfile, PASSPHRASE) }
+    assert_nothing_raised { tpkg2.unpack(@pkgfile, :passphrase => PASSPHRASE) }
     # Check that the files from the package ended up in the right place
     assert(File.exist?(File.join(testbase2, 'home', 'tpkg', 'file')))
     
@@ -59,7 +59,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
     # package, skipping the unencrypted files
     testbase = Tempdir.new("testbase")
     tpkg = Tpkg.new(:file_system_root => testbase, :base => File.join('home', 'tpkg'), :sources => [@pkgfile])
-    assert_nothing_raised { tpkg.unpack(@pkgfile, nil) }
+    assert_nothing_raised { tpkg.unpack(@pkgfile) }
     # Check that the files from the package ended up in the right place
     assert(File.exist?(File.join(testbase, 'home', 'tpkg', 'file')))
     assert(!File.exist?(File.join(testbase, 'home', 'tpkg', 'encfile')))
@@ -95,7 +95,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
     # so that we know tpkg is enforcing the desired permissions.
     oldumask = File.umask
     File.umask(0)
-    assert_nothing_raised { tpkg.unpack(pkg, nil) }
+    assert_nothing_raised { tpkg.unpack(pkg) }
     File.umask(oldumask)
     # This file should have the 0666 perms we specified above
     assert_equal(0666, File.stat(File.join(testbase, 'home', 'tpkg', 'etc', '666file')).mode & 07777)
@@ -127,7 +127,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
     # so that we know tpkg is enforcing the desired permissions.
     oldumask = File.umask
     File.umask(0)
-    assert_nothing_raised { tpkg.unpack(pkg, nil) }
+    assert_nothing_raised { tpkg.unpack(pkg) }
     File.umask(oldumask)
     # This dir should have the 0555 perms we specified in the tpkg-dir-default.xml file
     assert_equal(0555, File.stat(File.join(testbase, 'dir1')).mode & 07777)
@@ -176,7 +176,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
     testroot = Tempdir.new("testroot")
     testbase = File.join(testroot, 'home', 'tpkg')
     tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [pkgfile])
-    assert_nothing_raised { tpkg.unpack(pkgfile, PASSPHRASE) }
+    assert_nothing_raised { tpkg.unpack(pkgfile, :passphrase => PASSPHRASE) }
     # FIXME: Need a way to test that the package install occurred between the two scripts
     assert(File.stat(scriptfiles['preinstall'].path).mtime < File.stat(scriptfiles['postinstall'].path).mtime)
     FileUtils.rm_rf(testroot)
@@ -277,9 +277,9 @@ class TpkgUnpackTests < Test::Unit::TestCase
         if destination[:file]
           assert(File.file?(destination[:file]))
           contents = IO.read(destination[:file])
-	  # Strip out two copies of the crontab contents and verify that
-	  # it still contains the contents, as installing the additional
-	  # packages should add two copies of the contents to the file.
+          # Strip out two copies of the crontab contents and verify that
+          # it still contains the contents, as installing the additional
+          # packages should add two copies of the contents to the file.
           contents.sub!(crontab_contents, '')
           contents.sub!(crontab_contents, '')
           assert(contents.include?(crontab_contents))
@@ -327,7 +327,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
     # And run the test
     tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [pkg])
     metadata  = Tpkg::metadata_from_package(pkg)
-    assert_nothing_raised { tpkg.unpack(pkg, PASSPHRASE) }
+    assert_nothing_raised { tpkg.unpack(pkg, :passphrase => PASSPHRASE) }
     assert_equal(extdata, IO.read(exttmpfile.path))
     FileUtils.rm_rf(testroot)
     FileUtils.rm_f(pkg)
@@ -362,7 +362,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
     # And run the test
     tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [pkg])
     metadata  = Tpkg::metadata_from_package(pkg)
-    assert_nothing_raised { tpkg.unpack(pkg, PASSPHRASE) }
+    assert_nothing_raised { tpkg.unpack(pkg, :passphrase => PASSPHRASE) }
     assert_equal(extdata, IO.read(exttmpfile.path))
     FileUtils.rm_rf(testroot)
     FileUtils.rm_f(pkg)
@@ -400,7 +400,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
     # And run the test
     tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [pkg])
     metadata  = Tpkg::metadata_from_package(pkg)
-    assert_nothing_raised { tpkg.unpack(pkg, PASSPHRASE) }
+    assert_nothing_raised { tpkg.unpack(pkg, :passphrase => PASSPHRASE) }
     assert_equal(extdata, IO.read(exttmpfile.path))
     FileUtils.rm_rf(testroot)
     FileUtils.rm_f(pkg)
@@ -425,7 +425,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
     File.chmod(0707, File.join(testbase, 'etc', 'rootfile'))
 #    system("chmod 707 #{File.join(testbase, 'etc', 'rootfile')}")
    
-    assert_nothing_raised { tpkg.unpack(@pkgfile, PASSPHRASE) }
+    assert_nothing_raised { tpkg.unpack(@pkgfile, :passphrase => PASSPHRASE) }
 
     # This file should have the default 0444 perms
     # but the file already exists. So it should keep its old perms, which is 707
@@ -437,6 +437,334 @@ class TpkgUnpackTests < Test::Unit::TestCase
     assert(File.exist?(File.join(testbase, 'etc', 'rootfile')))
     assert_equal(0666, File.stat(File.join(testbase, 'etc', 'rootfile')).mode & 07777)
     FileUtils.rm_rf(testbase)
+  end
+  
+  def test_install_init_scripts
+    srcdir = Tempdir.new("srcdir")
+    FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+    create_metadata_file(File.join(srcdir, 'tpkg.xml'), :change => { 'name' => 'initpkg'  }, :files => { 'etc/init.d/initscript' => { 'init' => {} } })
+    metadata = Metadata.new(File.read(File.join(srcdir, 'tpkg.xml')), 'xml')
+    FileUtils.rm_rf(srcdir)
+    
+    testroot = Tempdir.new("testroot")
+    testbase = File.join(testroot, 'home', 'tpkg')
+    FileUtils.mkdir_p(testbase)
+    tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'))
+      
+    begin
+      link = nil
+      init_script = nil
+      tpkg.init_links(metadata).each do |l, is|
+        link = l
+        init_script = is
+      end
+      
+      # Directory for link doesn't exist, directory and link are created
+      tpkg.install_init_scripts(metadata)
+      assert(File.symlink?(link))
+      assert_equal(init_script, File.readlink(link))
+      
+      # Link already exists, nothing is done
+      sleep 2
+      beforetime = File.lstat(link).mtime
+      tpkg.install_init_scripts(metadata)
+      assert(File.symlink?(link))
+      assert_equal(init_script, File.readlink(link))
+      assert_equal(beforetime, File.lstat(link).mtime)
+      
+      # Existing files or links up to 8 already exist, link created with appropriate suffix
+      File.delete(link)
+      File.symlink('somethingelse', link)
+      0.upto(8) do |i|
+        File.delete(link + i.to_s) if (i != 0)
+        File.symlink('somethingelse', link + i.to_s)
+        tpkg.install_init_scripts(metadata)
+        assert(File.symlink?(link + (i + 1).to_s))
+        assert_equal(init_script, File.readlink(link + (i + 1).to_s))
+      end
+      
+      # Existing files or links up to 9 already exist, exception raised
+      File.delete(link + '9')
+      File.symlink('somethingelse', link + '9')
+      assert_raise(RuntimeError) { tpkg.install_init_scripts(metadata) }
+      
+      # Running as non-root, permissions issues prevent link creation, warning
+      FileUtils.rm(Dir.glob(link + '*'))
+      File.chmod(0000, File.dirname(link))
+      assert_nothing_raised { tpkg.install_init_scripts(metadata) }
+      # FIXME: look for warning in stderr
+      assert(!File.exist?(link) && !File.symlink?(link))
+      File.chmod(0755, File.dirname(link))
+      
+      # Running as root, permissions issues prevent link creation, exception raised
+      # FIXME: I don't actually know of a way to trigger EACCES in this
+      # situation when running as root, and we never run the unit tests as
+      # root anyway.
+    rescue RuntimeError => e
+      if e.message =~ /No init script support/
+        warn "No init script support on this platform, install_init_scripts will not be tested (#{e.message})"
+      else
+        raise
+      end
+    end
+    
+    FileUtils.rm_rf(testroot)
+  end
+  
+  def test_install_crontabs
+    srcdir = Tempdir.new("srcdir")
+    FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+    create_metadata_file(File.join(srcdir, 'tpkg.xml'), :change => { 'name' => 'cronpkg'  }, :files => { 'etc/cron.d/crontab' => { 'crontab' => {'user' => 'root'} } })
+    metadata = Metadata.new(File.read(File.join(srcdir, 'tpkg.xml')), 'xml')
+    FileUtils.rm_rf(srcdir)
+    
+    testroot = Tempdir.new("testroot")
+    testbase = File.join(testroot, 'home', 'tpkg')
+    FileUtils.mkdir_p(testbase)
+    tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'))
+    
+    crontab_contents = '* * * * *  crontab'
+    FileUtils.mkdir_p(File.join(srcdir, 'reloc', 'etc/cron.d'))
+    File.open(File.join(srcdir, 'reloc', 'etc/cron.d/crontab'), 'w') do |file|
+      file.puts(crontab_contents)
+    end
+    
+    begin
+      crontab = nil
+      destination = nil
+      tpkg.crontab_destinations(metadata).each do |c, d|
+        crontab = c
+        destination = d
+      end
+      
+      dest = destination[:link] || destination[:file]
+      
+      # Running as non-root, permissions issues prevent file creation, warning
+      FileUtils.mkdir_p(File.dirname(dest))
+      File.chmod(0000, File.dirname(dest))
+      assert_nothing_raised { tpkg.install_crontabs(metadata) }
+      # FIXME: look for warning in stderr
+      assert(!File.exist?(dest) && !File.symlink?(dest))
+      File.chmod(0755, File.dirname(dest))
+      
+      # Running as root, permissions issues prevent link creation, exception raised
+      # FIXME: I don't actually know of a way to trigger EACCES in this
+      # situation when running as root, and we never run the unit tests as
+      # root anyway.
+    rescue RuntimeError => e
+      if e.message =~ /No crontab support/
+        warn "No crontab support on this platform, install_crontabs will not be tested (#{e.message})"
+      else
+        raise
+      end
+    end
+    
+    FileUtils.rm_rf(testroot)
+  end
+  def test_install_crontab_link
+    srcdir = Tempdir.new("srcdir")
+    FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+    create_metadata_file(File.join(srcdir, 'tpkg.xml'), :change => { 'name' => 'cronpkg'  }, :files => { 'etc/cron.d/crontab' => { 'crontab' => {} } })
+    metadata = Metadata.new(File.read(File.join(srcdir, 'tpkg.xml')), 'xml')
+    FileUtils.rm_rf(srcdir)
+    
+    testroot = Tempdir.new("testroot")
+    testbase = File.join(testroot, 'home', 'tpkg')
+    FileUtils.mkdir_p(testbase)
+    tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'))
+    
+    crontab = File.join(testbase, 'etc/cron.d/crontab')
+    destination = {:link => File.join(testroot, 'etc/cron.d/crontab')}
+    
+    # Directory for link doesn't exist, directory and link are created
+    tpkg.install_crontab_link(metadata, crontab, destination)
+    assert(File.symlink?(destination[:link]))
+    assert_equal(crontab, File.readlink(destination[:link]))
+    
+    # Link already exists, nothing is done
+    sleep 2
+    beforetime = File.lstat(destination[:link]).mtime
+    tpkg.install_crontab_link(metadata, crontab, destination)
+    assert(File.symlink?(destination[:link]))
+    assert_equal(crontab, File.readlink(destination[:link]))
+    assert_equal(beforetime, File.lstat(destination[:link]).mtime)
+    
+    # Existing files or links up to 8 already exist, link created with appropriate suffix
+    File.delete(destination[:link])
+    File.symlink('somethingelse', destination[:link])
+    0.upto(8) do |i|
+      File.delete(destination[:link] + i.to_s) if (i != 0)
+      File.symlink('somethingelse', destination[:link] + i.to_s)
+      tpkg.install_crontab_link(metadata, crontab, destination)
+      assert(File.symlink?(destination[:link] + (i + 1).to_s))
+      assert_equal(crontab, File.readlink(destination[:link] + (i + 1).to_s))
+    end
+    
+    # Existing files or links up to 9 already exist, exception raised
+    File.delete(destination[:link] + '9')
+    File.symlink('somethingelse', destination[:link] + '9')
+    assert_raise(RuntimeError) { tpkg.install_crontab_link(metadata, crontab, destination) }
+    
+    FileUtils.rm_rf(testroot)
+  end
+  def test_install_crontab_file
+    srcdir = Tempdir.new("srcdir")
+    FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+    create_metadata_file(File.join(srcdir, 'tpkg.xml'), :change => { 'name' => 'cronpkg'  }, :files => { 'etc/cron.d/crontab' => { 'crontab' => {'user' => 'root'} } })
+    metadata = Metadata.new(File.read(File.join(srcdir, 'tpkg.xml')), 'xml')
+    FileUtils.rm_rf(srcdir)
+    
+    testroot = Tempdir.new("testroot")
+    testbase = File.join(testroot, 'home', 'tpkg')
+    FileUtils.mkdir_p(testbase)
+    tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'))
+    
+    crontab = File.join(testbase, 'etc/cron.d/crontab')
+    destination = {:file => File.join(testroot, 'etc/cron.d/crontab')}
+    
+    crontab_contents = '* * * * *  crontab'
+    FileUtils.mkdir_p(File.dirname(crontab))
+    File.open(crontab, 'w') do |file|
+      file.puts(crontab_contents)
+    end
+    
+    # Directory for file doesn't exist, directory and file are created
+    tpkg.install_crontab_file(metadata, crontab, destination)
+    assert(File.file?(destination[:file]))
+    contents = IO.read(destination[:file])
+    assert(contents.include?(crontab_contents))
+    
+    # File exists, contents added and permissions retained
+    File.chmod(0707, destination[:file])
+    tpkg.install_crontab_file(metadata, crontab, destination)
+    assert(File.file?(destination[:file]))
+    assert_equal(0707, File.stat(destination[:file]).mode & 07777)
+    contents = IO.read(destination[:file])
+    # Strip out a copy of the crontab contents and verify that it still
+    # contains the contents, as installing the crontab a second time should
+    # add another copy of the contents to the file.
+    contents.sub!(crontab_contents, '')
+    assert(contents.include?(crontab_contents))
+    
+    # FIXME: Should test rescue of EPERM, but we can't trigger it without root
+    # privileges here to set the file ownership to another user.
+    
+    FileUtils.rm_rf(testroot)
+  end
+  
+  def test_run_preinstall
+    testroot = Tempdir.new("testroot")
+    testbase = File.join(testroot, 'home', 'tpkg')
+    FileUtils.mkdir_p(testbase)
+    tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'))
+    
+    workdir = Tempdir.new('test_run_preinstall')
+    FileUtils.mkdir(File.join(workdir, 'tpkg'))
+    
+    # workdir/preinstall doesn't exist, nothing done
+    assert_nothing_raised { tpkg.run_preinstall('mypkg.tpkg', workdir) }
+    
+    # Now test when preinstall does exist
+    outputfile = Tempfile.new('test_run_preinstall')
+    File.open(File.join(workdir, 'tpkg', 'preinstall'), 'w') do |file|
+      file.puts '#!/bin/sh'
+      file.puts "echo preinstall >> #{outputfile.path}"
+      file.puts "cat otherfile >> #{outputfile.path}"
+    end
+    File.chmod(0755, File.join(workdir, 'tpkg', 'preinstall'))
+    File.open(File.join(workdir, 'tpkg', 'otherfile'), 'w') do |file|
+      file.puts 'otherfile contents'
+    end
+    pwd = Dir.pwd
+    r = tpkg.run_preinstall('mypkg.tpkg', workdir)
+    # Verify that the script was run and the working directory was changed
+    # such that the script's relative path to otherfile was valid.
+    assert_match(/preinstall/, File.read(outputfile.path))
+    assert_match(/otherfile contents/, File.read(outputfile.path))
+    # Verify that our pwd was restored
+    assert_equal(pwd, Dir.pwd)
+    
+    # Ensure that the user is warned of a non-executable script
+    File.chmod(0644, File.join(workdir, 'tpkg', 'preinstall'))
+    assert_raise(RuntimeError) { tpkg.run_preinstall('mypkg.tpkg', workdir) }
+    # FIXME: need to capture stderr to confirm that a warning was displayed
+    
+    # Verify that by default run_preinstall raises an exception if the script
+    # did not run succesfully
+    File.open(File.join(workdir, 'tpkg', 'preinstall'), 'w') do |file|
+      file.puts '#!/bin/sh'
+      file.puts "exit 1"
+    end
+    File.chmod(0755, File.join(workdir, 'tpkg', 'preinstall'))
+    assert_raise(RuntimeError) { tpkg.run_preinstall('mypkg.tpkg', workdir) }
+    # And verify that our pwd was restored
+    assert_equal(pwd, Dir.pwd)
+    
+    # Verify that run_preinstall only displays a warning if the script
+    # did not run succesfully and the user specified the force option.
+    tpkgforce = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :force => true)
+    assert_nothing_raised { tpkg.run_postinstall('mypkg.tpkg', workdir) }
+    # FIXME: need to capture stderr to confirm that a warning was displayed
+    # And verify that our pwd was restored
+    assert_equal(pwd, Dir.pwd)
+  end
+  
+  def test_run_postinstall
+    testroot = Tempdir.new("testroot")
+    testbase = File.join(testroot, 'home', 'tpkg')
+    FileUtils.mkdir_p(testbase)
+    tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'))
+    
+    workdir = Tempdir.new('test_run_postinstall')
+    FileUtils.mkdir(File.join(workdir, 'tpkg'))
+    
+    # workdir/postinstall doesn't exist, nothing done
+    assert_nothing_raised { tpkg.run_postinstall('mypkg.tpkg', workdir) }
+    
+    # Now test when postinstall does exist
+    outputfile = Tempfile.new('test_run_postinstall')
+    File.open(File.join(workdir, 'tpkg', 'postinstall'), 'w') do |file|
+      file.puts '#!/bin/sh'
+      file.puts "echo postinstall >> #{outputfile.path}"
+      file.puts "cat otherfile >> #{outputfile.path}"
+    end
+    File.chmod(0755, File.join(workdir, 'tpkg', 'postinstall'))
+    File.open(File.join(workdir, 'tpkg', 'otherfile'), 'w') do |file|
+      file.puts 'otherfile contents'
+    end
+    pwd = Dir.pwd
+    r = tpkg.run_postinstall('mypkg.tpkg', workdir)
+    # Verify that the script was run and the working directory was changed
+    # such that the script's relative path to otherfile was valid.
+    assert_match(/postinstall/, File.read(outputfile.path))
+    assert_match(/otherfile contents/, File.read(outputfile.path))
+    # Verify that run_postinstall returns 0 if the script ran succesfully
+    assert_equal(0, r)
+    # Verify that our pwd was restored
+    assert_equal(pwd, Dir.pwd)
+    
+    # Ensure that the user is warned of a non-executable script
+    File.chmod(0644, File.join(workdir, 'tpkg', 'postinstall'))
+    tpkg.run_postinstall('mypkg.tpkg', workdir)
+    # FIXME: need to capture stderr to confirm that a warning was displayed
+    
+    # Verify that run_postinstall returns Tpkg::POSTINSTALL_ERR if the script
+    # did not run succesfully
+    File.open(File.join(workdir, 'tpkg', 'postinstall'), 'w') do |file|
+      file.puts '#!/bin/sh'
+      file.puts "exit 1"
+    end
+    File.chmod(0755, File.join(workdir, 'tpkg', 'postinstall'))
+    r = tpkg.run_postinstall('mypkg.tpkg', workdir)
+    assert_equal(Tpkg::POSTINSTALL_ERR, r)
+    # And verify that our pwd was restored
+    assert_equal(pwd, Dir.pwd)
+  end
+  
+  def test_run_externals_for_install
+  end
+  
+  def test_save_package_metadata
   end
   
   def teardown

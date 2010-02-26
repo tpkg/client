@@ -250,6 +250,10 @@ Eliminate the prompt for an SSH password when deploying.
 .BI --deploy-as " USERNAME"
 The user to use with SSH when deploying.  Defaults to the current user.
 .TP
+.BI --compress "=[TYPE]"
+What compression to use when making packages. Defaults to gzip. bz2 is the
+other supported compression.
+.TP
 .B --debug
 Print lots of messages about what
 .B tpkg

@@ -148,12 +148,79 @@ class TpkgMiscTests < Test::Unit::TestCase
     
     FileUtils.rm_rf(testbase)
   end
+
+  def test_predict_file_permissions_and_ownership
+    testbase = Tempdir.new("testbase")
+    FileUtils.mkdir_p(File.join(testbase, 'home', 'tpkg'))
+    tpkg = Tpkg.new(:file_system_root => testbase, :base => File.join('home', 'tpkg'))
+
+    srcdir = Tempdir.new("srcdir")
+    FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+    FileUtils.mkdir_p(File.join(srcdir, 'reloc'))
+    file_contents = 'Hello world'
+    File.open(File.join(srcdir, 'reloc', 'myfile'), 'w') do |file|
+      file.puts(file_contents)
+    end
+
+    File.chmod(0623, File.join(srcdir, 'reloc', 'myfile'))
+
+    # TODO: change ownership
+    # no file_defaults settings, no file posix defined, then use whatever the current 
+    # perms and ownership of the file
+    pkg1 = make_package(:output_directory => @tempoutdir, :source_directory => srcdir, :change => { 'name' => 'pkg1' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    metadata = Tpkg::metadata_from_package(pkg1)
+    data = {:actual_file => File.join(srcdir, 'reloc', 'myfile')}
+    predicted_perms, predicted_uid, predicted_gid = Tpkg::predict_file_perms_and_ownership(data)
+    tpkg.install(pkg1)
+    assert(File.stat(File.join(testbase, 'home', 'tpkg', 'myfile')).mode & predicted_perms.to_i == predicted_perms.to_i)
+    assert(File.stat(File.join(testbase, 'home', 'tpkg', 'myfile')).uid  == predicted_uid)
+    assert(File.stat(File.join(testbase, 'home', 'tpkg', 'myfile')).gid  == predicted_gid)
+    tpkg.remove('pkg1')
+
+    # if metadata has file_defaults settings and nothing else, then use that
+    pkg2 = make_package(:output_directory => @tempoutdir, :source_directory => srcdir, :change => { 'name' => 'pkg2' }, :file_defaults => { 'perms' => '0654'}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    metadata = Tpkg::metadata_from_package(pkg2)
+    data = {:actual_file => File.join(srcdir, 'reloc', 'myfile'), :metadata => metadata}
+    predicted_perms, predicted_uid, predicted_gid = Tpkg::predict_file_perms_and_ownership(data)
+    tpkg.install(pkg2)
+    assert(File.stat(File.join(testbase, 'home', 'tpkg', 'myfile')).mode & predicted_perms.to_i == predicted_perms.to_i)
+    assert(File.stat(File.join(testbase, 'home', 'tpkg', 'myfile')).uid  == predicted_uid)
+    assert(File.stat(File.join(testbase, 'home', 'tpkg', 'myfile')).gid  == predicted_gid)
+    tpkg.remove('pkg2')
+
+    # if metadata has the file perms & ownership explicitly defined, then that override everything
+    pkg3 = make_package(:output_directory => @tempoutdir, :source_directory => srcdir, :change => { 'name' => 'pkg3' }, :file_defaults => { 'perms' => '0654'}, :files => { 'myfile' => {'perms' => '0733'}}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    metadata = Tpkg::metadata_from_package(pkg3)
+    file_metadata = {:posix => { :perms => 0733}}
+    data = {:actual_file => File.join(srcdir, 'reloc', 'myfile'), :metadata => metadata, :file_metadata => file_metadata}
+    predicted_perms, predicted_uid, predicted_gid = Tpkg::predict_file_perms_and_ownership(data)
+    tpkg.install(pkg3)
+    assert(File.stat(File.join(testbase, 'home', 'tpkg', 'myfile')).mode & predicted_perms.to_i == predicted_perms.to_i)
+    assert(File.stat(File.join(testbase, 'home', 'tpkg', 'myfile')).uid  == predicted_uid)
+    assert(File.stat(File.join(testbase, 'home', 'tpkg', 'myfile')).gid  == predicted_gid)
+    tpkg.remove('pkg3')
+  end
+
   def test_prompt_for_conflicting_files
     # Not quite sure how to test this method
   end
 
   def test_prompt_for_install
     # Not quite sure how to test this method
+  end
+
+  def test_valid_pkg_filename
+    # we currently accepts all string for filename as long as it
+    # doesn't begin with a do, t
+    valid_filenames = ['a.tpkg', 'pkg_with_no_extension', '_valid_pkg', './path/to/package.tpkg']
+    invalid_filenames = ['.invalid_pkg', '..invalid_pkg']
+
+    valid_filenames.each do |filename|
+      assert(Tpkg::valid_pkg_filename?(filename))
+    end
+    invalid_filenames.each do |filename|
+      assert(!Tpkg::valid_pkg_filename?(filename))
+    end
   end
   
   def test_run_external

@@ -478,5 +478,245 @@ EOF
     FileUtils.rm_rf(testroot)
     FileUtils.rm_f(pkg)
   end
+  
+  def test_remove_init_scripts
+    srcdir = Tempdir.new("srcdir")
+    FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+    create_metadata_file(File.join(srcdir, 'tpkg.xml'), :change => { 'name' => 'initpkg'  }, :files => { 'etc/init.d/initscript' => { 'init' => {} } })
+    metadata = Metadata.new(File.read(File.join(srcdir, 'tpkg.xml')), 'xml')
+    FileUtils.rm_rf(srcdir)
+    
+    testroot = Tempdir.new("testroot")
+    testbase = File.join(testroot, 'home', 'tpkg')
+    FileUtils.mkdir_p(testbase)
+    tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'))
+    
+    begin
+      link = nil
+      init_script = nil
+      tpkg.init_links(metadata).each do |l, is|
+        link = l
+        init_script = is
+      end
+      
+      # Standard symlink using the base name is removed
+      FileUtils.mkdir_p(File.dirname(link))
+      File.symlink(init_script, link)
+      tpkg.remove_init_scripts(metadata)
+      assert(!File.exist?(link) && !File.symlink?(link))
+      
+      # Links with suffixes from 1..9 are removed
+      1.upto(9) do |i|
+        FileUtils.rm(Dir.glob(link + '*'))
+        File.symlink(init_script, link + i.to_s)
+        File.symlink(init_script, link + '1') if (i != 1)
+        2.upto(i-1) do |j|
+          File.symlink('somethingelse', link + j.to_s)
+        end
+        tpkg.remove_init_scripts(metadata)
+        assert(!File.exist?(link) && !File.symlink?(link))
+        assert(!File.exist?(link + '1') && !File.symlink?(link + '1'))
+        2.upto(i-1) do |j|
+          assert(File.symlink?(link + j.to_s))
+          assert_equal('somethingelse', File.readlink(link + j.to_s))
+        end
+      end
+      
+      # Links with suffixes of 0 or 10 are left alone
+      File.symlink(init_script, link + '0')
+      File.symlink(init_script, link + '10')
+      tpkg.remove_init_scripts(metadata)
+      assert(File.symlink?(link + '0'))
+      assert_equal(init_script, File.readlink(link + '0'))
+      assert(File.symlink?(link + '10'))
+      assert_equal(init_script, File.readlink(link + '10'))
+      
+      # Running as non-root, permissions issues prevent link removal, warning
+      FileUtils.rm(Dir.glob(link + '*'))
+      File.symlink(init_script, link)
+      File.chmod(0000, File.dirname(link))
+      assert_nothing_raised { tpkg.remove_init_scripts(metadata) }
+      # FIXME: look for warning in stderr
+      File.chmod(0755, File.dirname(link))
+      assert(File.symlink?(link))
+      assert_equal(init_script, File.readlink(link))
+      
+      # Running as root, permissions issues prevent link removal, exception raised
+      # FIXME: I don't actually know of a way to trigger EACCES in this
+      # situation when running as root, and we never run the unit tests as
+      # root anyway.
+    rescue RuntimeError => e
+      if e.message =~ /No init script support/
+        warn "No init script support on this platform, remove_init_scripts will not be tested (#{e.message})"
+      else
+        raise
+      end
+    end
+    
+    FileUtils.rm_rf(testroot)
+  end
+  def test_remove_crontabs
+    srcdir = Tempdir.new("srcdir")
+    FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+    create_metadata_file(File.join(srcdir, 'tpkg.xml'), :change => { 'name' => 'cronpkg'  }, :files => { 'etc/cron.d/crontab' => { 'crontab' => {'user' => 'root'} } })
+    metadata = Metadata.new(File.read(File.join(srcdir, 'tpkg.xml')), 'xml')
+    FileUtils.rm_rf(srcdir)
+    
+    testroot = Tempdir.new("testroot")
+    testbase = File.join(testroot, 'home', 'tpkg')
+    FileUtils.mkdir_p(testbase)
+    tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'))
+    
+    crontab_contents = '* * * * *  crontab'
+    FileUtils.mkdir_p(File.join(srcdir, 'reloc', 'etc/cron.d'))
+    File.open(File.join(srcdir, 'reloc', 'etc/cron.d/crontab'), 'w') do |file|
+      file.puts(crontab_contents)
+    end
+    
+    begin
+      crontab = nil
+      destination = nil
+      tpkg.crontab_destinations(metadata).each do |c, d|
+        crontab = c
+        destination = d
+      end
+      
+      dest = destination[:link] || destination[:file]
+      
+      # Running as non-root, permissions issues prevent file removal, warning
+      FileUtils.mkdir_p(File.dirname(dest))
+      File.open(dest, 'w') {}
+      File.chmod(0000, File.dirname(dest))
+      assert_nothing_raised { tpkg.remove_crontabs(metadata) }
+      # FIXME: look for warning in stderr
+      File.chmod(0755, File.dirname(dest))
+      assert(File.exist?(dest) || File.symlink?(dest))
+      
+      # Running as root, permissions issues prevent file removal, exception raised
+      # FIXME: I don't actually know of a way to trigger EACCES in this
+      # situation when running as root, and we never run the unit tests as
+      # root anyway.
+    rescue RuntimeError => e
+      if e.message =~ /No crontab support/
+        warn "No crontab support on this platform, remove_crontabs will not be tested (#{e.message})"
+      else
+        raise
+      end
+    end
+    
+    FileUtils.rm_rf(testroot)
+  end
+  def test_remove_crontab_link
+    srcdir = Tempdir.new("srcdir")
+    FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+    create_metadata_file(File.join(srcdir, 'tpkg.xml'), :change => { 'name' => 'cronpkg'  }, :files => { 'etc/cron.d/crontab' => { 'crontab' => {} } })
+    metadata = Metadata.new(File.read(File.join(srcdir, 'tpkg.xml')), 'xml')
+    FileUtils.rm_rf(srcdir)
+    
+    testroot = Tempdir.new("testroot")
+    testbase = File.join(testroot, 'home', 'tpkg')
+    FileUtils.mkdir_p(testbase)
+    tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'))
+    
+    crontab = File.join(testbase, 'etc/cron.d/crontab')
+    destination = {:link => File.join(testroot, 'etc/cron.d/crontab')}
+    
+    # Standard symlink using the base name is removed
+    FileUtils.mkdir_p(File.dirname(destination[:link]))
+    File.symlink(crontab, destination[:link])
+    tpkg.remove_crontab_link(metadata, crontab, destination)
+    assert(!File.exist?(destination[:link]) && !File.symlink?(destination[:link]))
+    
+    # Links with suffixes from 1..9 are removed
+    1.upto(9) do |i|
+      FileUtils.rm(Dir.glob(destination[:link] + '*'))
+      File.symlink(crontab, destination[:link] + i.to_s)
+      File.symlink(crontab, destination[:link] + '1') if (i != 1)
+      2.upto(i-1) do |j|
+        File.symlink('somethingelse', destination[:link] + j.to_s)
+      end
+      tpkg.remove_crontab_link(metadata, crontab, destination)
+      assert(!File.exist?(destination[:link]) && !File.symlink?(destination[:link]))
+      assert(!File.exist?(destination[:link] + '1') && !File.symlink?(destination[:link] + '1'))
+      2.upto(i-1) do |j|
+        assert(File.symlink?(destination[:link] + j.to_s))
+        assert_equal('somethingelse', File.readlink(destination[:link] + j.to_s))
+      end
+    end
+    
+    # Links with suffixes of 0 or 10 are left alone
+    File.symlink(crontab, destination[:link] + '0')
+    File.symlink(crontab, destination[:link] + '10')
+    tpkg.remove_crontab_link(metadata, crontab, destination)
+    assert(File.symlink?(destination[:link] + '0'))
+    assert_equal(crontab, File.readlink(destination[:link] + '0'))
+    assert(File.symlink?(destination[:link] + '10'))
+    assert_equal(crontab, File.readlink(destination[:link] + '10'))
+    
+    FileUtils.rm_rf(testroot)
+  end
+  def test_remove_crontab_file
+    srcdir = Tempdir.new("srcdir")
+    FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+    create_metadata_file(File.join(srcdir, 'tpkg.xml'), :change => { 'name' => 'cronpkg'  }, :files => { 'etc/cron.d/crontab' => { 'crontab' => {'user' => 'root'} } })
+    metadata = Metadata.new(File.read(File.join(srcdir, 'tpkg.xml')), 'xml')
+    metadata[:filename] = '/path/to/cronpkg-1.0.tpkg'
+    FileUtils.rm_rf(srcdir)
+    
+    testroot = Tempdir.new("testroot")
+    testbase = File.join(testroot, 'home', 'tpkg')
+    FileUtils.mkdir_p(testbase)
+    tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'))
+    
+    crontab = File.join(testbase, 'etc/cron.d/crontab')
+    destination = {:file => File.join(testroot, 'etc/cron.d/crontab')}
+    
+    FileUtils.mkdir_p(File.dirname(destination[:file]))
+    not_my_part_one = <<EOF
+* * * * * /this/is/not/a/tpkg/cronjob
+EOF
+    my_part_one = <<EOF
+### TPKG START - #{testbase} - #{File.basename(metadata[:filename])}
+* * * * * /this/is/my/crontab
+### TPKG END - #{testbase} - #{File.basename(metadata[:filename])}
+EOF
+    not_my_part_two = <<EOF
+### TPKG START - #{testbase} - someotherpkg-2.34.tpkg
+* * * * * /this/is/not/my/crontab
+### TPKG END - #{testbase} - someotherpkg-2.34.tpkg
+### TPKG START - /path/to/other/base - #{File.basename(metadata[:filename])}
+* * * * * /this/is/not/my/crontab
+### TPKG END - /path/to/other/base - #{File.basename(metadata[:filename])}
+EOF
+    my_part_two = <<EOF
+### TPKG START - #{testbase} - #{File.basename(metadata[:filename])}
+* * * * * /this/is/my/crontab
+### TPKG END - #{testbase} - #{File.basename(metadata[:filename])}
+EOF
+
+    File.open(destination[:file], 'w') do |file|
+      file.write not_my_part_one
+      file.write my_part_one
+      file.write not_my_part_two
+      file.write my_part_two
+    end
+    File.chmod(0707, destination[:file])
+    
+    tpkg.remove_crontab_file(metadata, crontab, destination)
+    
+    # All entries associated with this package are removed
+    assert(!File.read(destination[:file]).include?(my_part_one))
+    assert(!File.read(destination[:file]).include?(my_part_two))
+    # Entries from other packages are left alone
+    assert(File.read(destination[:file]).include?(not_my_part_one))
+    assert(File.read(destination[:file]).include?(not_my_part_two))
+    # File permissions are retained
+    assert_equal(0707, File.stat(destination[:file]).mode & 07777)
+    
+    # FIXME: Should test rescue of EPERM, but we can't trigger it without root
+    # privileges here to set the file ownership to another user.
+    
+    FileUtils.rm_rf(testroot)
+  end
 end
 

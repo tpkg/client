@@ -11,6 +11,7 @@ require 'webrick'
 class Tpkg
   attr_reader :metadata
   attr_reader :available_packages
+  attr_reader :available_native_packages
 end
 
 class TpkgMetadataTests < Test::Unit::TestCase
@@ -259,7 +260,38 @@ class TpkgMetadataTests < Test::Unit::TestCase
   end
   
   def test_load_available_native_packages
-    # FIXME
+    # FIXME: I've added some basic dpkg testing but we still need Red
+    # Hat, Solaris, Mac OS X and FreeBSD.  And the dpkg stuff could
+    # probably use some expansion.
+    if Tpkg.get_os =~ /Debian|Ubuntu/
+      testbase = Tempdir.new("testbase")
+      tpkg = Tpkg.new(:base => testbase)
+      system('sudo apt-get install curl')
+      tpkg.load_available_native_packages('curl')
+      curl_installed = tpkg.available_native_packages['curl'].select{|pkg| pkg[:source] == :native_installed}
+      curl_available = tpkg.available_native_packages['curl'].select{|pkg| pkg[:source] == :native_available}
+      assert_equal(1, curl_installed.length)
+      FileUtils.rm_rf(testbase)
+      
+      testbase = Tempdir.new("testbase")
+      tpkg = Tpkg.new(:base => testbase)
+      system('sudo dpkg -r curl')
+      tpkg.load_available_native_packages('curl')
+      curl_installed = tpkg.available_native_packages['curl'].select{|pkg| pkg[:source] == :native_installed}
+      curl_available = tpkg.available_native_packages['curl'].select{|pkg| pkg[:source] == :native_available}
+      assert_equal(0, curl_installed.length)
+      assert(curl_available.length >= 1)
+      FileUtils.rm_rf(testbase)
+      
+      # Make sure we leave the user with curl installed in case they had
+      # it installed before we started.  (We probably should be fancier
+      # and check beforehand if curl was installed and leave things in
+      # the same state.  Or get even fancier and make our own package to
+      # install so we don't mess with a real package, which might have
+      # dependencies on it that prevent us from messing with it.  Or at
+      # least use something less common than curl.)
+      system('sudo apt-get install curl')
+    end
   end
 
   def test_init_links
