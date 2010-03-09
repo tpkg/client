@@ -94,7 +94,7 @@ else
   # curl, we will tell curl to look it up from a config file
   config="data = \"login=#{username}&password=#{password}\""
   File.open(curl_config.path, 'w') {|f| f.write(config) }
-  result = `curl #{authentication_url} -L -K #{curl_config.path} -k -c #{cookie_file} #{proxy}`
+  result = `curl #{authentication_url} -s -L -K #{curl_config.path} -k -c #{cookie_file} #{proxy}`
   if result =~ /failed/
     puts "Failed to authenticate."
     exit
