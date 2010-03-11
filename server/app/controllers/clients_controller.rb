@@ -61,18 +61,41 @@ class ClientsController < ApplicationController
 
     # Get list of packages that are installed on this client
     @client = Client.find(params[:id])
-    @installed_packages = @client.client_packages.collect{ |cp| cp.package}.flatten
+
+    # BEGIN NEW CODE
+    @installed_packages = {}
+    @client.client_packages.each do |client_package|
+      client_package.tpkg_home = "unknown" if client_package.tpkg_home.nil? or client_package.tpkg_home.empty?
+      @installed_packages[client_package.tpkg_home] ||= []
+      @installed_packages[client_package.tpkg_home] << client_package.package
+    end
 
     # sort the result
-    @installed_packages.sort! do  |a,b|
-      a.send(sort_by) != nil ? akey = a.send(sort_by) : akey = ""
-      b.send(sort_by) != nil ? bkey = b.send(sort_by) : bkey = ""
-      if sort_direction == "reverse"
-        bkey <=> akey
-      else
-        akey <=> bkey
+    @installed_packages.each do |tpkg_home, packages|
+      packages.sort! do  |a,b|
+        a.send(sort_by) != nil ? akey = a.send(sort_by) : akey = ""
+        b.send(sort_by) != nil ? bkey = b.send(sort_by) : bkey = ""
+        if sort_direction == "reverse"
+          bkey <=> akey
+        else
+          akey <=> bkey
+        end
       end
     end
+    # END NEW CODE
+   
+#    @installed_packages = @client.client_packages.collect{ |cp| cp.package}.flatten
+#
+#    # sort the result
+#    @installed_packages.sort! do  |a,b|
+#      a.send(sort_by) != nil ? akey = a.send(sort_by) : akey = ""
+#      b.send(sort_by) != nil ? bkey = b.send(sort_by) : bkey = ""
+#      if sort_direction == "reverse"
+#        bkey <=> akey
+#      else
+#        akey <=> bkey
+#      end
+#    end
 
     # get list of installation history for this client
     @installation_history = ClientPackageHistory.find(:all, :conditions => ["client_id = ?", params[:id]], :order => "created_at")

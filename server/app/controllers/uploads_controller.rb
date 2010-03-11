@@ -26,23 +26,29 @@ class UploadsController < ApplicationController
     @upload.uploader = session[:username]
     pkgfile = @upload.save!
 
+    # Create entry in the package table
+    metadata = Tpkg::metadata_from_package(pkgfile)
+    package = PkgUtils::metadata_to_db_package(metadata.to_hash)
+    Package.find_or_create(package)
+
     #redirect_to uploads_url
     render :text => "Success"
   rescue Exception => e
     render :text => "Failure: #{e}"
   end
 
-  def swfupload
-    # swfupload action set in routes.rb
-    @upload = Upload.new(:upload => params[:Filedata])
-    @upload.uploader = session[:username]
-    pkgfile = @upload.save!
-
-    # This returns the thumbnail url for handlers.js to use to display the thumbnail
-    render :text => "Success"
-  rescue Exception => e
-    redirect_to :action => 'new'
-  end
+  # No longer supported
+#  def swfupload
+#    # swfupload action set in routes.rb
+#    @upload = Upload.new(:upload => params[:Filedata])
+#    @upload.uploader = session[:username]
+#    pkgfile = @upload.save!
+#
+#    # This returns the thumbnail url for handlers.js to use to display the thumbnail
+#    render :text => "Success"
+#  rescue Exception => e
+#    redirect_to :action => 'new'
+#  end
 
   def destroy
     @upload = Upload.find(params[:id])

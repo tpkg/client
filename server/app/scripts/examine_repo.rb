@@ -11,16 +11,16 @@ class ExamineRepo < ActiveRecord::Base
   missing = present_files - existing_uploads
 
   missing.each do | file |
-    xml = Tpkg::extract_tpkgxml(File.join(AppConfig.upload_path, file))      
-    package = parse_xml_package(xml)[0]
+    puts "Looking at #{file}"
+    metadata = Tpkg::metadata_from_package(File.join(AppConfig.upload_path, file))
+    package = PkgUtils::metadata_to_db_package(metadata)
     package['filename'] = file
     Package.find_or_create(package)
-   
-    upload = Upload.new 
+
+    upload = Upload.new
     upload.upload_file_name = file
     upload.save
     upload.created_at = File.mtime(File.join(AppConfig.upload_path, file))
-    puts "Looking at #{file} which has mtime of #{upload.created_at}"
     upload.uploader = "unknown"
     upload.save
   end
