@@ -95,14 +95,14 @@ class TpkgMetadataTests < Test::Unit::TestCase
   
   def test_extract_metadata
     assert_nothing_raised('extract_metadata') { Tpkg::extract_metadata(@pkgdir) }
-    # TODO: remove this once we don't generate metadata.xml anymore
-    assert(File.file?(File.join(@pkgdir, 'metadata.xml')), 'extract_metadata metadata file')
-    assert_equal(0644, File.stat(File.join(@pkgdir, 'metadata.xml')).mode & 07777, 'extract_metadata metadata file permissions')
-    metadata_xml = nil
-    assert_nothing_raised('extract_metadata metadata load') { metadata_xml = REXML::Document.new(File.open(File.join(@pkgdir, 'metadata.xml'))) }
-    assert_equal(1, metadata_xml.elements.to_a('/tpkg_metadata/tpkg/name').size, 'extract_metadata name count')
-    assert_equal('testpkg', metadata_xml.elements['/tpkg_metadata/tpkg/name'].text, 'extract_metadata name')
-    assert_equal(File.basename(@pkgfile), metadata_xml.elements['/tpkg_metadata/tpkg'].attributes['filename'], 'extract_metadata filename attribute')
+    # we don't generate metadata.xml anymore
+#    assert(File.file?(File.join(@pkgdir, 'metadata.xml')), 'extract_metadata metadata file')
+#    assert_equal(0644, File.stat(File.join(@pkgdir, 'metadata.xml')).mode & 07777, 'extract_metadata metadata file permissions')
+#    metadata_xml = nil
+#    assert_nothing_raised('extract_metadata metadata load') { metadata_xml = REXML::Document.new(File.open(File.join(@pkgdir, 'metadata.xml'))) }
+#    assert_equal(1, metadata_xml.elements.to_a('/tpkg_metadata/tpkg/name').size, 'extract_metadata name count')
+#    assert_equal('testpkg', metadata_xml.elements['/tpkg_metadata/tpkg/name'].text, 'extract_metadata name')
+#    assert_equal(File.basename(@pkgfile), metadata_xml.elements['/tpkg_metadata/tpkg'].attributes['filename'], 'extract_metadata filename attribute')
 
     # YAML stuff
     assert(File.file?(File.join(@pkgdir, 'metadata.yml')), 'extract_metadata metadata file')
@@ -149,7 +149,8 @@ class TpkgMetadataTests < Test::Unit::TestCase
     # Test when the package directory isn't at the root of the web
     # server hierarchy
     Dir.mkdir(File.join(@pkgdir, 'testdir'))
-    FileUtils.mv(File.join(@pkgdir, 'metadata.xml'), File.join(@pkgdir, 'testdir', 'metadata.xml'))
+    # We don't generate metadata.xml anymore
+#    FileUtils.mv(File.join(@pkgdir, 'metadata.xml'), File.join(@pkgdir, 'testdir', 'metadata.xml'))
     FileUtils.mv(File.join(@pkgdir, 'metadata.yml'), File.join(@pkgdir, 'testdir', 'metadata.yml'))
     # With a trailing / on the URL
     testbase = Tempdir.new("testbase")

@@ -66,6 +66,8 @@ class Tpkg
 
   CONNECTION_TIMEOUT = 10
 
+  DEFAULT_OWNERSHIP_UID = 0
+
   attr_reader :installed_directory
  
   #
@@ -665,7 +667,8 @@ class Tpkg
   # to metadata.xml in that directory
   def self.extract_metadata(directory, dest=nil)
     dest = directory if dest.nil?
-    backward_compatible = true
+    # we're no longer generating metadata.xml
+    backward_compatible = false
 
     # If we still want to support metadata.xml
     if backward_compatible
@@ -1060,10 +1063,10 @@ class Tpkg
     parts = request.split('=')
 
     # upgrade/remove/query options could take package filenames
-    # assuming that the filename is of the correct format, such as
-    # foo-1.0.tpkg or foo-1.0-1.tpkg
+    # We're assuming that the filename ends in .tpkg and has a version number that starts 
+    # with a digit. For example: foo-1.0.tpkg, foo-bar-1.0-1.tpkg
     if request =~ /\.tpkg$/
-      req = {:filename => request, :name => request.split("-")[0]}
+      req = {:filename => request, :name => request.split(/-\d/)[0]}
     elsif parts.length > 2 && parts[-2] =~ /^[\d\.]/ && parts[-1] =~ /^[\d\.]/
       package_version = parts.pop
       version = parts.pop
@@ -1167,8 +1170,9 @@ class Tpkg
     if data[:actual_file]
       stat = File.stat(data[:actual_file])
       perms = stat.mode
-      uid = stat.uid
-      gid = stat.gid
+      # This is what we set the ownership to by default
+      uid = DEFAULT_OWNERSHIP_UID
+      gid = DEFAULT_OWNERSHIP_UID
     end
 
     # get default permission and ownership
@@ -1306,43 +1310,21 @@ class Tpkg
       end
     end
     @installed_directory = File.join(@var_directory, 'installed')
-    if !File.exist?(@installed_directory)
-      begin
-        FileUtils.mkdir_p(@installed_directory)
-      rescue Errno::EACCES
-        raise if Process.euid == 0
-      end
-    end
     @metadata_directory = File.join(@installed_directory, 'metadata')
-    if !File.exist?(@metadata_directory)
-      begin
-        FileUtils.mkdir_p(@metadata_directory)
-      rescue Errno::EACCES
-        raise if Process.euid == 0
-      end
-    end
     @sources_directory = File.join(@var_directory, 'sources')
-    if !File.exist?(@sources_directory)
-      begin
-        FileUtils.mkdir_p(@sources_directory)
-      rescue Errno::EACCES
-        raise if Process.euid == 0
-      end
-    end
     @external_directory = File.join(@var_directory, 'externals')
-    if !File.exist?(@external_directory)
-      begin
-        FileUtils.mkdir_p(@external_directory)
-      rescue Errno::EACCES
-        raise if Process.euid == 0
-      end
-    end
     @tmp_directory = File.join(@var_directory, 'tmp')
-    if !File.exist?(@tmp_directory)
-      begin
-        FileUtils.mkdir_p(@tmp_directory)
-      rescue Errno::EACCES
-        raise if Process.euid == 0
+    @log_directory = File.join(@var_directory, 'logs')
+    # It is important to create these dirs in correct order
+    dirs_to_create = [@installed_directory, @metadata_directory, @sources_directory, 
+                      @external_directory, @tmp_directory, @log_directory]
+    dirs_to_create.each do |dir|
+      if !File.exist?(dir)
+        begin
+          FileUtils.mkdir_p(dir)
+        rescue Errno::EACCES
+          raise if Process.euid == 0
+        end
       end
     end
     @tar = Tpkg::find_tar
@@ -1472,7 +1454,7 @@ class Tpkg
   # Populate our list of available packages for a given package name
   def load_available_packages(name=nil)
     prep_metadata
-    
+
     if name
       if !@available_packages[name]
         packages = []
@@ -2582,8 +2564,8 @@ class Tpkg
     # tasks before moving the files into their final location.
     
     # Handle any default permissions and ownership
-    default_uid = 0
-    default_gid = 0
+    default_uid = DEFAULT_OWNERSHIP_UID
+    default_gid = DEFAULT_OWNERSHIP_UID
     default_perms = nil
 
     if metadata[:files] && metadata[:files][:file_defaults]
@@ -3463,6 +3445,11 @@ class Tpkg
       return false
     end
 
+    # Build an array of metadata of pkgs that are already installed
+    # We will use this later on to figure out what new packages have been installed/removed
+    # in order to report back to the server
+    already_installed_pkgs = metadata_for_installed_packages.collect{|metadata| metadata.to_hash}
+
     # Create array of packages (names) we have installed so far
     # We will use it later on to determine the order of how to install the packages
     installed_so_far = installed_packages.collect{|pkg| pkg[:metadata][:name]} 
@@ -3570,7 +3557,17 @@ class Tpkg
       installed_so_far << pkg[:metadata][:name]
     end  # end while loop
 
-    send_update_to_server unless @report_server.nil?
+    # log changes
+    currently_installed = metadata_for_installed_packages.collect{|metadata| metadata.to_hash}
+    newly_installed = currently_installed - already_installed_pkgs
+    log_changes({:newly_installed => newly_installed})
+
+    # send udpate back to reporting server
+    unless @report_server.nil?
+      options = {:newly_installed => newly_installed,
+                 :currently_installed => currently_installed}
+      send_update_to_server(options)
+    end
     unlock
     return ret_val
   end
@@ -3669,6 +3666,11 @@ class Tpkg
       unlock
       return false
     end
+
+    # Build an array of metadata of pkgs that are already installed
+    # We will use this later on to figure out what new packages have been installed/removed
+    # in order to report back to the server
+    already_installed_pkgs = metadata_for_installed_packages.collect{|metadata| metadata.to_hash}
     
     installed_files = files_for_installed_packages
     removed_pkgs = [] # keep track of what we removed so far
@@ -3803,11 +3805,21 @@ class Tpkg
         end
       end
     end
-   
+  
+    # log changes 
+    currently_installed = metadata_for_installed_packages.collect{|metadata| metadata.to_hash}
+    newly_installed = currently_installed - already_installed_pkgs
+    removed = already_installed_pkgs - currently_installed,
+    log_changes({:newly_installed => newly_installed, :removed => removed})
+
+    # send update back to reporting server
     if !has_updates
       puts "No updates available"
     elsif !@report_server.nil? 
-      send_update_to_server 
+      options = {:newly_installed => newly_installed,
+                 :removed => removed,
+                 :currently_installed => currently_installed}
+      send_update_to_server(options)
     end
 
     unlock
@@ -3835,6 +3847,11 @@ class Tpkg
       unlock
       return false
     end
+
+    # Build an array of metadata of pkgs that are already installed
+    # We will use this later on to figure out what new packages have been installed/removed
+    # in order to report back to the server
+    already_installed_pkgs = metadata_for_installed_packages.collect{|metadata| metadata.to_hash}
 
     # If user want to remove all the dependent pkgs, then go ahead
     # and include them in our array of things to remove
@@ -4025,8 +4042,19 @@ class Tpkg
       # Cleanup
       FileUtils.rm_rf(workdir)
     end
-    
-    send_update_to_server unless @report_server.nil? || options[:upgrade]
+
+    # log changes    
+    currently_installed = metadata_for_installed_packages.collect{|metadata| metadata.to_hash}
+    removed = already_installed_pkgs - currently_installed
+    log_changes({:removed => removed})
+
+    # send update back to reporting server
+    unless @report_server.nil? || options[:upgrade]
+      options = {:removed => removed,
+                 :currently_installed => currently_installed}
+      send_update_to_server(options)
+    end
+
     unlock
     return ret_val
   end
@@ -4269,39 +4297,6 @@ class Tpkg
     end
   end
 
-  def send_update_to_server
-    metadata = metadata_for_installed_packages.collect{|metadata| metadata.to_hash}
-    yml = YAML.dump(metadata)
-    begin
-      response = nil
-      # Need to set timeout otherwise tpkg can hang for a long time when having
-      # problem talking to the reporter server.
-      # I can't seem get net-ssh timeout to work so we'll just handle the timeout ourselves
-      timeout(CONNECTION_TIMEOUT) do
-        update_uri =  URI.parse("#{@report_server}")
-        http = Tpkg::gethttp(update_uri)
-        request = {"yml"=>URI.escape(yml), "client"=>Facter['fqdn'].value}
-        post = Net::HTTP::Post.new(update_uri.path)
-        post.set_form_data(request)
-        response = http.request(post)
-      end
-
-      case response
-      when Net::HTTPSuccess
-       puts "Successfully send update to reporter server"
-      else
-        $stderr.puts response.body
-        #response.error!
-        # just ignore error and give user warning
-        puts "Failed to send update to reporter server"
-      end
-    rescue Timeout::Error
-      puts "Timed out when trying to send update to reporter server"
-    rescue
-      puts "Failed to send update to reporter server"
-    end
-  end
-
   # Build a dependency map of currently installed packages
   # For example, if we have pkgB and pkgC which depends on pkgA, then 
   # the dependency map would look like this:
@@ -4359,5 +4354,83 @@ class Tpkg
     end
     return pre_reqs
   end
+
+  # TODO: figure out what other methods above can be turned into protected methods
+  protected
+  # log changes of pkgs that were installed/removed
+  def log_changes(options={})
+    msg = ""
+    user = Etc.getlogin
+    newly_installed = removed = [] 
+    newly_installed = options[:newly_installed] if options[:newly_installed]
+    removed = options[:removed] if options[:removed]
+    removed.each do |pkg|
+      msg = "#{msg}#{Time.new} #{pkg[:filename]} was removed by #{user}\n"
+    end
+    newly_installed.each do |pkg|
+      msg = "#{msg}#{Time.new} #{pkg[:filename]} was installed by #{user}\n"
+    end
+    
+    msg.lstrip!
+    unless msg.empty?
+      File.open(File.join(@log_directory,'changes.log'), 'a') {|f| f.write(msg) }
+    end
+  end
+
+  def send_update_to_server(options={})
+    request = {"client"=>Facter['fqdn'].value}
+    request[:user] = Etc.getlogin
+    request[:tpkg_home] = ENV['TPKG_HOME']
+    
+    if options[:currently_installed]
+      currently_installed = options[:currently_installed]
+    else
+      currently_installed = metadata_for_installed_packages.collect{|metadata| metadata.to_hash}
+    end
+    
+    # Figure out list of packages that were already installed, newly installed and newly removed
+    if options[:newly_installed]
+      newly_installed = options[:newly_installed]
+      request[:newly_installed] = URI.escape(YAML.dump(newly_installed))
+      already_installed = currently_installed - newly_installed
+    else
+      already_installed = currently_installed
+    end
+    request[:already_installed] = URI.escape(YAML.dump(already_installed))
+
+    if options[:removed]
+      removed = options[:removed]
+      request[:removed] = URI.escape(YAML.dump(removed))
+    end
+
+    begin
+      response = nil
+      # Need to set timeout otherwise tpkg can hang for a long time when having
+      # problem talking to the reporter server.
+      # I can't seem get net-ssh timeout to work so we'll just handle the timeout ourselves
+      timeout(CONNECTION_TIMEOUT) do
+        update_uri =  URI.parse("#{@report_server}")
+        http = Tpkg::gethttp(update_uri)
+        post = Net::HTTP::Post.new(update_uri.path)
+        post.set_form_data(request)
+        response = http.request(post)
+      end
+
+      case response
+      when Net::HTTPSuccess
+       puts "Successfully send update to reporter server"
+      else
+        $stderr.puts response.body
+        #response.error!
+        # just ignore error and give user warning
+        puts "Failed to send update to reporter server"
+      end
+    rescue Timeout::Error
+      puts "Timed out when trying to send update to reporter server"
+    rescue 
+      puts "Failed to send update to reporter server"
+    end
+  end
+
 end
 
