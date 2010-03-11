@@ -22,7 +22,6 @@
     <dependency>
       <name>tpkg</name>
       <minimum_version>1.20</minimum_version>
-      <maximum_version>1.20.9999</maximum_version>
     </dependency>
     <dependency>
       <name>logrotate</name>
