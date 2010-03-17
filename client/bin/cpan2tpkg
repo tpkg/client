@@ -29,6 +29,8 @@ Usage: cpan2tpkg
        Extra dependencies to add to the package
     [--native-deps foo,1.0,1.9999,bar,4.5,4.5,blah,,,]
        Native dependencies to add to the package
+    [--force]
+       Force the install and packaging even if tests fail
     [--help]
        Show this message
 
@@ -42,6 +44,7 @@ my %extradeps = ();
 my $extradepsopts = '';
 my %nativedeps = ();
 my $nativedepsopts = '';
+my $force;
 my $help;
 
 my $getopt = GetOptions(
@@ -49,6 +52,7 @@ my $getopt = GetOptions(
 	'package-version=s' => \$pkgver,
 	'extra-deps=s' => \$extradepsopts,
 	'native-deps=s' => \$nativedepsopts,
+        'force' => \$force,
 	'help' => \$help);
 
 my $module = shift @ARGV;
@@ -127,11 +131,23 @@ CPAN::Shell->o('conf', 'makepl_arg', "DESTDIR=$workdir");
 # http://perldoc.perl.org/Module/Build.html#INSTALL-PATHS
 CPAN::Shell->o('conf', 'mbuildpl_arg', "--destdir=$workdir");
 
-# FIXME: desired?
-#CPAN::Shell->o('conf', 'prerequisites_policy', "ask");
+# Automatically install dependencies so that we can package them too
+CPAN::Shell->o('conf', 'prerequisites_policy', "follow");
+
+# In order for cpan2tpkg to be able to install and package dependencies of the
+# user's module we need perl to be able to find modules installed in our
+# working directory.
+$ENV{PERL5LIB} = File::Spec->catdir($workdir, $Config{sitelib});
 
 # Install the module
-$modobj->install;
+if ($force)
+{
+	CPAN::Shell->force('install', $module);
+}
+else
+{
+	CPAN::Shell->install($module);
+}
 
 # It is not nearly as straightforward as one might wish to get
 # ExtUtils::Installed to inspect only a specified directory structure and not
@@ -139,7 +155,7 @@ $modobj->install;
 # system directories from $Config, any directories in the PERL5LIB environment
 # variable, and any extra directories you pass it. You can work around the
 # system directories from $Config by passing EU::I your own modified $Config
-# via the config_override parameter. You can also empty out $ENV[PERL5LIB].
+# via the config_override parameter. We override $ENV{PERL5LIB} above.
 # And that just leaves it searching the extra directories you pass it via the
 # extra_libs parameter. To further complicate matters EU::I searches the
 # directories in @INC when asked for the version of an installed module, but
@@ -156,8 +172,6 @@ foreach my $incdir (@INC)
 my %myconfig = %{dclone(\%Config)};
 $myconfig{archlibexp} = File::Spec->catdir($workdir, $Config{archlibexp});
 $myconfig{sitearchexp} = File::Spec->catdir($workdir, $Config{sitearchexp});
-# EU::I searches PERL5LIB as well, so clear that out
-$ENV{PERL5LIB} = '';
 my $extinst = ExtUtils::Installed->new(
 	config_override=>\%myconfig,
 	inc_override=>\@incwork,
@@ -176,8 +190,8 @@ MODULE: foreach my $name ($extinst->modules)
 	# Sometimes calling expand on a result from EU::I->modules doesn't
 	# work.  For example, if the user requests Date::Parse that module
 	# is part of the TimeDate distribution.  EU::I->modules will return
-	# ['Perl', 'TimeDate'], but calling expand on TimeDate fails.  It
-	# seems like we should find an alternative to EU::I->modules,
+	# ['Perl', 'TimeDate'], but calling expand on TimeDate fails.
+	# FIXME:  We should find an alternative to EU::I->modules,
 	# something that returns the distributions installed rather than the
 	# modules.
 	if (!$mod)
@@ -247,11 +261,14 @@ MODULE: foreach my $name ($extinst->modules)
 			# This is a bit of an indirect way to identify core modules
 			# but the only way I can figure out.  Core stuff gets
 			# installed with perl into /home/t/perl-version, CPAN
-			# modules into /home/t/lib/perl5/site_perl.  The "d" in
-			# dslip_status has "s" as one of it's possible values,
-			# meaning "Standard, supplied with Perl 5" according to the
-			# docs.  However, that doesn't seem to be set reliably.
-			if ($depmod->inst_file =~ m,/home/t/perl,)
+			# modules into /home/t/lib/perl5/site_perl.
+			#
+			# What seems like it should be the "right" way is that the "D"
+			# (aka "Development Stage") field in dslip_status has "S" (aka
+			# "Standard, supplied with Perl 5") as one of its possible values,
+			# according to the docs (http://perldoc.perl.org/CPAN.html).
+			# However, that doesn't seem to be set reliably.
+			if ($depmod->inst_file && $depmod->inst_file =~ /$Config{prefix}/)
 			{
 				print "Prereq $dep is a core module, skipping\n";
 				next PREREQ;

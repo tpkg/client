@@ -137,12 +137,39 @@ end
 # rake test
 # Run a specific file:  rake test TEST=test/make.rb
 # Run a specific method:
-#   rake test TEST=test/make.rb TESTOPTS="--name=test_make_osarch_names"
+#   rake test TEST=test/test_make.rb TESTOPTS="--name=test_make_osarch_names"
 Rake::TestTask.new do |t|
   t.libs << "lib"
   t.verbose = true
-  #t.pattern = 'test/*.rb'
-  t.test_files = Dir.glob('test/*.rb').reject {|test| test =~ /tpkgtest.rb/}
+end
+
+# FlogTask is broken...
+# begin
+#   require 'flog_task'
+#   FlogTask.new do |t|
+#     t.dirs = ['lib']
+#   end
+# rescue LoadError
+#   warn "Flog not installed"
+# end
+desc 'Run flog on code'
+task :flog do
+  system("flog -g lib")
+end
+namespace :flog do
+  desc 'Just the flog summary'
+  task :summary do
+    system("flog -s lib")
+  end
+end
+begin
+  require 'flay'
+  require 'flay_task'
+  FlayTask.new do |t|
+    t.dirs = ['lib']
+  end
+rescue LoadError
+  warn "Flay not installed"
 end
 
 desc 'Build an tpkg client RPM on a Red Hat box'

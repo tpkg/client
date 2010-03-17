@@ -84,7 +84,7 @@ else
   cookie_file=Tempfile.new("cookie").path
 
   # See if we can talk to the authentication server. If not, we might need to use a proxy
-  if (proxy.nil? || proxy.empty?) && !Ping.pingecho(URI.parse(authentication_url).host, 2, 80)
+  if (proxy.nil? || proxy.empty?) && !Ping.pingecho(URI.parse(authentication_url).host, 2, URI.parse(authentication_url).port)
     proxy = "--proxy #{proxy_server}"
     puts "Can't connect to authentication server directly. Trying to connect via #{proxy}."
   end
@@ -94,7 +94,7 @@ else
   # curl, we will tell curl to look it up from a config file
   config="data = \"login=#{username}&password=#{password}\""
   File.open(curl_config.path, 'w') {|f| f.write(config) }
-  result = `curl #{authentication_url} -L -K #{curl_config.path} -k -c #{cookie_file} #{proxy}`
+  result = `curl #{authentication_url} -s -L -K #{curl_config.path} -k -c #{cookie_file} #{proxy}`
   if result =~ /failed/
     puts "Failed to authenticate."
     exit
@@ -118,6 +118,6 @@ files_to_upload.each do | file |
   end
 
   puts "Uploading #{file}"
-  out=`curl -b #{cookie_file} -F upload[upload]=@#{file} #{tpkg_upload_url}`
+  out=`curl -b #{cookie_file} -F upload[upload]=@#{file} #{tpkg_upload_url} #{proxy}`
   puts out
 end

@@ -30,11 +30,17 @@ require 'tpkg'
 @rerun_with_sudo = false
 @tpkg_options = {}
 @init_options = {}           
+@compress = nil
+
 
 def rerun_with_sudo_if_necessary
   if Process.euid != 0 && @sudo
     warn "Executing with sudo"
-    exec('sudo', $0, *ARGV)
+    if ENV['TPKG_HOME']
+      exec('sudo', 'env', "TPKG_HOME=#{ENV['TPKG_HOME']}", $0, *ARGV)
+    else
+      exec('sudo', $0, *ARGV)
+    end
   end
 end
 
@@ -234,6 +240,9 @@ opts.on('--deploy-as', '=USERNAME', 'What username to use for deploying to remot
   @deploy_options["deploy-as"] = opt
   @deploy_params = @deploy_params - ['--deploy-as']
 end
+opts.on('--compress', '=[TYPE]', 'Compress files when making packages.') do |opt|
+  @compress = opt
+end
 opts.on('--debug', 'Print lots of messages about what tpkg is doing') do |opt|
   @debug = opt
   Tpkg::set_debug(@debug)
@@ -329,10 +338,14 @@ if @deploy
   exit
 end
 
+if @action_value.is_a?(Array)
+  @action_value.uniq!
+end
+
 ret_val = 0
 case @action
 when :make
-  pkgfile = Tpkg::make_package(@action_value, passphrase_callback, {:force => @force})
+  pkgfile = Tpkg::make_package(@action_value, passphrase_callback, {:force => @force, :compress => @compress})
   if pkgfile
     puts "Package is #{pkgfile}"
   else

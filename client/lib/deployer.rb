@@ -16,22 +16,12 @@ rescue LoadError
   require 'rubygems'
   require 'net/ssh'
 end
-#require 'highline/import'
 
 class Deployer
-#  def self.new
-#    begin
-#      require 'rubygems'
-#      require 'net/ssh'
-#      require 'highline/import'
-#    rescue LoadError
-#      raise LoadError, "In order to use the deployment feature, you must have rubygems installed. Additionally, you need to install the following gems: net-ssh, highline"
-#    else
-#      super
-#    end
-#  end
-
+  
   def initialize(options = nil)
+    @sudo_pw = nil
+    @pw_prompts = {}
     @mutex = Mutex.new
     @max_worker = 4
     @abort_on_failure = false
@@ -47,21 +37,12 @@ class Deployer
     end
   end
 
-  def prompt
-    user = prompt_username
-    password = prompt_password
-    return user, password
-  end
-
   def prompt_username
-    print "Username: "
-    user = $stdin.gets.chomp
-    return user
+    ask("Username: ")
   end     
          
   def prompt_password
-    password = ask("SSH Password (leave blank if using ssh key): ", true) 
-    return password 
+    ask("SSH Password (leave blank if using ssh key): ", true) 
   end
 
   def ask(str,mask=false)
@@ -75,31 +56,29 @@ class Deployer
     return input
   end
 
-  $sudo_pw = nil
   def get_sudo_pw
     @mutex.synchronize {
-      if $sudo_pw.nil?
-        $sudo_pw = ask("Sudo password: ", true)
+      if @sudo_pw.nil?
+        @sudo_pw = ask("Sudo password: ", true)
       else
-        return $sudo_pw
+        return @sudo_pw
       end    
     }
   end
 
-  $passphrases = {}
-  def get_passphrase(package)
+  # Prompt user for input and cache it. If in the future, we see
+  # the same prompt again, we can reuse the existing inputs. This saves
+  # the users from having to type in a bunch of inputs (such as password)
+  def get_input_for_pw_prompt(prompt)
     @mutex.synchronize {
-      if $passphrases[package].nil?
-      #  $stdout.write package
-      #  $stdout.flush
-      #  $passphrases[package] = $stdin.gets.chomp
-        $passphrases[package] = ask(package, true)
-      else
-        return $passphrases[package]
-      end   
+      if @pw_prompts[prompt].nil?
+        @pw_prompts[prompt] = ask(prompt, true)
+      end
+      return @pw_prompts[prompt]
     }
   end
 
+  # Return a block that can be used for executing a cmd on the remote server
   def ssh_execute(server, username, password, cmd)
     return lambda { 
       exit_status = 0
@@ -130,19 +109,14 @@ class Deployer
               # for; now we can check to see if it's a password prompt, and
               # interactively return data if so (see request_pty above).
               channel.on_data do |ch, data|
-                if data =~ /Password/
-                  #sudo_password = (!password.nil && password != "" && password) ||  get_sudo_pw
+                if data =~ /Password:/
                   password = get_sudo_pw unless !password.nil? && password != ""
                   channel.send_data "#{password}\n"
-                elsif data  =~ /Passphrase/ or data =~ /pass phrase/ or data =~ /incorrect passphrase/i
-                  passphrase = get_passphrase(data)  
-                  channel.send_data "#{passphrase}\n"
+                elsif data =~ /password/i or data  =~ /passphrase/i or 
+                      data =~ /pass phrase/i or data =~ /incorrect passphrase/i
+                  input = get_input_for_pw_prompt(data)
+                  channel.send_data "#{input}\n"
                 else
-#                  print "#{server}: #{data}" if $debug
-                  # ssh channels can be treated as a hash for the specific purpose of
-                  # getting values out of the block later
-#                channel[:result] ||= ""
-#                channel[:result] << data
                   result << data unless data.nil? or data.empty?
                 end
               end
