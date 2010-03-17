@@ -1,5 +1,5 @@
 require 'tpkg'
-require 'utils'
+require 'pkg_utils'
 
 class ExamineRepo < ActiveRecord::Base
   present_files = []
