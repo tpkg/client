@@ -3809,7 +3809,7 @@ class Tpkg
     # log changes 
     currently_installed = metadata_for_installed_packages.collect{|metadata| metadata.to_hash}
     newly_installed = currently_installed - already_installed_pkgs
-    removed = already_installed_pkgs - currently_installed,
+    removed = already_installed_pkgs - currently_installed
     log_changes({:newly_installed => newly_installed, :removed => removed})
 
     # send update back to reporting server
