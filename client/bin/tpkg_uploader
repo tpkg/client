@@ -42,6 +42,9 @@ end
 opts.on('-x', '--proxy PROXY', 'Proxy to connect to tpkg server (if needed)') do |opt|
   proxy = "--proxy #{opt}"
 end
+opts.on('--server SERVER', 'Where to upload the package to') do |opt|
+  tpkg_upload_url = "http://#{opt}/uploads/create"
+end
 opts.on('--cookie FILE', 'Path where cookie is stored') do |opt|
   cookie_file = opt
 end
@@ -107,6 +110,7 @@ if files_to_upload.nil?
   files_to_upload = [STDIN.gets.chomp]
 end
 
+
 # Do the actual upload
 files_to_upload.each do | file |
   # check if file exists
@@ -117,7 +121,7 @@ files_to_upload.each do | file |
     exit
   end
 
-  puts "Uploading #{file}"
+  puts "Uploading #{file} to #{URI.parse(tpkg_upload_url).host}"
   out=`curl -b #{cookie_file} -F upload[upload]=@#{file} #{tpkg_upload_url} #{proxy}`
   puts out
 end
