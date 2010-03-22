@@ -256,29 +256,46 @@ MODULE: foreach my $name ($extinst->modules)
 		}
 		PREREQ: foreach my $dep (keys %prereqs)
 		{
-			# Skip dependencies on core modules
-			my $depmod = CPAN::Shell->expand('Module', $dep);
-			# This is a bit of an indirect way to identify core modules
-			# but the only way I can figure out.  Core stuff gets
-			# installed with perl into /home/t/perl-version, CPAN
-			# modules into /home/t/lib/perl5/site_perl.
-			#
-			# What seems like it should be the "right" way is that the "D"
-			# (aka "Development Stage") field in dslip_status has "S" (aka
-			# "Standard, supplied with Perl 5") as one of its possible values,
-			# according to the docs (http://perldoc.perl.org/CPAN.html).
-			# However, that doesn't seem to be set reliably.
-			if ($depmod->inst_file && $depmod->inst_file =~ /$Config{prefix}/)
+			if ($dep eq 'perl')
 			{
-				print "Prereq $dep is a core module, skipping\n";
-				next PREREQ;
+				# We always add a dependency on perl anyway, so the
+				# module's dependency is only relevant if it specifies a
+				# newer version than is running.
+				if ($prereqs{$dep} ne '0')
+				{
+					if ($prereqs{$dep} > $])
+					{
+						die "Module requires perl >= $prereqs{$dep}, this is $]\n";
+					}
+				}
 			}
-			
-			my $deppkgname = module_to_pkg_name($depmod);
-			$deps{$deppkgname} = {};
-			if ($prereqs{$dep} ne '0')
+			else
 			{
-				$deps{$deppkgname}{minimum_version} = $prereqs{$dep};
+				# Skip dependencies on core modules
+				my $depmod = CPAN::Shell->expand('Module', $dep);
+				# This is a bit of an indirect way to identify core
+				# modules but the only way I can figure out.  Core stuff
+				# gets installed with perl into /home/t/perl-version,
+				# CPAN modules into /home/t/lib/perl5/site_perl.
+				#
+				# What seems like it should be the "right" way is that
+				# the "D" (aka "Development Stage") field in
+				# dslip_status has "S" (aka "Standard, supplied with
+				# Perl 5") as one of its possible values, according to
+				# the docs (http://perldoc.perl.org/CPAN.html).
+				# However, that doesn't seem to be set reliably.
+				if ($depmod->inst_file && $depmod->inst_file =~ /$Config{prefix}/)
+				{
+					print "Prereq $dep is a core module, skipping\n";
+					next PREREQ;
+				}
+				
+				my $deppkgname = module_to_pkg_name($depmod);
+				$deps{$deppkgname} = {};
+				if ($prereqs{$dep} ne '0')
+				{
+					$deps{$deppkgname}{minimum_version} = $prereqs{$dep};
+				}
 			}
 		}
 	}
