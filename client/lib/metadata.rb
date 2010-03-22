@@ -230,12 +230,12 @@ class Metadata
   end
 
   def self.get_pkgs_metadata_from_yml_doc(yml_doc, metadata=nil, source=nil)
-    metadata = {} if metadata.nil?
+    metadata ||= {} 
     metadata_lists = yml_doc.split("---")
     metadata_lists.each do | metadata_text |
       if metadata_text =~ /^:?name:(.+)/
         name = $1.strip
-        metadata[name] = [] if !metadata[name]
+        metadata[name] ||= []
         metadata[name] << Metadata.new(metadata_text,'yml', source)
       end
     end
