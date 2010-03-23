@@ -1,5 +1,7 @@
 #!/sbin/sh
 
+set -e
+
 PKG=mysql
 VER=5.1.33
 PKGVER=4
@@ -13,9 +15,9 @@ then
 fi
 ARCH=`tpkg --qenv | grep 'Architecture' | awk '{print $NF}'`
 
-rm -rf $PKG-$VER || exit 1
-tar zxvf $PKG-$VER.tar.gz || exit 1
-cd $PKG-$VER || exit 1
+rm -rf $PKG-$VER
+tar zxvf $PKG-$VER.tar.gz
+cd $PKG-$VER
 rpm --quiet -q ncurses-devel || sudo yum install ncurses-devel
 rpm --quiet -q openssl-devel || sudo yum install openssl-devel
 ./configure \
@@ -24,10 +26,9 @@ rpm --quiet -q openssl-devel || sudo yum install openssl-devel
 	--with-unix-socket-path=/home/t/var/mysql/mysql.sock \
 	--with-innodb \
 	--with-extra-charsets=complex \
-	--with-ssl=/usr \
-	|| exit 1
-make || exit 1
-pkgdir=`mktemp -d -t tpkg.XXXXXX` || exit 1
+	--with-ssl=/usr
+make
+pkgdir=`mktemp -d -t tpkg.XXXXXX`
 cat ../../tpkg.xml | \
 	sed "s/NAME/$PKG/" | \
 	sed "s/VERSION/$VER/" | \
@@ -40,14 +41,14 @@ cat ../../tpkg.xml | \
 <file><path>/home/t/etc/init.d/mysql</path><init/></file>' | \
 	sed '/<files>/a\
 <file><path>/home/t/var/run/mysqld</path><posix><owner>mysql</owner><group>mysql</group></posix></file>' > $pkgdir/tpkg.xml
-mkdir -p $pkgdir/root/home/t || exit 1
+mkdir -p $pkgdir/root/home/t
 # Add config file
-mkdir -p $pkgdir/root/home/t/etc || exit 1
-cp ../my.cnf $pkgdir/root/home/t/etc/my.cnf || exit 1
+mkdir -p $pkgdir/root/home/t/etc
+cp ../my.cnf $pkgdir/root/home/t/etc/my.cnf
 # Add init script
-mkdir -p $pkgdir/root/home/t/etc/init.d || exit 1
-cp ../$PKG.init $pkgdir/root/home/t/etc/init.d/$PKG || exit 1
-chmod 755 $pkgdir/root/home/t/etc/init.d/$PKG || exit 1
+mkdir -p $pkgdir/root/home/t/etc/init.d
+cp ../$PKG.init $pkgdir/root/home/t/etc/init.d/$PKG
+chmod 755 $pkgdir/root/home/t/etc/init.d/$PKG
 # Make directory for data and socket
 #mkdir -p $pkgdir/root/home/t/var/mysql
 #chown mysql:mysql $pkgdir/root/home/t/var/mysql
@@ -55,12 +56,12 @@ chmod 755 $pkgdir/root/home/t/etc/init.d/$PKG || exit 1
 mkdir -p $pkgdir/root/home/t/var/log
 mkdir -p $pkgdir/root/home/t/var/run/mysqld
 # Install
-make install prefix=$pkgdir/root/home/t || exit 1
+make install prefix=$pkgdir/root/home/t
 # Clean out stuff we don't want
 rm -rf $pkgdir/root/home/t/mysql-test
 rm -rf $pkgdir/root/home/t/sql-bench
 # Make package
-tpkg --make $pkgdir || exit 1
+tpkg --make $pkgdir
 # Cleanup
 rm -rf $pkgdir
 cd ..
