@@ -2387,6 +2387,14 @@ class Tpkg
     ret_val = 0
     metadata = Tpkg::metadata_from_package(package_file)
 
+    # set env variable to let pre/post install know  whether this unpack 
+    # is part of an install or upgrade
+    if options[:is_doing_upgrade]
+       ENV['TPKG_ACTION'] = "upgrade"
+    else
+       ENV['TPKG_ACTION'] = "install"
+    end
+
     # Unpack files in a temporary directory
     # I'd prefer to unpack on the fly so that the user doesn't need to
     # have disk space to hold three copies of the package (the package
@@ -3649,7 +3657,9 @@ class Tpkg
             end
           end if pkg[:metadata][:dependencies]
           if can_unpack
-            ret_val |= unpack(pkgfile, :passphrase => passphrase, :externals_to_skip => externals_to_skip)
+            is_doing_upgrade = true if removed_pkgs.include?(pkg[:metadata][:name])
+            ret_val |= unpack(pkgfile, :passphrase => passphrase, :externals_to_skip => externals_to_skip,
+                                       :is_doing_upgrade => is_doing_upgrade)
           end
 
           has_updates = true
