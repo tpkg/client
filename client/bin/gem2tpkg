@@ -164,7 +164,6 @@ end
 # Create the directory we want gem to install into
 @gemdir = tempdir('gem2tpkg')
 ENV['GEM_HOME'] = @gemdir
-ENV['GEM_PATH'] = @gemdir
 
 # Install the gem
 geminst = [@gemcmd, 'install', '--no-rdoc', '--no-ri'] | @gems
@@ -185,6 +184,10 @@ r = system(*geminst)
 if !r
   abort('gem install failed')
 end
+
+# Now set GEM_PATH so that further operations (particularly `gem list`)
+# only operate against the gems installed in our working directory.
+ENV['GEM_PATH'] = @gemdir
 
 @already_packaged = []
 def package(gem)
@@ -323,8 +326,6 @@ def package(gem)
         maxver = "#{majorver}.9999.9999"
         deps[depgem][:maximum_version] = maxver
       end
-      # Package the dependency
-      pkgfiles.concat(package(depgem))
     end
   end
   if !$?.success?
@@ -454,27 +455,15 @@ def package(gem)
   pkgfiles
 end
 
-# Count the number of gems installed
-gemcount = 0
+# Package each installed gem
+pkgfiles = []
 IO.popen("#{@gemcmd} list") do |pipe|
   pipe.each_line do |line|
     next if line.include?('***')  # Skip header line
     next if line =~ /^\s*$/       # Skip blank lines
-    gemcount += 1
+    gem, version = line.split
+    pkgfiles |= package(gem)
   end
-end
-if gemcount == 0
-  abort "Zero gems installed according to gem list?"
-end
-
-pkgfiles = []
-@gems.each do | gem |
-  pkgfiles |=  package(gem)
-end
-# Make sure the package method made as many packages as there were gems
-# installed
-if pkgfiles.length != gemcount
-  abort "gem count (#{gemcount}) vs pkg count (#{pkgfiles.length}) mismatch"
 end
 
 # Tell the user what packages were created
