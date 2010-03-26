@@ -75,6 +75,7 @@
 .RB [ --quiet ]
 .RB [ --no-sudo ]
 .RB [ --lock-force ]
+.RB [ --force-replace ]
 .RB [ --force ]
 .RB [ --use-ssh-key ]
 .RB [ --deploy-as
@@ -240,6 +241,9 @@ locks the package database when performing install/upgrade/removal operations.
 If tpkg is interrupted for some reason it might leave the lock file behind.
 It will automatically remove lock files that are more than two hours old, this
 option can be used to force immediate removal.
+.TP
+.B --force-replace
+Replace the conflicting package(s) with the new one(s).
 .TP
 .B --force
 Force the execution of a given task.

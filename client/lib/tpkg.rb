@@ -513,12 +513,10 @@ class Tpkg
     ['yml','xml'].each do |format|
       file = File.join('tpkg', "tpkg.#{format}")
 
-      extract_tpkg_tar_command = cmd_to_extract_tpkg_tar(package_file, topleveldir)
-
       # use popen3 instead of popen because popen display stderr when there's an error such as
       # tpkg.yml not being there, which is something we want to ignore since old tpkg doesn't 
       # have tpkg.yml file
-      #stdin, stdout, stderr = Open3.popen3("#{find_tar} -xf #{package_file} -O #{File.join(topleveldir, 'tpkg.tar')} | #{find_tar} -xf - -O #{file}") 
+      extract_tpkg_tar_command = cmd_to_extract_tpkg_tar(package_file, topleveldir)
       stdin, stdout, stderr = Open3.popen3("#{extract_tpkg_tar_command} | #{find_tar} -xf - -O #{file}") 
       filecontent = stdout.read
       if filecontent.nil? or filecontent.empty?
@@ -1125,7 +1123,7 @@ class Tpkg
     end
     return result
   end
-  
+
   #
   # Instance methods
   #
@@ -3190,22 +3188,62 @@ class Tpkg
     conflicts
   end
 
-  def check_for_conflicting_pkgs(pkgs_to_check)
-    # loop through packages that we're interested in, check for conflict listing,
-    # see if there are any conflicts among each other
-    pkgs_to_check.each do |pkg1|
-      # native package might not have conflicts defined so skip
+  # This method is called by install and upgrade method to make sure there is
+  # no conflicts between the existing pkgs and the pkgs we're about to install
+  def handle_conflicting_pkgs(installed_pkgs, pkgs_to_install, options ={})
+    conflicting_pkgs = []
+
+    # check if existing pkgs have conflicts with pkgs we're about to install
+    installed_pkgs.each do |pkg1|
       next if pkg1[:metadata][:conflicts].nil?
       pkg1[:metadata][:conflicts].each do | conflict |
-        pkgs_to_check.each do |pkg2|
+        pkgs_to_install.each do |pkg2|
           if Tpkg::package_meets_requirement?(pkg2, conflict)
-            raise "Package conflicts between #{pkg2.inspect} and #{pkg1.inspect}"
+            conflicting_pkgs << pkg1
           end
         end
       end
     end
+
+    # check if pkgs we're about to install conflict with existing pkgs
+    pkgs_to_install.each do |pkg1|
+      next if pkg1[:metadata][:conflicts].nil?
+      pkg1[:metadata][:conflicts].each do | conflict |
+        conflicting_pkgs |= installed_packages_that_meet_requirement(conflict)
+      end
+    end
+
+    # Check if there are conflicts among the pkgs we're about to install
+    # For these type of conflicts, we can't proceed, so raise exception.
+    pkgs_to_install.each do |pkg1|
+      # native package might not have conflicts defined so skip
+      next if pkg1[:metadata][:conflicts].nil?
+      pkg1[:metadata][:conflicts].each do | conflict |
+        pkgs_to_install.each do |pkg2|
+          if Tpkg::package_meets_requirement?(pkg2, conflict)
+            raise "Package conflicts between #{pkg2[:metadata][:filename]} and #{pkg1[:metadata][:filename]}"
+          end
+        end
+      end
+    end
+
+    # Report to the users if there are conflicts
+    unless conflicting_pkgs.empty?
+      puts "The package(s) you're trying to install conflict with the following package(s):"
+      conflicting_pkgs = conflicting_pkgs.collect{|pkg|pkg[:metadata][:filename]}
+      puts conflicting_pkgs.join("\n")
+      if options[:force_replace] 
+        puts "Attemping to replace the conflicting packages."
+        success = remove(conflicting_pkgs)
+        return success
+      else
+        puts "Try removing the conflicting package(s) first, or rerun tpkg with the --force-replace option." 
+        return false
+      end
+    end
+    return true
   end
-  
+
   def prompt_for_conflicting_files(package_file, mode=CHECK_INSTALL)
     if !@@prompt
       return true
@@ -3265,29 +3303,18 @@ class Tpkg
   end
 
   # See parse_requests for format of requests
-  def install(requests, passphrase=nil)
+  def install(requests, passphrase=nil, options={})
     ret_val = 0
     requirements = []
     packages = {}
     lock
-
     parse_requests(requests, requirements, packages)
     check_requests(packages)
+
     core_packages = []
-    #currently_installed_requirements = []
     requirements.each do |req|
       core_packages << req[:name] if !core_packages.include?(req[:name])
-
-    # This was here to ensure that nothing went backwards.  But I guess in the 
-    # install case (as opposed to upgrade) going backwards can't really happen, 
-    # we may just install an older version alongside a newer version, which is
-    # perfectly fine.
-    #  currently_installed_requirements.concat(
-    #    requirements_for_currently_installed_package(req[:name]))
     end
-    #requirements.concat(currently_installed_requirements).uniq!
-
-
     
     puts "install calling best_solution" if @@debug
     puts "install requirements: #{requirements.inspect}" if @@debug
@@ -3299,7 +3326,8 @@ class Tpkg
       raise "Unable to resolve dependencies"
     end
     
-    check_for_conflicting_pkgs(solution_packages | installed_packages)
+    success = handle_conflicting_pkgs(installed_packages, solution_packages, options)
+    return false if !success
 
     if !prompt_for_install(solution_packages, 'installed')
       unlock
@@ -3433,7 +3461,8 @@ class Tpkg
   end
 
   # This method can also be used for doing downgrade
-  def upgrade(requests=nil, passphrase=nil, downgrade=false)
+  def upgrade(requests=nil, passphrase=nil, options={})
+    downgrade = options[:downgrade] || false
     ret_val = 0
     requirements = []
     packages = {}
@@ -3515,7 +3544,8 @@ class Tpkg
       raise "Unable to find solution for upgrading. Please verify that you specified the correct package(s) for upgrade."
     end
 
-    check_for_conflicting_pkgs(solution_packages | installed_packages)
+    success = handle_conflicting_pkgs(installed_packages, solution_packages, options)
+    return false if !success
 
     if downgrade
       prompt_action = 'downgraded'
