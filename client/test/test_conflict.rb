@@ -33,6 +33,7 @@ class TpkgConflictTests < Test::Unit::TestCase
     # Should not be able to upgrade pgkC because new version
     # of pkgC conflicts with pkgD
     assert(!tpkg.upgrade(['pkgC'], PASSPHRASE))
+    assert(tpkg.upgrade(['pkgC'], PASSPHRASE, {:force_replace => true}))
 
     FileUtils.rm_rf(srcdir)
   end
