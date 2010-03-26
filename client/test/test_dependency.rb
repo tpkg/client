@@ -4,6 +4,11 @@
 
 require File.dirname(__FILE__) + '/tpkgtest'
 
+# Give ourself access to some Tpkg variables
+class Tpkg
+  attr_reader :available_packages_cache
+end
+
 class TpkgDependencyTests < Test::Unit::TestCase
   include TpkgTests
   
@@ -236,6 +241,15 @@ class TpkgDependencyTests < Test::Unit::TestCase
     end
     assert_equal(4, nonnativepkgs.length)
     
+    # Test that the caching logic stored the answer properly
+    assert_equal(pkgs, tpkg.available_packages_cache[nil])
+    # And test that it returns the cached value
+    fakepkgs = pkgs.dup.pop
+    tpkg.available_packages_cache[nil] = fakepkgs
+    assert_equal(fakepkgs, tpkg.available_packages_that_meet_requirement)
+    # Put things back to normal
+    tpkg.available_packages_cache[nil] = pkgs
+    
     req = { :name => 'testpkg' }
     
     req[:minimum_version] = '1.2'
@@ -267,6 +281,11 @@ class TpkgDependencyTests < Test::Unit::TestCase
     tpkg = Tpkg.new(:base => testbase, :sources => pkgfiles)
 
     req = { :name => 'testpkg' }
+    
+    # FIXME: These don't look like tests of
+    # available_packages_that_meet_requirement.  I'm too lazy to find where
+    # the wildcard support is implemented, but it isn't in
+    # available_packages_that_meet_requirement.
     
     # Should only match package of version 2 and NO package version
     req[:allowed_versions] = '2'
