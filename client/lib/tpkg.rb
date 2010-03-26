@@ -1124,6 +1124,16 @@ class Tpkg
     return result
   end
 
+  # Used where we wish to capture an exception and modify the message.  This
+  # method returns a new exception with desired message but with the backtrace
+  # from the original exception so that the backtrace info is not lost.  This
+  # is necessary because Exception lacks a set_message method.
+  def self.wrap_exception(e, message)
+    eprime = e.exception(message)
+    eprime.set_backtrace(e.backtrace)
+    eprime
+  end
+  
   #
   # Instance methods
   #
@@ -1216,6 +1226,7 @@ class Tpkg
     @lock_pid_file = File.join(@lock_directory, 'pid')
     @locks = 0
     @installed_metadata = {}
+    @available_packages_cache = {}
   end
   
   def source_to_local_directory(source)
@@ -1716,44 +1727,51 @@ class Tpkg
 
   # Returns an array of packages which meet the given requirement
   def available_packages_that_meet_requirement(req=nil)
-    pkgs = []
+    pkgs = nil
     puts "avail_pkgs_that_meet_req checking for #{req.inspect}" if @@debug
-    if req
-      if req[:type] == :native
-        load_available_native_packages(req[:name])
-        @available_native_packages[req[:name]].each do |pkg|
-          if Tpkg::package_meets_requirement?(pkg, req)
-            pkgs << pkg
+    if @available_packages_cache[req]
+      puts "avail_pkgs_that_meet_req returning cached result" if @@debug
+      pkgs = @available_packages_cache[req]
+    else
+      pkgs = []
+      if req
+        if req[:type] == :native
+          load_available_native_packages(req[:name])
+          @available_native_packages[req[:name]].each do |pkg|
+            if Tpkg::package_meets_requirement?(pkg, req)
+              pkgs << pkg
+            end
           end
+        else
+          load_available_packages(req[:name])
+          @available_packages[req[:name]].each do |pkg|
+            if Tpkg::package_meets_requirement?(pkg, req)
+              pkgs << pkg
+            end
+          end
+          # There's a weird dicotomy here where @available_packages contains
+          # available tpkg and native packages, and _installed_ native
+          # packages, but not installed tpkgs.  That's somewhat intentional,
+          # as we don't want to cache the installed state since that might
+          # change during a run.  We probably should be consistent, and not
+          # cache installed native packages either.  However, we do have
+          # some intelligent caching of the installed tpkg state which would
+          # be hard to replicate for native packages, and this method gets
+          # called a lot so re-running the native package query commands
+          # frequently would not be acceptable.  So maybe we have the right
+          # design, and this just serves as a note that it is not obvious.
+          pkgs.concat(installed_packages_that_meet_requirement(req))
         end
       else
-        load_available_packages(req[:name])
-        @available_packages[req[:name]].each do |pkg|
-          if Tpkg::package_meets_requirement?(pkg, req)
-            pkgs << pkg
-          end
-        end
-        # There's a weird dicotomy here where @available_packages contains
-        # available tpkg and native packages, and _installed_ native
-        # packages, but not installed tpkgs.  That's somewhat intentional,
-        # as we don't want to cache the installed state since that might
-        # change during a run.  We probably should be consistent, and not
-        # cache installed native packages either.  However, we do have
-        # some intelligent caching of the installed tpkg state which would
-        # be hard to replicate for native packages, and this method gets
-        # called a lot so re-running the native package query commands
-        # frequently would not be acceptable.  So maybe we have the right
-        # design, and this just serves as a note that it is not obvious.
-        pkgs.concat(installed_packages_that_meet_requirement(req))
+        # We return everything available if given a nil requirement
+        # We do not include native packages
+        load_available_packages
+        # @available_packages is a hash of pkgname => array of pkgs
+        # Thus m is a 2 element array of [pkgname, array of pkgs]
+        # And thus m[1] is the array of packages
+        pkgs = @available_packages.collect{|m| m[1]}.flatten
       end
-    else
-      # We return everything available if given a nil requirement
-      # We do not include native packages
-      load_available_packages
-      # @available_packages is a hash of pkgname => array of pkgs
-      # Thus m is a 2 element array of [pkgname, array of pkgs]
-      # And thus m[1] is the array of packages
-      pkgs = @available_packages.collect{|m| m[1]}.flatten
+      @available_packages_cache[req] = pkgs
     end
     pkgs
   end
@@ -2359,18 +2377,24 @@ class Tpkg
         IO.popen("#{externalpath} '#{pkgfile}' install", 'w') do |pipe|
           pipe.write(data)
         end
+        if !$?.success?
+          raise "Exit value #{$?.exitstatus}"
+        end
       rescue => e
         # Tell the user which external and package were involved, otherwise
         # failures in externals are very hard to debug
-        raise e.exception("External #{name} #{operation} for #{File.basename(pkgfile)}: " + e.message)
+        raise Tpkg.wrap_exception(e, "External #{name} #{operation} for #{File.basename(pkgfile)}: " + e.message)
       end
     when :remove
       begin
         IO.popen("#{externalpath} '#{pkgfile}' remove", 'w') do |pipe|
           pipe.write(data)
         end
+        if !$?.success?
+          raise "Exit value #{$?.exitstatus}"
+        end
       rescue => e
-        raise e.exception("External #{name} #{operation} for #{File.basename(pkgfile)}: " + e.message)
+        raise Tpkg.wrap_exception(e, "External #{name} #{operation} for #{File.basename(pkgfile)}: " + e.message)
       end
     else
       raise "Bug, unknown external operation #{operation}"
@@ -2907,35 +2931,41 @@ class Tpkg
     r
   end
   
-  def run_externals_for_install(metadata, workdir, externals_to_skip)
+  def run_externals_for_install(metadata, workdir, externals_to_skip=[])
     metadata[:externals].each do |external|
-      # If the external references a datafile or datascript then read/run it
-      # now that we've unpacked the package contents and have the file/script
-      # available.  This will get us the data for the external.
-      if external[:datafile] || external[:datascript]
-        pwd = Dir.pwd
-        # chdir into the working directory so that the user can specify a
-        # relative path to their file/script.
-        Dir.chdir(File.join(workdir, 'tpkg'))
-        if external[:datafile]
-          # Read the file
-          external[:data] = IO.read(external[:datafile])
-          # Drop the datafile key so that we don't waste time re-reading the
-          # datafile again in the future.
-          external.delete(:datafile)
-        elsif external[:datascript]
-          # Run the script
-          IO.popen(external[:datascript]) do |pipe|
-            external[:data] = pipe.read
-          end
-          # Drop the datascript key so that we don't waste time re-running the
-          # datascript again in the future.
-          external.delete(:datascript)
-        end
-        # Switch back to our previous directory
-        Dir.chdir(pwd)
-      end
       if !externals_to_skip || !externals_to_skip.include?(external)
+        # If the external references a datafile or datascript then read/run it
+        # now that we've unpacked the package contents and have the file/script
+        # available.  This will get us the data for the external.
+        if external[:datafile] || external[:datascript]
+          pwd = Dir.pwd
+          # chdir into the working directory so that the user can specify a
+          # relative path to their file/script.
+          Dir.chdir(File.join(workdir, 'tpkg'))
+          begin
+            if external[:datafile]
+              # Read the file
+              external[:data] = IO.read(external[:datafile])
+              # Drop the datafile key so that we don't waste time re-reading the
+              # datafile again in the future.
+              external.delete(:datafile)
+            elsif external[:datascript]
+              # Run the script
+              IO.popen(external[:datascript]) do |pipe|
+                external[:data] = pipe.read
+              end
+              if !$?.success?
+                raise "Datascript #{external[:datascript]} for package #{File.basename(metadata[:filename])} had exit value #{$?.exitstatus}"
+              end
+              # Drop the datascript key so that we don't waste time re-running the
+              # datascript again in the future.
+              external.delete(:datascript)
+            end
+          ensure
+            # Switch back to our previous directory
+            Dir.chdir(pwd)
+          end
+        end
         run_external(metadata[:filename], :install, external[:name], external[:data])
       end
     end if metadata[:externals]
