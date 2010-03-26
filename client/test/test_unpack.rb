@@ -762,9 +762,170 @@ class TpkgUnpackTests < Test::Unit::TestCase
   end
   
   def test_run_externals_for_install
+    testroot = Tempdir.new("testroot")
+    testbase = File.join(testroot, 'home', 'tpkg')
+    FileUtils.mkdir_p(testbase)
+    tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'))
+    
+    workdir = Tempdir.new('run_externals_for_install')
+    FileUtils.mkdir(File.join(workdir, 'tpkg'))
+    
+    pwd = Dir.pwd
+    
+    # No metadata[:externals], no problem
+    FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(workdir, 'tpkg', 'tpkg.xml'))
+    create_metadata_file(File.join(workdir, 'tpkg', 'tpkg.xml'), :change => { 'name' => 'run_externals_for_install'  })
+    metadata = Metadata.new(File.read(File.join(workdir, 'tpkg', 'tpkg.xml')), 'xml')
+    # value is nil
+    metadata[:externals] = nil
+    assert_nothing_raised { tpkg.run_externals_for_install(metadata, workdir) }
+    assert_equal(pwd, Dir.pwd)
+    # value is empty array
+    metadata[:externals] = []
+    assert_nothing_raised { tpkg.run_externals_for_install(metadata, workdir) }
+    assert_equal(pwd, Dir.pwd)
+    
+    # Make up a package metadata with a mix of externals with inline data, a
+    # datafile, and a datascript
+    output = {}
+    # Inline data
+    inlineextname = 'inlineextname'
+    inlinedata = "This is a test of an external hook\nwith multiple lines\nof data"
+    output[inlineextname] = {}
+    output[inlineextname][:data] = inlinedata
+    # datafile
+    fileextname = 'fileextname'
+    filedata = "This is a test of an external hook\nwith multiple lines\nof data from a datafile"
+    File.open(File.join(workdir, 'tpkg', 'datafile'), 'w') do |file|
+      file.print(filedata)
+    end
+    output[fileextname] = {}
+    output[fileextname][:data] = filedata
+    # datascript
+    scriptextname = 'scriptextname'
+    scriptdata = "This is a test of an external hook\nwith multiple lines\nof data from a datascript"
+    File.open(File.join(workdir, 'tpkg', 'datascript'), 'w') do |file|
+      file.puts('#!/bin/sh')
+      # echo may or may not add a trailing \n depending on which echo we end
+      # up, so use printf, which doesn't add things.
+      file.puts("printf \"#{scriptdata}\"")
+    end
+    File.chmod(0755, File.join(workdir, 'tpkg', 'datascript'))
+    output[scriptextname] = {}
+    output[scriptextname][:data] = scriptdata
+    
+    FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(workdir, 'tpkg', 'tpkg.xml'))
+    create_metadata_file(File.join(workdir, 'tpkg', 'tpkg.xml'),
+                         :change => { 'name' => 'run_externals_for_install'  },
+                         :externals => { inlineextname => { 'data' => inlinedata },
+                                         fileextname   => { 'datafile' => 'datafile' },
+                                         scriptextname => { 'datascript' => './datascript' } })
+    metadata = Metadata.new(File.read(File.join(workdir, 'tpkg', 'tpkg.xml')), 'xml')
+    metadata[:filename] = 'test_run_externals_for_install'
+    
+    # We need a copy of these later
+    original_externals = metadata[:externals].collect {|e| e.dup}
+    
+    # Make external scripts which write the data they receive to temporary
+    # files so that we can verify that run_externals_for_install called
+    # run_external with the proper parameters.
+    externalsdir = File.join(testbase, 'var', 'tpkg', 'externals')
+    FileUtils.mkdir_p(externalsdir)
+    [inlineextname, fileextname, scriptextname].each do |extname|
+      exttmpfile = Tempfile.new('tpkgtest_external')
+      extscript = File.join(externalsdir, extname)
+      File.open(extscript, 'w') do |file|
+        file.puts('#!/bin/sh')
+        file.puts("cat >> #{exttmpfile.path}")
+      end
+      File.chmod(0755, extscript)
+      output[extname][:file] = exttmpfile
+    end
+    
+    # Make sure the hash keys we expect are in metadata, so that when we check
+    # later that they are gone we know run_externals_for_install removed them.
+    fileext = metadata[:externals].find {|e| e[:name] == fileextname}
+    assert(fileext.has_key?(:datafile))
+    assert(!fileext.has_key?(:data))
+    scriptext = metadata[:externals].find {|e| e[:name] == scriptextname}
+    assert(scriptext.has_key?(:datascript))
+    assert(!scriptext.has_key?(:data))
+    
+    tpkg.run_externals_for_install(metadata, workdir)
+    
+    assert_equal(pwd, Dir.pwd)
+    output.each do |extname, extinfo|
+      assert_equal(extinfo[:data], File.read(extinfo[:file].path))
+    end
+    
+    # Make sure run_externals_for_install performed the expected switcheroo on
+    # these hash entries
+    fileext = metadata[:externals].find {|e| e[:name] == fileextname}
+    assert(!fileext.has_key?(:datafile))
+    assert(fileext.has_key?(:data))
+    fileext = metadata[:externals].find {|e| e[:name] == scriptextname}
+    assert(!scriptext.has_key?(:datascript))
+    assert(scriptext.has_key?(:data))
+    
+    # Cleanup for another run
+    output.each do |extname, extinfo|
+      File.delete(extinfo[:file].path)
+    end
+    
+    # externals_to_skip skipped
+    tpkg.run_externals_for_install(metadata, workdir, [scriptext])
+    assert_equal(pwd, Dir.pwd)
+    output.each do |extname, extinfo|
+      if extname != scriptextname
+        assert_equal(extinfo[:data], File.read(extinfo[:file].path))
+      else
+        assert(!File.exist?(extinfo[:file].path))
+      end
+    end
+    
+    # Error reading datafile raises exception
+    FileUtils.mv(File.join(workdir, 'tpkg', 'datafile'), File.join(workdir, 'datafile'))
+    # Previous runs of run_externals_for_install using metadata will have
+    # resulted in the data for the datafile and datascript externals being
+    # read in and cached.  Revert to a copy where that hasn't been done yet so
+    # this test is effective.
+    metadata[:externals] = original_externals
+    assert_raise(Errno::ENOENT) { tpkg.run_externals_for_install(metadata, workdir) }
+    assert_equal(pwd, Dir.pwd)
+    # Put datafile back
+    FileUtils.mv(File.join(workdir, 'datafile'), File.join(workdir, 'tpkg', 'datafile'))
+    
+    # Error running datascript raises exception
+    FileUtils.mv(File.join(workdir, 'tpkg', 'datascript'), File.join(workdir, 'datascript'))
+    # Same deal as last test, revert to unmodified copy
+    metadata[:externals] = original_externals
+    assert_raise(RuntimeError) { tpkg.run_externals_for_install(metadata, workdir) }
+    assert_equal(pwd, Dir.pwd)
+    # Put datascript back
+    FileUtils.mv(File.join(workdir, 'datascript'), File.join(workdir, 'tpkg', 'datascript'))
+    
+    # Check non-executable datascript permissions case too
+    File.chmod(0644, File.join(workdir, 'tpkg', 'datascript'))
+    metadata[:externals] = original_externals
+    assert_raise(RuntimeError) { tpkg.run_externals_for_install(metadata, workdir) }
+    assert_equal(pwd, Dir.pwd)
+    # Restore permissions
+    File.chmod(0755, File.join(workdir, 'tpkg', 'datascript'))
+    
+    # Datascript that exits with error raises exception
+    File.open(File.join(workdir, 'tpkg', 'datascript'), 'w') do |file|
+      file.puts('#!/bin/sh')
+      file.puts("exit 1")
+    end
+    File.chmod(0755, File.join(workdir, 'tpkg', 'datascript'))
+    # Same deal as last test, revert to unmodified copy
+    metadata[:externals] = original_externals
+    assert_raise(RuntimeError) { tpkg.run_externals_for_install(metadata, workdir) }
+    assert_equal(pwd, Dir.pwd)
   end
   
   def test_save_package_metadata
+    # FIXME
   end
   
   def teardown
