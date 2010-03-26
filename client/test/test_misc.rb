@@ -172,33 +172,33 @@ class TpkgMiscTests < Test::Unit::TestCase
     data = {:actual_file => File.join(srcdir, 'reloc', 'myfile')}
     predicted_perms, predicted_uid, predicted_gid = Tpkg::predict_file_perms_and_ownership(data)
     tpkg.install(pkg1)
-    assert(File.stat(File.join(testbase, 'home', 'tpkg', 'myfile')).mode & predicted_perms.to_i == predicted_perms.to_i)
+    assert_equal(predicted_perms.to_i, File.stat(File.join(testbase, 'home', 'tpkg', 'myfile')).mode & predicted_perms.to_i)
     # Can't test these because unit test are not run as sudo. The default file ownership wont be correct
-    # assert(File.stat(File.join(testbase, 'home', 'tpkg', 'myfile')).uid  == predicted_uid)
-    # assert(File.stat(File.join(testbase, 'home', 'tpkg', 'myfile')).gid  == predicted_gid)
+    # assert(File.stat(File.join(testbase, 'home', 'tpkg', 'myfile')).uid, predicted_uid)
+    # assert(File.stat(File.join(testbase, 'home', 'tpkg', 'myfile')).gid, predicted_gid)
     tpkg.remove('pkg1')
 
     # if metadata has file_defaults settings and nothing else, then use that
-    pkg2 = make_package(:output_directory => @tempoutdir, :source_directory => srcdir, :change => { 'name' => 'pkg2' }, :file_defaults => { 'perms' => '0654', 'owner' => Etc.getlogin, 'group' => Etc.getlogin}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    pkg2 = make_package(:output_directory => @tempoutdir, :source_directory => srcdir, :change => { 'name' => 'pkg2' }, :file_defaults => { 'perms' => '0654', 'owner' => Etc.getlogin, 'group' => Etc.getpwnam(Etc.getlogin).gid}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
     metadata = Tpkg::metadata_from_package(pkg2)
     data = {:actual_file => File.join(srcdir, 'reloc', 'myfile'), :metadata => metadata}
     predicted_perms, predicted_uid, predicted_gid = Tpkg::predict_file_perms_and_ownership(data)
     tpkg.install(pkg2)
-    assert(File.stat(File.join(testbase, 'home', 'tpkg', 'myfile')).mode & predicted_perms.to_i == predicted_perms.to_i)
-    assert(File.stat(File.join(testbase, 'home', 'tpkg', 'myfile')).uid  == predicted_uid)
-    assert(File.stat(File.join(testbase, 'home', 'tpkg', 'myfile')).gid  == predicted_gid)
+    assert_equal(File.stat(File.join(testbase, 'home', 'tpkg', 'myfile')).mode & predicted_perms.to_i, predicted_perms.to_i)
+    assert_equal(File.stat(File.join(testbase, 'home', 'tpkg', 'myfile')).uid, predicted_uid)
+    assert_equal(File.stat(File.join(testbase, 'home', 'tpkg', 'myfile')).gid, predicted_gid)
     tpkg.remove('pkg2')
 
     # if metadata has the file perms & ownership explicitly defined, then that override everything
-    pkg3 = make_package(:output_directory => @tempoutdir, :source_directory => srcdir, :change => { 'name' => 'pkg3' }, :file_defaults => { 'perms' => '0654', 'owner' => Etc.getlogin, 'group' => Etc.getlogin}, :files => { 'myfile' => {'perms' => '0733'}}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    pkg3 = make_package(:output_directory => @tempoutdir, :source_directory => srcdir, :change => { 'name' => 'pkg3' }, :file_defaults => { 'perms' => '0654', 'owner' => Etc.getlogin, 'group' => Etc.getpwnam(Etc.getlogin).gid}, :files => { 'myfile' => {'perms' => '0733'}}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
     metadata = Tpkg::metadata_from_package(pkg3)
     file_metadata = {:posix => { :perms => 0733}}
     data = {:actual_file => File.join(srcdir, 'reloc', 'myfile'), :metadata => metadata, :file_metadata => file_metadata}
     predicted_perms, predicted_uid, predicted_gid = Tpkg::predict_file_perms_and_ownership(data)
     tpkg.install(pkg3)
-    assert(File.stat(File.join(testbase, 'home', 'tpkg', 'myfile')).mode & predicted_perms.to_i == predicted_perms.to_i)
-    assert(File.stat(File.join(testbase, 'home', 'tpkg', 'myfile')).uid  == predicted_uid)
-    assert(File.stat(File.join(testbase, 'home', 'tpkg', 'myfile')).gid  == predicted_gid)
+    assert_equal(File.stat(File.join(testbase, 'home', 'tpkg', 'myfile')).mode & predicted_perms.to_i, predicted_perms.to_i)
+    assert_equal(File.stat(File.join(testbase, 'home', 'tpkg', 'myfile')).uid, predicted_uid)
+    assert_equal(File.stat(File.join(testbase, 'home', 'tpkg', 'myfile')).gid, predicted_gid)
     tpkg.remove('pkg3')
   end
 
@@ -241,7 +241,7 @@ class TpkgMiscTests < Test::Unit::TestCase
     File.open(extscript, 'w') do |file|
       file.puts('#!/bin/sh')
       # Package filename
-      file.puts("echo $1 >> #{exttmpfile.path}")
+      file.puts("echo $1 > #{exttmpfile.path}")
       # Operation (install/remove)
       file.puts("echo $2 >> #{exttmpfile.path}")
       # TPKG_HOME environment variable
@@ -250,11 +250,49 @@ class TpkgMiscTests < Test::Unit::TestCase
       file.puts("cat >> #{exttmpfile.path}")
     end
     File.chmod(0755, extscript)
-    # And run the test
     tpkg = Tpkg.new(:file_system_root => testroot, :base => relative_base)
+    
+    # Test install
     assert_nothing_raised { tpkg.run_external('pkgfile', :install, extname, extdata) }
     assert_equal("pkgfile\ninstall\n#{testbase}\n#{extdata}", IO.read(exttmpfile.path))
+    # Test remove
+    assert_nothing_raised { tpkg.run_external('pkgfile', :remove, extname, extdata) }
+    assert_equal("pkgfile\nremove\n#{testbase}\n#{extdata}", IO.read(exttmpfile.path))
+    
+    # A non-existent external raises an exception
+    File.delete(extscript)
+    assert_raise(RuntimeError) { tpkg.run_external('pkgfile', :install, extname, extdata) }
+    # A non-executable external raises an exception
+    File.open(extscript, 'w') do |file|
+      file.puts('#!/bin/sh')
+      file.puts("exit 0")
+    end
+    File.chmod(0644, extscript)
+    assert_raise(RuntimeError) { tpkg.run_external('pkgfile', :install, extname, extdata) }
+    # An external that exits non-zero should raise an exception
+    File.open(extscript, 'w') do |file|
+      file.puts('#!/bin/sh')
+      file.puts("exit 1")
+    end
+    File.chmod(0755, extscript)
+    assert_raise(RuntimeError) { tpkg.run_external('pkgfile', :install, extname, extdata) }
+    # An invalid operation should raise an exception
+    assert_raise(RuntimeError) { tpkg.run_external('pkgfile', :bogus, extname, extdata) }
+    # An invalid external name should raise an exception
+    assert_raise(RuntimeError) { tpkg.run_external('pkgfile', :install, 'bogus', extdata) }
     FileUtils.rm_rf(testroot)
+  end
+  
+  def test_wrap_exception
+    original_message = 'original message'
+    original_backtrace = ['a', 'b']
+    e = StandardError.new(original_message)
+    e.set_backtrace(original_backtrace)
+    new_message = 'new message'
+    eprime = Tpkg.wrap_exception(e, new_message)
+    assert_equal(StandardError, eprime.class)
+    assert_equal(new_message, eprime.message)
+    assert_equal(original_backtrace, eprime.backtrace)
   end
   
   def teardown
