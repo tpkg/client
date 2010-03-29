@@ -104,7 +104,6 @@ class TpkgFileMetadataTests < Test::Unit::TestCase
     # remove file_metadata
     pkgname = File.basename(@pkgfile, File.extname(@pkgfile))
     FileUtils.rm(File.join(testroot, 'home','tpkg', 'var', 'tpkg', 'installed', 'metadata', pkgname, 'file_metadata.bin'))
-#    FileUtils.rm(File.join(testroot, 'home','tpkg', 'var', 'tpkg', 'installed', 'metadata', pkgname, 'file_metadata.xml'))
 
     # verify nothing bad when user try to run -V
     assert_nothing_raised { @errors = tpkg.verify_file_metadata("testpkg")}

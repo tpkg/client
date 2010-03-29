@@ -6,6 +6,11 @@
 
 require File.dirname(__FILE__) + '/tpkgtest'
 
+# Give ourself access to some Tpkg variables
+class Tpkg
+  attr_reader :metadata_directory
+end
+
 class TpkgUnpackTests < Test::Unit::TestCase
   include TpkgTests
   
@@ -923,9 +928,46 @@ class TpkgUnpackTests < Test::Unit::TestCase
     assert_raise(RuntimeError) { tpkg.run_externals_for_install(metadata, workdir) }
     assert_equal(pwd, Dir.pwd)
   end
-  
+
+  # This method only tests that we can save pkg metadata and pkg file metadata. The rest of the
+  # unit tests for file metadata are in test_filemetadata.rb
   def test_save_package_metadata
-    # FIXME
+    testbase = Tempdir.new("testbase")
+    package_file = '/tmp/save_pkg_metadata-1.0-1.tpkg'
+    tpkg = Tpkg.new(:file_system_root => testbase, :base => File.join('home', 'tpkg'))
+
+    # generate metadata
+    srcdir = Tempdir.new("srcdir")
+    FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+    create_metadata_file(File.join(srcdir, 'tpkg.xml'), :change => { 'name' => 'save_pkg_metadata'  })
+    metadata = Metadata.new(File.read(File.join(srcdir, 'tpkg.xml')), 'xml')
+
+    # set up work_dir
+    workdir = Tempdir.new("workdir")
+    FileUtils.cp_r(File.join(TESTPKGDIR, 'reloc'), workdir)
+   
+    # FIXME: add in some test data for these hashes 
+    # generate files_info
+    files_info = {}
+    # generate checksums_of_decrypted_files
+    checksums_of_decrypted_files = {}
+
+    FileUtils.mkdir_p(File.join(workdir, 'tpkg'))
+    File.open(File.join(File.join(workdir, 'tpkg', 'file_metadata.bin')), 'w') do |f|
+      filemetadata = Tpkg::get_filemetadata_from_directory(workdir)
+      data = filemetadata.to_hash.recursively{|h| h.stringify_keys }
+      Marshal::dump(data, f)
+    end
+
+    tpkg.save_package_metadata(package_file, workdir, metadata, files_info, checksums_of_decrypted_files)
+
+    # verify metadata and file_metadata are actually there
+    assert(File.exists?(File.join(tpkg.metadata_directory, 'save_pkg_metadata-1.0-1', 'tpkg.yml')))
+    assert(File.exists?(File.join(tpkg.metadata_directory, 'save_pkg_metadata-1.0-1', 'file_metadata.bin')))
+
+    # clean up
+    FileUtils.rm_f(workdir)
+    FileUtils.rm_f(srcdir)
   end
   
   def teardown

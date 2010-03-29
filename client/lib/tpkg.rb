@@ -1735,6 +1735,9 @@ class Tpkg
     else
       pkgs = []
       if req
+        req = req.clone # we're using req as the key for our cache, so it's important 
+                        # that we clone it here. Otherwise, req can be changed later on from 
+                        # the calling method and modify our cache inadvertently
         if req[:type] == :native
           load_available_native_packages(req[:name])
           @available_native_packages[req[:name]].each do |pkg|
@@ -2581,7 +2584,7 @@ class Tpkg
           end
           
           digest = Digest::SHA256.hexdigest(File.read(working_path))
-          # get checksum for the decrypted file. Will be used for creating file_metadata.xml
+          # get checksum for the decrypted file. Will be used for creating file_metadata
           checksums_of_decrypted_files[File.expand_path(tpkg_path)] = digest 
         end
       end
@@ -2980,7 +2983,7 @@ class Tpkg
     metadata.write(metadata_file)
     metadata_file.close
     
-    # Save file_metadata.yml for this pkg
+    # Save file_metadata for this pkg
     if File.exist?(File.join(workdir, 'tpkg', 'file_metadata.bin'))
       file_metadata = FileMetadata.new(File.read(File.join(workdir, 'tpkg', 'file_metadata.bin')), 'bin')
     elsif File.exist?(File.join(workdir, 'tpkg', 'file_metadata.yml'))
@@ -2991,8 +2994,11 @@ class Tpkg
     if file_metadata
       file_metadata[:package_file] = File.basename(package_file)
       file_metadata[:files].each do |file|
+        # update file_metadata with user/group ownership and permission 
         acl = files_info[file[:path]] 
         file.merge!(acl) unless acl.nil?
+
+        # update file_metadata with the checksums of decrypted files
         digest = checksums_of_decrypted_files[File.expand_path(file[:path])]
         if digest
           digests = file[:checksum][:digests]
