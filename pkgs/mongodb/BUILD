@@ -6,8 +6,15 @@ set -e
 PKG=mongodb
 VER=1.2.0
 PKGVER=2
-OSMAJOR=`facter | grep lsbmajdistrelease | cut -d' ' -f3`
-ARCH=`facter hardwaremodel`
+OS=`tpkg --qenv | grep 'Operating System' | awk '{print $NF}'`
+if echo $OS | egrep 'RedHat|CentOS'
+then
+        # Save folks from having to build separate packages for Red Hat and
+        # CentOS
+        OSMAJOR=`echo $OS | cut -d- -f2`
+        OS="RedHat-$OSMAJOR,CentOS-$OSMAJOR"
+fi
+ARCH=`tpkg --qenv | grep 'Architecture' | awk '{print $NF}'`
 
 tpkg -q scons || tpkg -i scons
 rpm --quiet -q boost-devel || sudo yum install boost-devel
@@ -30,7 +37,7 @@ cat ../../tpkg.xml | \
 	sed "s/NAME/$PKG/" | \
 	sed "s/VERSION/$VER/" | \
 	sed "s/PKGVER/$PKGVER/" | \
-	sed "s/OS/RedHat-$OSMAJOR,CentOS-$OSMAJOR/" | \
+	sed "s/OS/$OS/" | \
 	sed "s/ARCH/$ARCH/" | \
 	sed '/<files>/a\
 <file><path>/home/t/etc/init.d/mongodb</path><init/></file>' | \
