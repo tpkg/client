@@ -5,7 +5,7 @@ set -e
 
 PKG=mongodb
 VER=1.2.0
-PKGVER=1
+PKGVER=2
 OSMAJOR=`facter | grep lsbmajdistrelease | cut -d' ' -f3`
 ARCH=`facter hardwaremodel`
 
