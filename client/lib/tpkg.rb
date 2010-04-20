@@ -978,7 +978,7 @@ class Tpkg
   # deploy_params is an array that holds the list of paramters that is used when invoking tpkg on to the remote
   # servers where we want to deploy to. 
   # 
-  # servers is an array or a callback that list the remote servers where we want to deploy to
+  # servers is an array, a filename or a callback that list the remote servers where we want to deploy to
   def self.deploy(deploy_params, deploy_options, servers)
     servers.uniq!
     deployer = Deployer.new(deploy_options)

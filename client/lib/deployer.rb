@@ -156,7 +156,7 @@ class Deployer
   # deploy_params is an array that holds the list of paramters that is used when invoking tpkg on to the remote
   # servers where we want to deploy to. 
   # 
-  # servers is an array or a callback that list the remote servers where we want to deploy to
+  # servers is an array, a filename or a callback that list the remote servers where we want to deploy to
   def deploy(deploy_params, servers)
     params = deploy_params.join(" ")  
     cmd = "tpkg #{params} -n"
@@ -175,6 +175,13 @@ class Deployer
     deploy_to = []
     if servers.kind_of?(Proc)
       deploy_to = servers.call
+    elsif servers.size == 1 && File.exists?(servers[0])
+      File.open(servers[0], 'r') do |f|
+        while line = f.gets
+          deploy_to << line.chomp.split(",")
+        end
+      end
+      deploy_to.flatten!
     else
       deploy_to = servers
     end
