@@ -328,9 +328,9 @@ class TpkgDependencyTests < Test::Unit::TestCase
     # Now run a test to verify that we prefer already installed packages
     testbase = Tempdir.new("testbase")
     #  First install an older version of a
-    older_apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '.9' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    older_apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '0.9' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
     tpkg = Tpkg.new(:base => testbase, :sources => [older_apkg] + @pkgfiles)
-    tpkg.install(['a=.9'], PASSPHRASE)
+    tpkg.install(['a=0.9'], PASSPHRASE)
     # Now request 'a' and verify that we get back the currently installed
     # 'a' pkg rather than the newer one that is available from our test
     # packages
@@ -342,16 +342,16 @@ class TpkgDependencyTests < Test::Unit::TestCase
     assert_equal(1, solution_packages.length)
     assert_equal(:currently_installed, solution_packages.first[:source])
     assert_equal('a', solution_packages.first[:metadata][:name])
-    assert_equal('.9', solution_packages.first[:metadata][:version])
+    assert_equal('0.9', solution_packages.first[:metadata][:version])
     FileUtils.rm_f(older_apkg)
     FileUtils.rm_rf(testbase)
 
     # Test that we don't prefer installed packages if :prefer is false
     testbase = Tempdir.new("testbase")
     #  First install an older version of d
-    older_dpkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'd', 'version' => '.9' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    older_dpkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'd', 'version' => '0.9' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
     tpkg = Tpkg.new(:base => testbase, :sources => [older_dpkg] + @pkgfiles)
-    tpkg.install(['d=.9'], PASSPHRASE)
+    tpkg.install(['d=0.9'], PASSPHRASE)
     # Now request an update of 'd' and verify that we get back the newer
     # available 'd' pkg rather than the currently installed package.
     requirements = []
@@ -376,9 +376,9 @@ class TpkgDependencyTests < Test::Unit::TestCase
     # the scoring process.
     testbase = Tempdir.new("testbase")
     #  First install an older version of a
-    older_apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '.9' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    older_apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '0.9' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
     tpkg = Tpkg.new(:base => testbase, :sources => [older_apkg] + @pkgfiles)
-    tpkg.install(['a=.9'], PASSPHRASE)
+    tpkg.install(['a=0.9'], PASSPHRASE)
     # Now request an update of 'a' and verify that we get back the newer
     # available 'a' pkg rather than the currently installed package.
     requirements = []
