@@ -363,6 +363,14 @@ class Metadata
       # TODO: use DTD to validate XML
       errors = verify_required_fields
     end
+
+    # Verify version and package version begin with a digit
+    if to_hash[:version].to_s !~ /^\d/
+      errors << "Version must begins with a digit"
+    end
+    if to_hash[:package_version] && to_hash[:package_version].to_s !~ /^\d/
+      errors << "Package version must begins with a digit"
+    end
     errors
   end
 
