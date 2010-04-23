@@ -75,6 +75,7 @@
 .RB [ --quiet ]
 .RB [ --no-sudo ]
 .RB [ --lock-force ]
+.RB [ --force-replace ]
 .RB [ --force ]
 .RB [ --use-ssh-key ]
 .RB [ --deploy-as
@@ -97,7 +98,8 @@ Switches
 .B tpkg
 to deployment mode rather than local mode.  Specifies the server(s) to
 operate against in deployment mode.  Servers are specified as a
-comma-separated list.
+comma-separated list. Alternatively, this option takes in a file name
+that contains the list of servers (newline as the delimiter)
 .B Tpkg
 will connect to each server via ssh and perform the requested operation.
 SSH and sudo password prompts will be handled.
@@ -241,6 +243,9 @@ If tpkg is interrupted for some reason it might leave the lock file behind.
 It will automatically remove lock files that are more than two hours old, this
 option can be used to force immediate removal.
 .TP
+.B --force-replace
+Replace the conflicting package(s) with the new one(s).
+.TP
 .B --force
 Force the execution of a given task.
 .TP
@@ -249,6 +254,10 @@ Eliminate the prompt for an SSH password when deploying.
 .TP
 .BI --deploy-as " USERNAME"
 The user to use with SSH when deploying.  Defaults to the current user.
+.TP
+.BI --compress "=[TYPE]"
+What compression to use when making packages. Defaults to gzip. bz2 is the
+other supported compression.
 .TP
 .B --debug
 Print lots of messages about what

@@ -28,13 +28,20 @@ require 'tpkg'
 @servers = nil
 @worker_count = 10
 @rerun_with_sudo = false
-@tpkg_options = {}
-@init_options = {}           
+@tpkg_options = {}	# options for instantiating Tpkg object
+@init_options = {}      # options for how to run init scripts
+@other_options = {}     
+@compress = nil
+
 
 def rerun_with_sudo_if_necessary
   if Process.euid != 0 && @sudo
     warn "Executing with sudo"
-    exec('sudo', $0, *ARGV)
+    if ENV['TPKG_HOME']
+      exec('sudo', 'env', "TPKG_HOME=#{ENV['TPKG_HOME']}", $0, *ARGV)
+    else
+      exec('sudo', $0, *ARGV)
+    end
   end
 end
 
@@ -64,8 +71,9 @@ opts.on('--upgrade', '-u', '=PACKAGES', 'Upgrade one or more packages', Array) d
   @action_value = opt
 end
 opts.on('--downgrade', '=PACKAGES', 'Downgrade one or more packages', Array) do |opt|
+  @other_options[:downgrade] = true
   @rerun_with_sudo = true
-  @action = :downgrade
+  @action = :upgrade
   @action_value = opt
 end
 opts.on('--ua', 'Upgrade all packages') do |opt|
@@ -79,12 +87,14 @@ opts.on('--remove', '-r', '=PACKAGES', 'Remove one or more packages', Array) do 
 end
 opts.on('--rd', '=PACKAGES', 'Similar to -r but also remove depending packages', Array) do |opt|
   @rerun_with_sudo = true
-  @action = :remove_all_dep
+  @other_options[:remove_all_dep] = true
+  @action = :remove
   @action_value = opt
 end
 opts.on('--rp', '=PACKAGES', 'Similar to -r but also remove prerequisites', Array) do |opt|
   @rerun_with_sudo = true
-  @action = :remove_all_prereq
+  @other_options[:remove_all_prereq] = true
+  @action = :remove
   @action_value = opt
 end
 opts.on('--ra', 'Remove all packages') do |opt|
@@ -223,7 +233,10 @@ end
 opts.on('--lock-force', 'Force the removal of an existing lockfile') do |opt|
   @lockforce = opt
 end
-opts.on('--force', 'Force the execution of a given task.') do |opt|
+opts.on('--force-replace', 'Replace conflicting pkgs with the new one(s)') do |opt|
+  @other_options[:force_replace] = opt
+end
+opts.on('--force', 'Force the execution of a given task') do |opt|
   @force = opt
 end
 opts.on('--use-ssh-key', 'Use ssh key for deploying instead of password') do |opt|
@@ -233,6 +246,9 @@ end
 opts.on('--deploy-as', '=USERNAME', 'What username to use for deploying to remote server') do |opt|
   @deploy_options["deploy-as"] = opt
   @deploy_params = @deploy_params - ['--deploy-as']
+end
+opts.on('--compress', '=[TYPE]', 'Compress files when making packages') do |opt|
+  @compress = opt
 end
 opts.on('--debug', 'Print lots of messages about what tpkg is doing') do |opt|
   @debug = opt
@@ -271,7 +287,7 @@ def instantiate_tpkg(options = {})
   sources = options["sources"] || []
   report_server = nil
   
-  [File.join(Tpkg::CONFIGDIR, 'tpkg.conf'), "#{ENV['HOME']}/.tpkg.conf"].each do |configfile|
+  [File.join(Tpkg::CONFIGDIR, 'tpkg.conf'), File.join(ENV['HOME'], ".tpkg.conf")].each do |configfile|
     if File.exist?(configfile)
       IO.foreach(configfile) do |line|
         line.chomp!
@@ -329,10 +345,14 @@ if @deploy
   exit
 end
 
+if @action_value.is_a?(Array)
+  @action_value.uniq!
+end
+
 ret_val = 0
 case @action
 when :make
-  pkgfile = Tpkg::make_package(@action_value, passphrase_callback, {:force => @force})
+  pkgfile = Tpkg::make_package(@action_value, passphrase_callback, {:force => @force, :compress => @compress})
   if pkgfile
     puts "Package is #{pkgfile}"
   else
@@ -342,23 +362,13 @@ when :extract
   Tpkg::extract_metadata(@action_value)
 when :install
   tpkg = instantiate_tpkg(@tpkg_options)
-  ret_val = tpkg.install(@action_value, passphrase_callback)
+  ret_val = tpkg.install(@action_value, passphrase_callback, @other_options)
 when :upgrade
   tpkg = instantiate_tpkg(@tpkg_options)
-  ret_val = tpkg.upgrade(@action_value, passphrase_callback)
-when :downgrade
-  downgrade = true
-  tpkg = instantiate_tpkg(@tpkg_options)
-  ret_val = tpkg.upgrade(@action_value, passphrase_callback, downgrade)
+  ret_val = tpkg.upgrade(@action_value, passphrase_callback, @other_options)
 when :remove
   tpkg = instantiate_tpkg(@tpkg_options)
-  ret_val = tpkg.remove(@action_value)
-when :remove_all_dep
-  tpkg = instantiate_tpkg(@tpkg_options)
-  ret_val = tpkg.remove(@action_value, {:remove_all_dep => true})
-when :remove_all_prereq
-  tpkg = instantiate_tpkg(@tpkg_options)
-  ret_val = tpkg.remove(@action_value, {:remove_all_prereq => true})
+  ret_val = tpkg.remove(@action_value, @other_options)
 when :verify
   result = nil
   # Verify a given .tpkg file
