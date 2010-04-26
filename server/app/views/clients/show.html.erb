@@ -16,7 +16,7 @@
   <tbody>
 
   <%- @installed_packages.each do |tpkg_home, packages| -%>
-    <tr bgcolor='lightblue'><td colspan='5'>Installed under: <%= tpkg_home -%></td></tr>
+    <tr bgcolor='lightblue'><td colspan='5'>TPKG_HOME: <%= tpkg_home -%></td></tr>
     <%- packages.each do |package| -%>
     <tr class="<%= cycle('odd', 'even') -%>">
       <td nowrap="nowrap" width="5%">
