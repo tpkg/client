@@ -3784,7 +3784,7 @@ class Tpkg
     if options[:remove_all_dep]
       packages_to_remove |= get_dependents(packages_to_remove)
     elsif options[:remove_all_prereq]
-      puts "Attemping to remove #{packages_to_remove.map do |pkg| pkg[:metadata][:filename] end} and all prerequisites."
+      puts "Attempting to remove #{packages_to_remove.map do |pkg| pkg[:metadata][:filename] end} and all prerequisites."
       # Get list of dependency prerequisites
       ptr = packages_to_remove | get_prerequisites(packages_to_remove)
       pkg_files_to_remove = ptr.map { |pkg| pkg[:metadata][:filename] }
@@ -4113,10 +4113,14 @@ class Tpkg
         packages_to_execute_on.concat(installed_packages_that_meet_requirement(req))
       end
     end
-    
-    packages_to_execute_on.each do |pkg|
-      ret_val |= execute_init_for_package(pkg, action, requested_init_scripts)
-    end 
+
+    if packages_to_execute_on.empty?
+      warn "Warning: Unable to find package(s) \"#{requested_packages.join(",")}\"."
+    else 
+      packages_to_execute_on.each do |pkg|
+        ret_val |= execute_init_for_package(pkg, action, requested_init_scripts)
+      end 
+    end
     return ret_val
   end
  
