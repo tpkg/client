@@ -493,7 +493,7 @@ when :query_who_owns_file
   tpkg = instantiate_tpkg(@tpkg_options)
   tpkg.files_for_installed_packages.each do |pkgfile, fip|
     fip[:normalized].each do |file|
-      if file == @action_value
+      if file == File.expand_path(@action_value)
         puts "#{file}: #{pkgfile}"
       end
     end
