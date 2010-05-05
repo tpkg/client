@@ -1,7 +1,7 @@
 #!/usr/bin/ruby -w
 
 # Ensure we can find tpkg.rb
-$:.unshift File.dirname(__FILE__)
+$:.unshift File.join(File.dirname(__FILE__), "..", "lib")
 
 require 'fileutils' # FileUtils.cp, rm, etc.
 require 'tempfile'  # Tempfile
@@ -321,10 +321,16 @@ def package(gem)
         end
       when '~>'
         # ~> 2.2 is equivalent to >= 2.2 and < 3
+        # ~> 2.2.0 is equivalent to >= 2.2.0 and < 2.3.0
         deps[depgem][:minimum_version] = depver
-        majorver = depver.split('.').first.to_i
-        maxver = "#{majorver}.9999.9999"
-        deps[depgem][:maximum_version] = maxver
+        # '2.2.0' -> ['2', '2', '0']
+        depverparts = depver.split('.')
+        # ['2', '2', '0'] -> ['2', '2']
+        depverparts.pop
+        # ['2', '2'] -> ['2', '2', '9999']
+        depverparts << '9999'
+        # ['2', '2', '9999'] -> '2.2.9999'
+        deps[depgem][:maximum_version] = depverparts.join('.')
       end
     end
   end
