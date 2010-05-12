@@ -122,6 +122,6 @@ files_to_upload.each do | file |
   end
 
   puts "Uploading #{file} to #{URI.parse(tpkg_upload_url).host}"
-  out=`curl -b #{cookie_file} -F upload[upload]=@#{file} #{tpkg_upload_url} #{proxy}`
+  out=`curl -b #{cookie_file} -F upload[upload]=@'#{file}' #{tpkg_upload_url} #{proxy}`
   puts out
 end
