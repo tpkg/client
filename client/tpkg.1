@@ -77,6 +77,8 @@
 .RB [ --lock-force ]
 .RB [ --force-replace ]
 .RB [ --force ]
+.RB [ --out | \-o
+.IR DIR ]
 .RB [ --use-ssh-key ]
 .RB [ --deploy-as
 .IR USERNAME ]
@@ -248,6 +250,9 @@ Replace the conflicting package(s) with the new one(s).
 .TP
 .B --force
 Force the execution of a given task.
+.TP 
+.BR --out | \-o
+Output directory for the -m option
 .TP
 .B --use-ssh-key
 Eliminate the prompt for an SSH password when deploying.

@@ -225,6 +225,17 @@ class Tpkg
   # Makes a package from a directory containing the files to put into the package
   def self.make_package(pkgsrcdir, passphrase=nil, options = {})
     pkgfile = nil
+
+    # validate the output directory if the user has specified one
+    outdir = options[:out]
+    if outdir
+      outdir = File.expand_path(outdir)
+      if !File.directory?(outdir)
+        raise "#{outdir} is not a valid directory"
+      elsif !File.writable?(outdir)
+        raise "#{outdir} is not writable"
+      end
+    end
     
     # Make a working directory
     workdir = nil
@@ -341,7 +352,13 @@ class Tpkg
       package_filename = metadata.generate_package_filename
       package_directory = File.join(workdir, package_filename)
       Dir.mkdir(package_directory)
-      pkgfile = File.join(File.dirname(pkgsrcdir), package_filename + '.tpkg')
+      
+      if outdir 
+        pkgfile = File.join(outdir, package_filename + '.tpkg')
+      else
+        pkgfile = File.join(File.dirname(pkgsrcdir), package_filename + '.tpkg')
+      end
+
       if File.exist?(pkgfile) || File.symlink?(pkgfile)
         if @@prompt
           print "Package file #{pkgfile} already exists, overwrite? [y/N]"
@@ -383,7 +400,7 @@ class Tpkg
       # Remove our working directory
       FileUtils.rm_rf(workdir)
     end
-    
+   
     # Return the filename of the package
     pkgfile
   end

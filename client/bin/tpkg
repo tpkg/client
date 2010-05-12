@@ -239,6 +239,9 @@ end
 opts.on('--force', 'Force the execution of a given task') do |opt|
   @force = opt
 end
+opts.on('-o', '--out', '=DIR', 'Output directory for the -m option') do |opt|
+  @other_options[:out] = opt
+end
 opts.on('--use-ssh-key', 'Use ssh key for deploying instead of password') do |opt|
   @deploy_options["use-ssh-key"] = opt
   @deploy_params = @deploy_params - ['--use-ssh-key']
@@ -357,7 +360,9 @@ end
 ret_val = 0
 case @action
 when :make
-  pkgfile = Tpkg::make_package(@action_value, passphrase_callback, {:force => @force, :compress => @compress})
+  @other_options[:force] = @force
+  @other_options[:compress] = @compress
+  pkgfile = Tpkg::make_package(@action_value, passphrase_callback, @other_options)
   if pkgfile
     puts "Package is #{pkgfile}"
   else
