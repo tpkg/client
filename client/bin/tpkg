@@ -242,8 +242,9 @@ end
 opts.on('-o', '--out', '=DIR', 'Output directory for the -m option') do |opt|
   @other_options[:out] = opt
 end
-opts.on('--use-ssh-key', 'Use ssh key for deploying instead of password') do |opt|
-  @deploy_options["use-ssh-key"] = opt
+opts.on('--use-ssh-key [FILE]', 'Use ssh key for deploying instead of password') do |opt|
+  @deploy_options["use-ssh-key"] = true
+  @deploy_options["ssh-key"] = opt
   @deploy_params = @deploy_params - ['--use-ssh-key']
 end
 opts.on('--deploy-as', '=USERNAME', 'What username to use for deploying to remote server') do |opt|
@@ -344,6 +345,18 @@ if @deploy
 #  puts "Creating deployer with #{@worker_count} number of worker"
   @deploy_options["max-worker"] = @worker_count
   @deploy_options["abort-on-fail"] = false
+
+  # check to see if ssh-key is accessible
+  ssh_key =  @deploy_options["use-ssh-key"]
+  if ssh_key && ssh_key.is_a?(String) 
+    if !File.readable?(ssh_key) && Process.euid == 0
+      raise "Unable to read ssh key from #{ssh_key}"
+    elsif !File.readable?(ssh_key)
+      warn "Warning: Unable to read ssh key from #{ssh_key}. Attempting to rerun tpkg with sudo."
+      rerun_with_sudo_if_necessary
+    end
+  end
+
   Tpkg::deploy(@deploy_params, @deploy_options,  @servers) 
   exit
 end

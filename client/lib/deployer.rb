@@ -34,6 +34,7 @@ class Deployer
       @max_worker = options["max-worker"]
       @abort_on_failure = options["abort-on-failure"]
       @use_ssh_key = options["use-ssh-key"]
+      @ssh_key = options["ssh-key"]
     end
   end
 
@@ -79,13 +80,17 @@ class Deployer
   end
 
   # Return a block that can be used for executing a cmd on the remote server
-  def ssh_execute(server, username, password, cmd)
+  def ssh_execute(server, username, password, key, cmd)
     return lambda { 
       exit_status = 0
       result = []
 
+      params = {}
+      params[:password] = password if password
+      params[:keys] = [key] if key
+      
       begin
-        Net::SSH.start(server, username, :password => password) do |ssh|
+        Net::SSH.start(server, username, params) do |ssh|
           puts "Connecting to #{server}"
           ch = ssh.open_channel do |channel|
             # now we request a "pty" (i.e. interactive) session so we can send data
@@ -176,6 +181,7 @@ class Deployer
     if servers.kind_of?(Proc)
       deploy_to = servers.call
     elsif servers.size == 1 && File.exists?(servers[0])
+      puts "Reading server list from file #{servers[0]}"
       File.open(servers[0], 'r') do |f|
         while line = f.gets
           deploy_to << line.chomp.split(",")
@@ -188,7 +194,7 @@ class Deployer
 
     deploy_to.each do | server |
       tp.process do
-        status = ssh_execute(server, @user, @password, cmd).call
+        status = ssh_execute(server, @user, @password, @ssh_key, cmd).call
         statuses[server] = status
       end
     end
