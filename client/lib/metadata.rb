@@ -230,12 +230,12 @@ class Metadata
   end
 
   def self.get_pkgs_metadata_from_yml_doc(yml_doc, metadata=nil, source=nil)
-    metadata = {} if metadata.nil?
+    metadata ||= {} 
     metadata_lists = yml_doc.split("---")
     metadata_lists.each do | metadata_text |
       if metadata_text =~ /^:?name:(.+)/
         name = $1.strip
-        metadata[name] = [] if !metadata[name]
+        metadata[name] ||= []
         metadata[name] << Metadata.new(metadata_text,'yml', source)
       end
     end
@@ -362,6 +362,14 @@ class Metadata
     elsif @format == 'xml'
       # TODO: use DTD to validate XML
       errors = verify_required_fields
+    end
+
+    # Verify version and package version begin with a digit
+    if to_hash[:version].to_s !~ /^\d/
+      errors << "Version must begins with a digit"
+    end
+    if to_hash[:package_version] && to_hash[:package_version].to_s !~ /^\d/
+      errors << "Package version must begins with a digit"
     end
     errors
   end

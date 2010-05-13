@@ -9,4 +9,5 @@
   <td><%= h(index_row.maintainer) %></td>
   <td><%= h(index_row.os) %></td>
   <td><%= h(index_row.arch) %></td>
+  <td><%= link_to "#{h(index_row.client_packages.size)} client(s)",{:action=>"show", :id => index_row.id} %></td>
 </tr>

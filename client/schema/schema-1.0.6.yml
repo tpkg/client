@@ -19,6 +19,7 @@ mapping:
           "maximum_version": { type: text }
           "minimum_package_version": { type: text }
           "maximum_package_version": { type: text }
+          "allowed_versions": { type: text }
           "native": { type: bool }
           "type": { type: any, pattern: /(native|tpkg)$/ }
   "conflicts":
@@ -41,6 +42,7 @@ mapping:
           "name": { type: text, required: yes }
           "data": { type: text }
           "datascript": { type: text }
+          "datafile": { type: text }
   "files":
     type: map
     mapping:
@@ -82,3 +84,4 @@ mapping:
                 mapping: { "owner": { type: text },
                            "group": { type: text },
                            "perms": { type: text } }
+

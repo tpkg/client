@@ -27,11 +27,13 @@ class TpkgConflictTests < Test::Unit::TestCase
     tpkg = Tpkg.new(:file_system_root => @testroot, :base => File.join('home', 'tpkg'), :sources => @pkgfiles)
     assert_raise(RuntimeError) { tpkg.install(['pkgA', 'pkgB'], PASSPHRASE) }
     assert_nothing_raised { tpkg.install(['pkgA'], PASSPHRASE)}
-    assert_raise(RuntimeError) { tpkg.install(['pkgB'], PASSPHRASE) }
+    assert(!tpkg.install(['pkgB'], PASSPHRASE))
+    assert(tpkg.install(['pkgB'], PASSPHRASE, {:force_replace => true}))
     assert_nothing_raised { tpkg.install(['pkgC=1.0', 'pkgD'], PASSPHRASE)}
     # Should not be able to upgrade pgkC because new version
     # of pkgC conflicts with pkgD
-    assert_raise(RuntimeError) { tpkg.upgrade(['pkgC'], PASSPHRASE) }
+    assert(!tpkg.upgrade(['pkgC'], PASSPHRASE))
+    assert(tpkg.upgrade(['pkgC'], PASSPHRASE, {:force_replace => true}))
 
     FileUtils.rm_rf(srcdir)
   end
