@@ -1399,9 +1399,10 @@ class Tpkg
       if Tpkg::get_os =~ /RedHat|CentOS|Fedora/
         [ {:arg => 'installed', :header => 'Installed', :source => :native_installed},
           {:arg => 'available', :header => 'Available', :source => :native_available} ].each do |yum|
-          puts "available_native_packages running 'yum list #{yum[:arg]} #{pkgname}'" if @@debug
+          cmd = "yum info #{yum[:arg]} #{pkgname}"
+          puts "available_native_packages running '#{cmd}'" if @@debug
           stderr_first_line = nil
-          Open3.popen3("yum info --showduplicate #{yum[:arg]} #{pkgname}") do |stdin, stdout, stderr|
+          Open3.popen3(cmd) do |stdin, stdout, stderr|
             stdin.close
             read_packages = false
             name = version = package_version = nil
