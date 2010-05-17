@@ -4,6 +4,11 @@
 
 require File.dirname(__FILE__) + '/tpkgtest'
 
+# Give ourself access to some Tpkg variables
+class Tpkg
+  attr_reader :available_packages_cache
+end
+
 class TpkgDependencyTests < Test::Unit::TestCase
   include TpkgTests
   
@@ -236,6 +241,15 @@ class TpkgDependencyTests < Test::Unit::TestCase
     end
     assert_equal(4, nonnativepkgs.length)
     
+    # Test that the caching logic stored the answer properly
+    assert_equal(pkgs, tpkg.available_packages_cache[nil])
+    # And test that it returns the cached value
+    fakepkgs = pkgs.dup.pop
+    tpkg.available_packages_cache[nil] = fakepkgs
+    assert_equal(fakepkgs, tpkg.available_packages_that_meet_requirement)
+    # Put things back to normal
+    tpkg.available_packages_cache[nil] = pkgs
+    
     req = { :name => 'testpkg' }
     
     req[:minimum_version] = '1.2'
@@ -267,6 +281,11 @@ class TpkgDependencyTests < Test::Unit::TestCase
     tpkg = Tpkg.new(:base => testbase, :sources => pkgfiles)
 
     req = { :name => 'testpkg' }
+    
+    # FIXME: These don't look like tests of
+    # available_packages_that_meet_requirement.  I'm too lazy to find where
+    # the wildcard support is implemented, but it isn't in
+    # available_packages_that_meet_requirement.
     
     # Should only match package of version 2 and NO package version
     req[:allowed_versions] = '2'
@@ -309,9 +328,9 @@ class TpkgDependencyTests < Test::Unit::TestCase
     # Now run a test to verify that we prefer already installed packages
     testbase = Tempdir.new("testbase")
     #  First install an older version of a
-    older_apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '.9' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    older_apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '0.9' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
     tpkg = Tpkg.new(:base => testbase, :sources => [older_apkg] + @pkgfiles)
-    tpkg.install(['a=.9'], PASSPHRASE)
+    tpkg.install(['a=0.9'], PASSPHRASE)
     # Now request 'a' and verify that we get back the currently installed
     # 'a' pkg rather than the newer one that is available from our test
     # packages
@@ -323,16 +342,16 @@ class TpkgDependencyTests < Test::Unit::TestCase
     assert_equal(1, solution_packages.length)
     assert_equal(:currently_installed, solution_packages.first[:source])
     assert_equal('a', solution_packages.first[:metadata][:name])
-    assert_equal('.9', solution_packages.first[:metadata][:version])
+    assert_equal('0.9', solution_packages.first[:metadata][:version])
     FileUtils.rm_f(older_apkg)
     FileUtils.rm_rf(testbase)
 
     # Test that we don't prefer installed packages if :prefer is false
     testbase = Tempdir.new("testbase")
     #  First install an older version of d
-    older_dpkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'd', 'version' => '.9' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    older_dpkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'd', 'version' => '0.9' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
     tpkg = Tpkg.new(:base => testbase, :sources => [older_dpkg] + @pkgfiles)
-    tpkg.install(['d=.9'], PASSPHRASE)
+    tpkg.install(['d=0.9'], PASSPHRASE)
     # Now request an update of 'd' and verify that we get back the newer
     # available 'd' pkg rather than the currently installed package.
     requirements = []
@@ -357,9 +376,9 @@ class TpkgDependencyTests < Test::Unit::TestCase
     # the scoring process.
     testbase = Tempdir.new("testbase")
     #  First install an older version of a
-    older_apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '.9' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    older_apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '0.9' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
     tpkg = Tpkg.new(:base => testbase, :sources => [older_apkg] + @pkgfiles)
-    tpkg.install(['a=.9'], PASSPHRASE)
+    tpkg.install(['a=0.9'], PASSPHRASE)
     # Now request an update of 'a' and verify that we get back the newer
     # available 'a' pkg rather than the currently installed package.
     requirements = []
@@ -403,6 +422,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
     # Test with no valid solution, ensure it fails
     testbase = Tempdir.new("testbase")
     tpkg = Tpkg.new(:base => testbase, :sources => @pkgfiles)
+    solution_packages = nil
     assert_nothing_raised { solution_packages = tpkg.best_solution([{:name => 'a', :type => :tpkg}, {:name => 'c', :minimum_version => '1.3', :type => :tpkg}], {}, ['a', 'c']) }
     assert_nil(solution_packages)
     FileUtils.rm_rf(testbase)
@@ -416,9 +436,29 @@ class TpkgDependencyTests < Test::Unit::TestCase
     baddep2 = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'baddep', 'version' => '2' }, :dependencies => {'bogus' => {}}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
     baddep3 = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'baddep', 'version' => '2' }, :dependencies => {'bogus' => {}}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
     tpkg = Tpkg.new(:base => testbase, :sources => [baddep1, baddep2, baddep3])
+    solution_packages = nil
     assert_nothing_raised { solution_packages = tpkg.best_solution([{:name => 'baddep', :type => :tpkg}], {}, ['baddep']) }
     assert_equal(1, solution_packages.length)
     assert(solution_packages.first[:source] == baddep1)
+    FileUtils.rm_rf(testbase)
+    
+    # This test recreates another set of circumstances that triggered a bug. 
+    # The format of the packages argument to resolve_dependencies changed and
+    # the attempts to dup it in order to avoid messing up the state of callers
+    # of resolve_dependencies were no longer effective.  Thus the state of
+    # callers of resolve_dependencies was messed up and it would fail to find
+    # valid solutions.
+    testbase = Tempdir.new("testbase")
+    baddep1 = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'baddep', 'version' => '1' }, :dependencies => {'notbogus' => {}}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    baddep2 = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'baddep', 'version' => '2' }, :dependencies => {'notbogus' => {}, 'bogus' => {}}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    notbogus = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'notbogus', 'version' => '1' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    bogus = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'bogus', 'version' => '1', 'operatingsystem' => 'bogusos' }, :remove => ['architecture', 'posix_acl', 'windows_acl'])
+    tpkg = Tpkg.new(:base => testbase, :sources => [baddep1, baddep2, notbogus, bogus])
+    solution_packages = nil
+    assert_nothing_raised { solution_packages = tpkg.best_solution([{:name => 'baddep', :type => :tpkg}], {}, ['baddep']) }
+    assert_equal(2, solution_packages.length)
+    assert(solution_packages.any? {|sp| sp[:source] == baddep1})
+    assert(solution_packages.any? {|sp| sp[:source] == notbogus})
     FileUtils.rm_rf(testbase)
   end
   

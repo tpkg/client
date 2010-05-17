@@ -9,7 +9,7 @@
 #
 # It's strongly recommended to check this file into your version control system.
 
-ActiveRecord::Schema.define(:version => 20091223232426) do
+ActiveRecord::Schema.define(:version => 20100306004526) do
 
   create_table "client_package_histories", :force => true do |t|
     t.integer  "client_id",  :null => false
@@ -17,11 +17,14 @@ ActiveRecord::Schema.define(:version => 20091223232426) do
     t.string   "action",     :null => false
     t.datetime "created_at"
     t.datetime "updated_at"
+    t.string   "user"
+    t.string   "comment"
   end
 
   create_table "client_packages", :force => true do |t|
     t.integer "client_id",  :null => false
     t.integer "package_id", :null => false
+    t.string  "tpkg_home"
   end
 
   create_table "clients", :force => true do |t|

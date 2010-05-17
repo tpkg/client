@@ -41,6 +41,7 @@ mapping:
           "name": { type: text, required: yes }
           "data": { type: text }
           "datascript": { type: text }
+          "datafile": { type: text }
   "files":
     type: map
     mapping:
@@ -82,3 +83,4 @@ mapping:
                 mapping: { "owner": { type: text },
                            "group": { type: text },
                            "perms": { type: text } }
+
