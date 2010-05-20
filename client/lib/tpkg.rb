@@ -2404,6 +2404,7 @@ class Tpkg
       rescue => e
         # Tell the user which external and package were involved, otherwise
         # failures in externals are very hard to debug
+        # FIXME: should we clean up the external request files?
         raise Tpkg.wrap_exception(e, "External #{name} #{operation} for #{File.basename(pkgfile)}: " + e.message)
       end
     when :remove
