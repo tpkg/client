@@ -125,7 +125,7 @@ class Tpkg
     # will do. However, on older gnu tar, it only threw an error at the end. The work 
     # around is to explicitly tell gnu tar to ignore those extensions.
     if @@tarinfo[:type] == 'gnu' && @@tarinfo[:version] != 'unknown' && @@tarinfo[:version] >= '1.15.1'
-      @@taroptions = "--pax-option='delete=SCHILY.*'"
+      @@taroptions = "--pax-option='delete=SCHILY.*,delete=LIBARCHIVE.*''"
     end
     @@tar.dup
   end
