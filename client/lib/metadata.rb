@@ -488,7 +488,7 @@ class Metadata
       external = {}
       external[:name] = extxml.elements['name'].text
       if extxml.elements['data']
-        external[:data] = extxml.elements['data'].text
+        external[:data] = extxml.elements['data'].children.to_s
       elsif extxml.elements['datafile']
         # We don't have access to the package contents here, so we just save
         # the name of the file and leave it up to others to read the file
