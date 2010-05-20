@@ -230,12 +230,12 @@ class Metadata
   end
 
   def self.get_pkgs_metadata_from_yml_doc(yml_doc, metadata=nil, source=nil)
-    metadata = {} if metadata.nil?
+    metadata ||= {} 
     metadata_lists = yml_doc.split("---")
     metadata_lists.each do | metadata_text |
       if metadata_text =~ /^:?name:(.+)/
         name = $1.strip
-        metadata[name] = [] if !metadata[name]
+        metadata[name] ||= []
         metadata[name] << Metadata.new(metadata_text,'yml', source)
       end
     end
@@ -363,6 +363,14 @@ class Metadata
       # TODO: use DTD to validate XML
       errors = verify_required_fields
     end
+
+    # Verify version and package version begin with a digit
+    if to_hash[:version].to_s !~ /^\d/
+      errors << "Version must begins with a digit"
+    end
+    if to_hash[:package_version] && to_hash[:package_version].to_s !~ /^\d/
+      errors << "Package version must begins with a digit"
+    end
     errors
   end
 
@@ -480,7 +488,7 @@ class Metadata
       external = {}
       external[:name] = extxml.elements['name'].text
       if extxml.elements['data']
-        external[:data] = extxml.elements['data'].text
+        external[:data] = extxml.elements['data'].children.to_s
       elsif extxml.elements['datafile']
         # We don't have access to the package contents here, so we just save
         # the name of the file and leave it up to others to read the file

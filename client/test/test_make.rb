@@ -359,6 +359,28 @@ class TpkgMakeTests < Test::Unit::TestCase
     FileUtils.rm_f(pkgfile)
     assert_match(/testpkg-1.0-1-solaris-architecture.tpkg/, pkgfile)
   end
+
+  def test_make_output_dir
+    testname = "Trying to output to a non-existing directory"
+    assert_raise(RuntimeError, testname) { Tpkg.make_package(@pkgdir, PASSPHRASE, :out => 'bogus/direc/tory') }
+
+    outdir = Tempfile.new('testfile')
+    testname = "Trying to output to something that is not a directory"
+    assert_raise(RuntimeError, testname) { Tpkg.make_package(@pkgdir, PASSPHRASE, :out => outdir.path) }
+
+    testname = "Trying to output to a directory that is not writable"
+    outdir = Tempdir.new("outdir")
+    FileUtils.chmod 0555, outdir
+    assert_raise(RuntimeError, testname) { Tpkg.make_package(@pkgdir, PASSPHRASE, :out => outdir) }
+    FileUtils.rm_rf(outdir)
+
+    # Trying to output to a good directory
+    outdir = Tempdir.new("outdir")
+    pkgfile = Tpkg.make_package(@pkgdir, PASSPHRASE, :out => outdir)
+    assert(File.exists?(pkgfile))
+
+    FileUtils.rm_rf(outdir)
+  end
   
   def teardown
     FileUtils.rm_rf(@pkgdir)

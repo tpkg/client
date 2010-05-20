@@ -11,6 +11,7 @@ require 'webrick'
 class Tpkg
   attr_reader :metadata
   attr_reader :available_packages
+  attr_reader :available_native_packages
 end
 
 class TpkgMetadataTests < Test::Unit::TestCase
@@ -94,14 +95,14 @@ class TpkgMetadataTests < Test::Unit::TestCase
   
   def test_extract_metadata
     assert_nothing_raised('extract_metadata') { Tpkg::extract_metadata(@pkgdir) }
-    # TODO: remove this once we don't generate metadata.xml anymore
-    assert(File.file?(File.join(@pkgdir, 'metadata.xml')), 'extract_metadata metadata file')
-    assert_equal(0644, File.stat(File.join(@pkgdir, 'metadata.xml')).mode & 07777, 'extract_metadata metadata file permissions')
-    metadata_xml = nil
-    assert_nothing_raised('extract_metadata metadata load') { metadata_xml = REXML::Document.new(File.open(File.join(@pkgdir, 'metadata.xml'))) }
-    assert_equal(1, metadata_xml.elements.to_a('/tpkg_metadata/tpkg/name').size, 'extract_metadata name count')
-    assert_equal('testpkg', metadata_xml.elements['/tpkg_metadata/tpkg/name'].text, 'extract_metadata name')
-    assert_equal(File.basename(@pkgfile), metadata_xml.elements['/tpkg_metadata/tpkg'].attributes['filename'], 'extract_metadata filename attribute')
+    # we don't generate metadata.xml anymore
+#    assert(File.file?(File.join(@pkgdir, 'metadata.xml')), 'extract_metadata metadata file')
+#    assert_equal(0644, File.stat(File.join(@pkgdir, 'metadata.xml')).mode & 07777, 'extract_metadata metadata file permissions')
+#    metadata_xml = nil
+#    assert_nothing_raised('extract_metadata metadata load') { metadata_xml = REXML::Document.new(File.open(File.join(@pkgdir, 'metadata.xml'))) }
+#    assert_equal(1, metadata_xml.elements.to_a('/tpkg_metadata/tpkg/name').size, 'extract_metadata name count')
+#    assert_equal('testpkg', metadata_xml.elements['/tpkg_metadata/tpkg/name'].text, 'extract_metadata name')
+#    assert_equal(File.basename(@pkgfile), metadata_xml.elements['/tpkg_metadata/tpkg'].attributes['filename'], 'extract_metadata filename attribute')
 
     # YAML stuff
     assert(File.file?(File.join(@pkgdir, 'metadata.yml')), 'extract_metadata metadata file')
@@ -148,7 +149,8 @@ class TpkgMetadataTests < Test::Unit::TestCase
     # Test when the package directory isn't at the root of the web
     # server hierarchy
     Dir.mkdir(File.join(@pkgdir, 'testdir'))
-    FileUtils.mv(File.join(@pkgdir, 'metadata.xml'), File.join(@pkgdir, 'testdir', 'metadata.xml'))
+    # We don't generate metadata.xml anymore
+#    FileUtils.mv(File.join(@pkgdir, 'metadata.xml'), File.join(@pkgdir, 'testdir', 'metadata.xml'))
     FileUtils.mv(File.join(@pkgdir, 'metadata.yml'), File.join(@pkgdir, 'testdir', 'metadata.yml'))
     # With a trailing / on the URL
     testbase = Tempdir.new("testbase")
@@ -259,7 +261,38 @@ class TpkgMetadataTests < Test::Unit::TestCase
   end
   
   def test_load_available_native_packages
-    # FIXME
+    # FIXME: I've added some basic dpkg testing but we still need Red
+    # Hat, Solaris, Mac OS X and FreeBSD.  And the dpkg stuff could
+    # probably use some expansion.
+    if Tpkg.get_os =~ /Debian|Ubuntu/
+      testbase = Tempdir.new("testbase")
+      tpkg = Tpkg.new(:base => testbase)
+      system('sudo apt-get install curl')
+      tpkg.load_available_native_packages('curl')
+      curl_installed = tpkg.available_native_packages['curl'].select{|pkg| pkg[:source] == :native_installed}
+      curl_available = tpkg.available_native_packages['curl'].select{|pkg| pkg[:source] == :native_available}
+      assert_equal(1, curl_installed.length)
+      FileUtils.rm_rf(testbase)
+      
+      testbase = Tempdir.new("testbase")
+      tpkg = Tpkg.new(:base => testbase)
+      system('sudo dpkg -r curl')
+      tpkg.load_available_native_packages('curl')
+      curl_installed = tpkg.available_native_packages['curl'].select{|pkg| pkg[:source] == :native_installed}
+      curl_available = tpkg.available_native_packages['curl'].select{|pkg| pkg[:source] == :native_available}
+      assert_equal(0, curl_installed.length)
+      assert(curl_available.length >= 1)
+      FileUtils.rm_rf(testbase)
+      
+      # Make sure we leave the user with curl installed in case they had
+      # it installed before we started.  (We probably should be fancier
+      # and check beforehand if curl was installed and leave things in
+      # the same state.  Or get even fancier and make our own package to
+      # install so we don't mess with a real package, which might have
+      # dependencies on it that prevent us from messing with it.  Or at
+      # least use something less common than curl.)
+      system('sudo apt-get install curl')
+    end
   end
 
   def test_init_links

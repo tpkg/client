@@ -47,16 +47,16 @@ class TpkgDowngradeTests < Test::Unit::TestCase
   def test_downgrade
 
     # should be able to downgrade to a-1
-    assert_nothing_raised {@tpkg.upgrade(['a=1'], PASSPHRASE, true)}
+    assert_nothing_raised {@tpkg.upgrade(['a=1'], PASSPHRASE, {:downgrade => true})}
 
     # should be able to downgrade to b-1, 
-    assert_nothing_raised {@tpkg.upgrade(['b=1'], PASSPHRASE, true)}
+    assert_nothing_raised {@tpkg.upgrade(['b=1'], PASSPHRASE, {:downgrade => true})}
 
     # should not be able to downgrade to d-1 since it depends on non-existing pkg
-    assert_raise(RuntimeError) {@tpkg.upgrade(['d=1'], PASSPHRASE, true)}
+    assert_raise(RuntimeError) {@tpkg.upgrade(['d=1'], PASSPHRASE, {:downgrade => true})}
 
     # should not be able to downgrade to e-1 since f-1 depends on e-2
-    assert_raise(RuntimeError) {@tpkg.upgrade(['e=1'], PASSPHRASE, true)}
+    assert_raise(RuntimeError) {@tpkg.upgrade(['e=1'], PASSPHRASE, {:downgrade => true})}
 
     #  There should be 6 packages installed
     metadata = @tpkg.metadata_for_installed_packages
