@@ -143,6 +143,7 @@ class Tpkg
   SALT_LEN = 8
   @@passphrase = nil
   def self.encrypt(pkgname, filename, passphrase, cipher='aes-256-cbc')
+puts "ciphter is #{cipher.inspect}"
     # passphrase can be a callback Proc, call it if that's the case
     pass = nil
     if @@passphrase
@@ -338,13 +339,17 @@ class Tpkg
 
         # Encrypt any files marked for encryption
         if tpkgfile[:encrypt]
-          if tpkgfile[:encrypt] == 'precrypt'
+          if tpkgfile[:encrypt] == 'precrypt' or (tpkgfile[:encrypt].is_a?(Hash) && tpkgfile[:encrypt][:precrypt])
             verify_precrypt_file(working_path)
           else
             if passphrase.nil?
               raise "Package requires encryption but supplied passphrase is nil"
             end
-            encrypt(metadata[:name], working_path, passphrase)
+            if tpkgfile[:encrypt].is_a?(Hash) && tpkgfile[:encrypt]['algorithm']
+              encrypt(metadata[:name], working_path, passphrase, tpkgfile[:encrypt]['algorithm'])
+            else
+              encrypt(metadata[:name], working_path, passphrase)
+            end
           end
         end
       end unless metadata[:files].nil? or metadata[:files][:files].nil?
@@ -1150,7 +1155,7 @@ class Tpkg
     eprime.set_backtrace(e.backtrace)
     eprime
   end
-  
+
   #
   # Instance methods
   #
@@ -2590,7 +2595,11 @@ class Tpkg
         else
           (1..3).each do | i |
             begin
-              Tpkg::decrypt(metadata[:name], working_path, options[:passphrase])
+              if tpkgfile[:encrypt].is_a?(Hash) && tpkgfile[:encrypt][:algorithm]
+                Tpkg::decrypt(metadata[:name], working_path, options[:passphrase], tpkgfile[:encrypt][:algorithm])
+              else
+                Tpkg::decrypt(metadata[:name], working_path, options[:passphrase])
+              end
               break 
             rescue OpenSSL::CipherError
               @@passphrase = nil

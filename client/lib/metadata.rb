@@ -559,10 +559,13 @@ class Metadata
       file = {}
       file[:path] = filexml.elements['path'].text
       if filexml.elements['encrypt']
-        encrypt = true
+        encrypt = {}
         if filexml.elements['encrypt'].attribute('precrypt') &&
            filexml.elements['encrypt'].attribute('precrypt').value == 'true'
-          encrypt = "precrypt"
+          encrypt['precrypt'] = true
+        end
+        if filexml.elements['encrypt'].attribute('algorithm') &&
+          encrypt['algorithm'] = filexml.elements['encrypt'].attribute('algorithm').value
         end
         file[:encrypt] = encrypt
       end
