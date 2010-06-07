@@ -143,7 +143,6 @@ class Tpkg
   SALT_LEN = 8
   @@passphrase = nil
   def self.encrypt(pkgname, filename, passphrase, cipher='aes-256-cbc')
-puts "ciphter is #{cipher.inspect}"
     # passphrase can be a callback Proc, call it if that's the case
     pass = nil
     if @@passphrase
