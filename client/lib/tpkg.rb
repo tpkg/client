@@ -338,17 +338,13 @@ class Tpkg
 
         # Encrypt any files marked for encryption
         if tpkgfile[:encrypt]
-          if tpkgfile[:encrypt] == 'precrypt' or (tpkgfile[:encrypt].is_a?(Hash) && tpkgfile[:encrypt][:precrypt])
+          if tpkgfile[:encrypt][:precrypt]
             verify_precrypt_file(working_path)
           else
             if passphrase.nil?
               raise "Package requires encryption but supplied passphrase is nil"
             end
-            if tpkgfile[:encrypt].is_a?(Hash) && tpkgfile[:encrypt]['algorithm']
-              encrypt(metadata[:name], working_path, passphrase, tpkgfile[:encrypt]['algorithm'])
-            else
-              encrypt(metadata[:name], working_path, passphrase)
-            end
+            encrypt(metadata[:name], working_path, passphrase, *([tpkgfile[:encrypt][:algorithm]].compact))
           end
         end
       end unless metadata[:files].nil? or metadata[:files][:files].nil?
@@ -2594,11 +2590,7 @@ class Tpkg
         else
           (1..3).each do | i |
             begin
-              if tpkgfile[:encrypt].is_a?(Hash) && tpkgfile[:encrypt][:algorithm]
-                Tpkg::decrypt(metadata[:name], working_path, options[:passphrase], tpkgfile[:encrypt][:algorithm])
-              else
-                Tpkg::decrypt(metadata[:name], working_path, options[:passphrase])
-              end
+              Tpkg::decrypt(metadata[:name], working_path, options[:passphrase], *([tpkgfile[:encrypt][:algorithm]].compact))
               break 
             rescue OpenSSL::CipherError
               @@passphrase = nil

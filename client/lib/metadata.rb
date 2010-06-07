@@ -279,6 +279,17 @@ class Metadata
           end
         end
       end if @hash[:dependencies]
+
+      # We need to do this for backward compatibility. In the old yml schema,
+      # the encrypt field can either be "true" or a string value. Now, it is
+      # a hash. We need to use a hash because we need to store info like the 
+      # encryption algorithm.
+      @hash[:files][:files].each do |file|
+        if file[:encrypt] && !file[:encrypt].is_a?(Hash)
+          precrypt = true if file[:encrypt] == 'precrypt'
+          file[:encrypt] = {:precrypt => precrypt}
+        end
+      end if @hash[:files] && @hash[:files][:files]
     else
       @hash = metadata_xml_to_hash.with_indifferent_access
     end
@@ -564,7 +575,7 @@ class Metadata
            filexml.elements['encrypt'].attribute('precrypt').value == 'true'
           encrypt['precrypt'] = true
         end
-        if filexml.elements['encrypt'].attribute('algorithm') &&
+        if filexml.elements['encrypt'].attribute('algorithm')
           encrypt['algorithm'] = filexml.elements['encrypt'].attribute('algorithm').value
         end
         file[:encrypt] = encrypt
