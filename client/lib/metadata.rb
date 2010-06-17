@@ -280,14 +280,20 @@ class Metadata
         end
       end if @hash[:dependencies]
 
-      # We need to do this for backward compatibility. In the old yml schema,
-      # the encrypt field can either be "true" or a string value. Now, it is
-      # a hash. We need to use a hash because we need to store info like the 
-      # encryption algorithm.
       @hash[:files][:files].each do |file|
+        # We need to do this for backward compatibility. In the old yml schema,
+        # the encrypt field can either be "true" or a string value. Now, it is
+        # a hash. We need to use a hash because we need to store info like the 
+        # encryption algorithm.
         if file[:encrypt] && !file[:encrypt].is_a?(Hash)
           precrypt = true if file[:encrypt] == 'precrypt'
           file[:encrypt] = {:precrypt => precrypt}
+        end
+        # perms value are octal, but kwalify might treat it as decimal if it's something like 4550
+        # the user might also use string instead of number
+        if file[:posix] && file[:posix][:perms] && 
+          (file[:posix][:perms].is_a?(String) or file[:posix][:perms] >= 1000)
+          file[:posix][:perms] = "#{file[:posix][:perms]}".oct
         end
       end if @hash[:files] && @hash[:files][:files]
     else
