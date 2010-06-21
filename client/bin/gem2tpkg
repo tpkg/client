@@ -35,6 +35,7 @@ end
 @gemcmd = DEFAULT_GEM_COMMAND
 @rubygemspath = nil
 @extrapkgname = nil
+@verbose = false
 
 opts = OptionParser.new
 opts.banner = 'Usage: gem2tpkg [options] GEMNAME1 GEMNAME2 ...'
@@ -85,6 +86,9 @@ end
 opts.on('--extra-name', '=EXTRANAME', 'Extra string to add to package name') do |opt|
   @extrapkgname = opt
 end
+opts.on('--verbose', 'Provides more info on what is being executed') do |opt|
+  @verbose = opt
+end
 opts.on_tail("-h", "--help", "Show this message") do
   puts opts
   exit
@@ -99,7 +103,9 @@ leftover = opts.parse(ARGV)
 @geminstallpath = nil
 @gembinpath = nil
 @rubypath = nil
-IO.popen("#{@gemcmd} environment") do |pipe|
+cmd = "#{@gemcmd} environment"
+puts "Executing: #{cmd}" if @verbose
+IO.popen(cmd) do |pipe|
   pipe.each_line do |line|
     if line =~ /INSTALLATION DIRECTORY:\s+(\S+)/
       @geminstallpath = $1
@@ -180,6 +186,7 @@ if !@buildopts.empty?
   geminst.concat(@buildopts)
 end
 
+puts "Executing: #{geminst.join(" ")}" if @verbose
 r = system(*geminst)
 if !r
   abort('gem install failed')
@@ -240,7 +247,9 @@ def package(gem)
   # We want to exactly match the gem in question.  Turns out that if you
   # pass something that looks like a regex then gem dependency will use
   # that instead.  See rubygems/commands/dependency_command.rb
-  IO.popen("#{@gemcmd} dependency /^#{Regexp.escape(gem)}$/") do |pipe|
+  cmd = "#{@gemcmd} dependency /^#{Regexp.escape(gem)}$/"
+  puts "Executing: #{cmd}" if @verbose
+  IO.popen(cmd) do |pipe|
     pipe.each_line do |line|
       next if line =~ /^Gem /  # Skip header line
       next if line =~ /^\s*$/  # Skip blank lines
