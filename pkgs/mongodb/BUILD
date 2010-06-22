@@ -4,7 +4,7 @@
 set -e
 
 PKG=mongodb
-VER=1.2.0
+VER=1.4.3
 PKGVER=2
 OS=`tpkg --qenv | grep 'Operating System' | awk '{print $NF}'`
 if echo $OS | egrep 'RedHat|CentOS'
