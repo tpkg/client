@@ -8,21 +8,26 @@
   <tr>
   <th <%= sort_td_class_helper "name" %> > <%= sort_link_helper "Name", "name" %></th>
   <th>Version</th>
+  <th>Package Version</th>
   <th <%= sort_td_class_helper "os" %> > <%= sort_link_helper "OS", "os" %></th>
   <th <%= sort_td_class_helper "arch" %> > <%= sort_link_helper "arch", "arch" %></th>
   </tr>
   </thead>
   <tbody>
 
-  <%- @installed_packages.each do |package| -%>
+  <%- @installed_packages.each do |tpkg_home, packages| -%>
+    <tr bgcolor='lightblue'><td colspan='5'>TPKG_HOME: <%= tpkg_home -%></td></tr>
+    <%- packages.each do |package| -%>
     <tr class="<%= cycle('odd', 'even') -%>">
       <td nowrap="nowrap" width="5%">
         <%= link_to package.name, {:controller=>:packages, :action=>:show, :id => package.id}  %> 
       </td>
       <td><%= package.version %></td>
+      <td><%= package.package_version %></td>
       <td><%= package.os %></td>
       <td><%= package.arch %></td>
     </tr>
+    <%- end -%>
   <%- end -%>
 
   </tbody>
@@ -32,7 +37,7 @@
   <strong>Installation History:</strong>
   <br/>
   <%- @installation_history.each do |item| -%>
-    <%= "#{item.created_at}: #{item.package.name}-#{item.package.version}-#{item.package.package_version} -- #{item.action}" %> 
+    <%= "#{item.created_at}: #{item.package.name}-#{item.package.version}-#{item.package.package_version} -- #{item.action} by #{item.user || 'unknown'} (Comments: #{item.comment || 'none'})" %> 
     <br/>
   <%- end -%> 
 </p>

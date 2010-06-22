@@ -1,0 +1,13 @@
+common: &common
+  authentication_method: restful-authentication
+  upload_path: /tmp/repo2/
+  verify_upload: true  # if set to true, you also need to install tpkg client/lib
+    
+development: &non_production_env
+  <<: *common
+  
+staging:
+  <<: *non_production_env
+
+production:
+  <<: *common

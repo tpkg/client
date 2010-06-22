@@ -1,4 +1,4 @@
-#!/sbin/sh
+#!/bin/sh
 
 PKG=perl
 # If you update the version be sure to add the old version to PREVIOUS
@@ -7,9 +7,16 @@ VER=5.8.9
 MAJORVER=5.8
 PKGVER=2
 PREVIOUS=""
-OSMAJOR=`facter | grep lsbmajdistrelease | cut -d' ' -f3`
-ARCH=`facter hardwaremodel`
-if [ $ARCH = 'i686' ]
+OS=`tpkg --qenv | grep 'Operating System' | awk '{print $NF}'`
+if echo $OS | egrep 'RedHat|CentOS'
+then
+        # Save folks from having to build separate packages for Red Hat and
+        # CentOS
+        OSMAJOR=`echo $OS | cut -d- -f2`
+        OS="RedHat-$OSMAJOR,CentOS-$OSMAJOR"
+fi
+ARCH=`tpkg --qenv | grep 'Architecture' | awk '{print $NF}'`
+if [ $ARCH = 'i386' -o $ARCH = 'i686' ]
 then
 	# Only turn this on if building on a 32 bit box
 	use64bitint='-Duse64bitint '
@@ -55,7 +62,7 @@ cat ../../tpkg.xml | \
 	sed "s/NAME/$PKG/" | \
 	sed "s/VERSION/$VER/" | \
 	sed "s/PKGVER/$PKGVER/" | \
-	sed "s/OS/RedHat-$OSMAJOR,CentOS-$OSMAJOR/" | \
+	sed "s/OS/$OS/" | \
 	sed "s/ARCH/$ARCH/" | \
 	grep -v files > $pkgdir/tpkg.xml
 # Install

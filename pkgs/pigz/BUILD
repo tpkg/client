@@ -9,19 +9,38 @@ set -u
 set -o pipefail
 
 PKG=pigz
-VER=2.1.5
+VER=2.1.6
 PKGVER=1
-OSMAJOR=`facter | grep lsbmajdistrelease | cut -d' ' -f3`
-ARCH=`facter hardwaremodel`
+OS=`tpkg --qenv | grep 'Operating System' | awk '{print $NF}'`
+if echo $OS | egrep 'RedHat|CentOS'
+then
+        # Save folks from having to build separate packages for Red Hat and
+        # CentOS
+        OSMAJOR=`echo $OS | cut -d- -f2`
+        OS="RedHat-$OSMAJOR,CentOS-$OSMAJOR"
+fi
+ARCH=`tpkg --qenv | grep 'Architecture' | awk '{print $NF}'`
 
 rm -rf $PKG-$VER
 tar zxf $PKG-$VER.tar.gz
 cd $PKG-$VER
 
-for i in zlib-devel
-do
-	rpm --quiet -q $i || sudo yum install -y $i
-done
+if echo $OS | egrep 'RedHat|CentOS'
+then
+        for i in zlib-devel
+        do
+        	rpm --quiet -q $i || sudo yum install -y $i
+        done
+	zlibdep="<dependency><name>zlib</name><native/><minimum_version>1.2.3</minimum_version></dependency>"
+fi
+if echo $OS | egrep 'Debian|Ubuntu'
+then
+        for i in zlib1g-dev
+        do
+        	dpkg -l $i || sudo apt-get -y install $i
+        done
+	zlibdep="<dependency><name>zlib1g</name><native/><minimum_version>1.2.3</minimum_version></dependency>"
+fi
 
 make -j4
 pkgdir=`mktemp -d -t tpkg.XXXXXX`
@@ -33,14 +52,10 @@ cat > $pkgdir/tpkg.xml <<EOF
   <version>$VER</version>
   <package_version>$PKGVER</package_version>
   <maintainer>tpkg-users@lists.sourceforge.net</maintainer>
-  <operatingsystem>RedHat-$OSMAJOR,CentOS-$OSMAJOR</operatingsystem>
+  <operatingsystem>$OS</operatingsystem>
   <architecture>$ARCH</architecture>
   <dependencies>
-    <dependency>
-      <name>zlib</name>
-      <native />
-      <minimum_version>1.2.3</minimum_version>
-    </dependency>
+    $zlibdep
   </dependencies>
 </tpkg>
 EOF

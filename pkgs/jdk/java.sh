@@ -1,1 +1,2 @@
 export JAVA_HOME=%BASE%/%INSTALLED_DIR%
+export PATH=$PATH:$JAVA_HOME/bin

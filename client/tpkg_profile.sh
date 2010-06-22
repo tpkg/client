@@ -1,3 +1,5 @@
+#!/bin/bash
+
 tpkgbase="/home/t"
 
 if [ -f /etc/tpkg.conf ]

@@ -7,7 +7,7 @@ set -e
 
 PKG=logrotate
 VER=3.7.8
-PKGVER=4
+PKGVER=5
 OS=`tpkg --qenv | grep 'Operating System' | awk '{print $NF}'`
 if echo $OS | egrep 'RedHat|CentOS'
 then
@@ -39,6 +39,8 @@ mkdir -p $pkgdir/reloc
 # Add config file
 mkdir -p $pkgdir/reloc/etc
 cp ../logrotate.conf $pkgdir/reloc/etc/logrotate.conf
+# Add directory for additional config files
+mkdir -p $pkgdir/reloc/etc/logrotate.d
 # Add cronjob
 mkdir -p $pkgdir/reloc/etc/cron.d
 cp ../logrotate.cron $pkgdir/reloc/etc/cron.d/logrotate

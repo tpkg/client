@@ -68,7 +68,7 @@ mapping:
           - type: map
             mapping:
               "path": { type: text, required: yes }
-              "encrypt": { type: text }
+              "encrypt": { type: any, pattern: /^true$|^precrypt$/ }
               "init":
                 type: map
                 mapping:

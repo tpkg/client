@@ -230,12 +230,12 @@ class Metadata
   end
 
   def self.get_pkgs_metadata_from_yml_doc(yml_doc, metadata=nil, source=nil)
-    metadata = {} if metadata.nil?
+    metadata ||= {} 
     metadata_lists = yml_doc.split("---")
     metadata_lists.each do | metadata_text |
       if metadata_text =~ /^:?name:(.+)/
         name = $1.strip
-        metadata[name] = [] if !metadata[name]
+        metadata[name] ||= []
         metadata[name] << Metadata.new(metadata_text,'yml', source)
       end
     end
@@ -279,6 +279,23 @@ class Metadata
           end
         end
       end if @hash[:dependencies]
+
+      @hash[:files][:files].each do |file|
+        # We need to do this for backward compatibility. In the old yml schema,
+        # the encrypt field can either be "true" or a string value. Now, it is
+        # a hash. We need to use a hash because we need to store info like the 
+        # encryption algorithm.
+        if file[:encrypt] && !file[:encrypt].is_a?(Hash)
+          precrypt = true if file[:encrypt] == 'precrypt'
+          file[:encrypt] = {:precrypt => precrypt}
+        end
+        # perms value are octal, but kwalify might treat it as decimal if it's something like 4550
+        # the user might also use string instead of number
+        if file[:posix] && file[:posix][:perms] && 
+          (file[:posix][:perms].is_a?(String) or file[:posix][:perms] >= 1000)
+          file[:posix][:perms] = "#{file[:posix][:perms]}".oct
+        end
+      end if @hash[:files] && @hash[:files][:files]
     else
       @hash = metadata_xml_to_hash.with_indifferent_access
     end
@@ -362,6 +379,14 @@ class Metadata
     elsif @format == 'xml'
       # TODO: use DTD to validate XML
       errors = verify_required_fields
+    end
+
+    # Verify version and package version begin with a digit
+    if to_hash[:version].to_s !~ /^\d/
+      errors << "Version must begins with a digit"
+    end
+    if to_hash[:package_version] && to_hash[:package_version].to_s !~ /^\d/
+      errors << "Package version must begins with a digit"
     end
     errors
   end
@@ -480,7 +505,7 @@ class Metadata
       external = {}
       external[:name] = extxml.elements['name'].text
       if extxml.elements['data']
-        external[:data] = extxml.elements['data'].text
+        external[:data] = extxml.elements['data'].children.to_s
       elsif extxml.elements['datafile']
         # We don't have access to the package contents here, so we just save
         # the name of the file and leave it up to others to read the file
@@ -551,10 +576,13 @@ class Metadata
       file = {}
       file[:path] = filexml.elements['path'].text
       if filexml.elements['encrypt']
-        encrypt = true
+        encrypt = {}
         if filexml.elements['encrypt'].attribute('precrypt') &&
            filexml.elements['encrypt'].attribute('precrypt').value == 'true'
-          encrypt = "precrypt"
+          encrypt['precrypt'] = true
+        end
+        if filexml.elements['encrypt'].attribute('algorithm')
+          encrypt['algorithm'] = filexml.elements['encrypt'].attribute('algorithm').value
         end
         file[:encrypt] = encrypt
       end

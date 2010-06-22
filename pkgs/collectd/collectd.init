@@ -1,0 +1,28 @@
+#!/bin/sh
+
+# Init file for collectd
+
+case "$1" in
+'start')
+	/home/t/sbin/collectd
+	;;
+
+'stop')
+	if [ -f /home/t/var/run/collectd.pid ]
+	then
+		kill `cat /home/t/var/run/collectd.pid`
+		rm -f /home/t/var/run/collectd.pid
+	fi
+	;;
+
+'restart')
+	$0 stop
+	$0 start
+	;;
+*)
+	echo "Usage: $0 { start | stop | restart }"
+	exit 1
+	;;
+esac
+exit 0
+
