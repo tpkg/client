@@ -3617,7 +3617,6 @@ class Tpkg
     # in order to report back to the server
     already_installed_pkgs = metadata_for_installed_packages.collect{|metadata| metadata.to_hash}
     
-    installed_files = files_for_installed_packages
     removed_pkgs = [] # keep track of what we removed so far
     while pkg = solution_packages.shift
       if pkg[:source] == :currently_installed ||
