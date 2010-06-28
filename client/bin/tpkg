@@ -214,6 +214,9 @@ opts.on('--qX', '=FILENAME', 'Display tpkg.xml or tpkg.yml of the given package'
   @action = :query_tpkg_metadata
   @action_value = opt
 end
+opts.on('--history', 'Display package installation history') do |opt|
+  @action = :query_history
+end
 opts.on('--qenv', "Display machine's information") do |opt|
   @action = :query_env
 end
@@ -618,5 +621,8 @@ when :query_tpkg_metadata
 when :query_env
   puts "Operating System: #{Tpkg::get_os}"
   puts "Architecture: #{Tpkg::get_arch}"
+when :query_history
+  tpkg = instantiate_tpkg(@tpkg_options)
+  tpkg.installation_history
 end
 exit ret_val

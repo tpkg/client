@@ -250,12 +250,11 @@ class Tpkg
     else
       workdir = tempdir('tpkg', File.dirname(pkgsrcdir))
     end
-
     begin
       # Make the 'tpkg' directory for storing the package contents
       tpkgdir = File.join(workdir, 'tpkg')
       Dir.mkdir(tpkgdir)
-      
+
       # A package really shouldn't be partially relocatable, warn the user if
       # they're creating such a scourge.
       if (File.exist?(File.join(pkgsrcdir, 'root')) && File.exist?(File.join(pkgsrcdir, 'reloc')))
@@ -267,7 +266,7 @@ class Tpkg
       # And on further reflection it makes sense to only have one chunk of
       # code (tar) ever touch the user's files.
       system("#{find_tar} -C #{pkgsrcdir} -cf - . | #{find_tar} -C #{tpkgdir} -xpf -") || raise("Package content copy failed")
-      
+ 
       # check metadata file 
       errors = []
       if File.exists?(File.join(tpkgdir, 'tpkg.yml'))
@@ -306,7 +305,6 @@ class Tpkg
         filemetadata = get_filemetadata_from_directory(tpkgdir)
         data = filemetadata.to_hash.recursively{|h| h.stringify_keys }
         Marshal::dump(data, file)
-#        YAML::dump(filemetadata.to_hash, file)  
       end
 
       # Check all the files are there as specified in the metadata config file
@@ -443,6 +441,11 @@ class Tpkg
     Find.find(root_dir, reloc_dir) do |f|
       next if !File.exist?(f)
       relocatable = false
+
+      # Append file separator at the end for directory
+      if File.directory?(f)
+        f += File::SEPARATOR
+      end
 
       # check if it's from root dir or reloc dir
       if f =~ /^#{root_dir}/
@@ -864,15 +867,42 @@ class Tpkg
      barchlength, acurrentinstallnoprefer]
   end
   
-  def self.files_in_package(package_file)
+  def self.files_in_package(package_file, options = {})
+    file_lists = []
     files = {}
     files[:root] = []
     files[:reloc] = []
-    topleveldir = package_toplevel_directory(package_file)
-    extract_tpkg_tar_cmd = cmd_to_extract_tpkg_tar(package_file, topleveldir)
-    IO.popen("#{extract_tpkg_tar_cmd} | #{find_tar} #{@@taroptions} -tf -") do |pipe|
-      pipe.each do |file|
-        file.chomp!
+
+    # If the metadata_directory option is available, it means this package
+    # has been installed and the file_metadata might be available in that directory.
+    # If that's the case, then parse the file_metadata to get the file list. It's
+    # much faster than extracting from the tar file
+    if metadata_directory = options[:metadata_directory]
+      package_name = File.basename(package_file, File.extname(package_file))
+      file_metadata = FileMetadata::instantiate_from_dir(File.join(metadata_directory, package_name))
+    end
+
+    if file_metadata
+      file_metadata[:files].each do |file|
+        if file[:relocatable]
+          files[:reloc] << file[:path]
+        else
+          files[:root] << file[:path]
+        end
+      end
+    else
+      topleveldir = package_toplevel_directory(package_file)
+      extract_tpkg_tar_cmd = cmd_to_extract_tpkg_tar(package_file, topleveldir)
+      IO.popen("#{extract_tpkg_tar_cmd} | #{find_tar} #{@@taroptions} -tf -") do |pipe|
+        pipe.each do |file|
+          file_lists << file.chomp!
+        end
+      end
+      if !$?.success?
+        raise "Extracting file list from #{package_file} failed"
+      end
+
+      file_lists.each do |file|
         if file =~ Regexp.new(File.join('tpkg', 'root'))
           files[:root] << file.sub(Regexp.new(File.join('tpkg', 'root')), '')
         elsif file =~ Regexp.new(File.join('tpkg', 'reloc', '.'))
@@ -880,9 +910,7 @@ class Tpkg
         end
       end
     end
-    if !$?.success?
-      raise "Extracting file list from #{package_file} failed"
-    end
+
     files
   end
   
@@ -1721,22 +1749,18 @@ class Tpkg
   end
   
   # Returns a hash of file_metadata for installed packages
-  def file_metadata_for_installed_packages
+  def file_metadata_for_installed_packages(package_files = nil)
     ret = {}
+
+    if package_files
+      packages_files.collect!{|package_file| File.basename(package_file, File.extname(package_file))}
+    end
 
     if File.directory?(@metadata_directory)
       Dir.foreach(@metadata_directory) do |entry|
         next if entry == '.' || entry == '..' 
-        if File.exists?(File.join(@metadata_directory, entry, "file_metadata.bin"))
-          file = File.join(@metadata_directory, entry, "file_metadata.bin")
-          file_metadata = FileMetadata.new(File.read(file), 'bin')
-        elsif File.exists?(File.join(@metadata_directory, entry, "file_metadata.yml"))
-          file = File.join(@metadata_directory, entry, "file_metadata.yml")
-          file_metadata = FileMetadata.new(File.read(file), 'yml')
-        elsif File.exists?(File.join(@metadata_directory, entry, "file_metadata.xml"))
-          file = File.join(@metadata_directory, entry, "file_metadata.xml")
-          file_metadata = FileMetadata.new(File.read(file), 'xml')
-        end
+        next if package_files && !package_files.include?(entry)
+        file_metadata = FileMetadata::instantiate_from_dir(File.join(@metadata_directory, entry))
         ret[file_metadata[:package_file]] = file_metadata
       end
     end
@@ -1871,10 +1895,11 @@ class Tpkg
         package_files << metadata[:filename]
       end
     end
+
     metadata_for_installed_packages.each do |metadata|
       package_file = metadata[:filename]
       if package_files.include?(package_file)
-        fip = Tpkg::files_in_package(File.join(@installed_directory, package_file))
+        fip = Tpkg::files_in_package(File.join(@installed_directory, package_file), {:metadata_directory => @metadata_directory})
         normalize_paths(fip)
         fip[:metadata] = metadata
         files[package_file] = fip
@@ -2521,7 +2546,7 @@ class Tpkg
         if File.directory?(f)
           File.chown(default_dir_uid, default_dir_gid, f)
         else
-          File.chown(default_uid, default_gid, f)
+          File.chown(default_uid, default_gid, f) 
         end
       rescue Errno::EPERM
         raise if Process.euid == 0
@@ -3003,13 +3028,7 @@ class Tpkg
     metadata_file.close
     
     # Save file_metadata for this pkg
-    if File.exist?(File.join(workdir, 'tpkg', 'file_metadata.bin'))
-      file_metadata = FileMetadata.new(File.read(File.join(workdir, 'tpkg', 'file_metadata.bin')), 'bin')
-    elsif File.exist?(File.join(workdir, 'tpkg', 'file_metadata.yml'))
-      file_metadata = FileMetadata.new(File.read(File.join(workdir, 'tpkg', 'file_metadata.yml')), 'yml')
-    elsif File.exists?(File.join(workdir, 'tpkg', 'file_metadata.xml'))
-      file_metadata = FileMetadata.new(File.read(File.join(workdir, 'tpkg', 'file_metadata.xml')), 'xml')
-    end
+    file_metadata = FileMetadata::instantiate_from_dir(File.join(workdir, 'tpkg'))
     if file_metadata
       file_metadata[:package_file] = File.basename(package_file)
       file_metadata[:files].each do |file|
@@ -3230,7 +3249,6 @@ class Tpkg
         end
       end
     end
-    
     # The remove method actually needs !conflicts, so invert in that case
     if mode == CHECK_REMOVE
       # Flatten conflicts to an array
@@ -4019,17 +4037,9 @@ class Tpkg
       # Extract checksum.xml from the package
       checksum_xml = nil
 
-      # get file_metadata.xml from the installed package
-      file_metadata_bin = File.join(@metadata_directory, package_full_name, 'file_metadata.bin')
-      file_metadata_yml = File.join(@metadata_directory, package_full_name, 'file_metadata.yml')
-      file_metadata_xml = File.join(@metadata_directory, package_full_name, 'file_metadata.xml')
-      if File.exist?(file_metadata_bin)
-        file_metadata = FileMetadata.new(File.read(file_metadata_bin), 'bin')
-      elsif File.exist?(file_metadata_yml)
-        file_metadata = FileMetadata.new(File.read(file_metadata_yml), 'yml')
-      elsif File.exist?(file_metadata_xml)
-        file_metadata = FileMetadata.new(File.read(file_metadata_xml), 'xml')
-      else 
+      # get file_metadata from the installed package
+      file_metadata = FileMetadata::instantiate_from_dir(File.join(@metadata_directory, package_full_name))
+      if !file_metadata
         errors = []
         errors << "Can't find file metadata. Most likely this is because the package was created before the verify feature was added"
         results[package_file] = errors
@@ -4299,6 +4309,16 @@ class Tpkg
       end
     end
     return pre_reqs
+  end
+
+  def installation_history
+    if !File.exists?(File.join(@log_directory,'changes.log'))
+      puts "Tpkg history log does not exist."
+      return GENERIC_ERR
+    end
+    IO.foreach(File.join(@log_directory,'changes.log')) do |line|
+      puts line 
+    end
   end
 
   # TODO: figure out what other methods above can be turned into protected methods

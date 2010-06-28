@@ -638,6 +638,20 @@ class Metadata
 end
 
 class FileMetadata < Metadata
+  # Given the directory from which the file_metadata is saved, returns a FileMetadata
+  # object. The file_metadata file can be in binary, yaml or xml.
+  def self.instantiate_from_dir(dir)
+    file_metadata = nil
+    if File.exist?(File.join(dir, 'file_metadata.bin'))
+      file_metadata = FileMetadata.new(File.read(File.join(dir, 'file_metadata.bin')), 'bin')
+    elsif File.exist?(File.join(dir, 'file_metadata.yml'))
+      file_metadata = FileMetadata.new(File.read(File.join(dir, 'file_metadata.yml')), 'yml')
+    elsif File.exists?(File.join(dir, 'file_metadata.xml'))
+      file_metadata = FileMetadata.new(File.read(File.join(dir, 'file_metadata.xml')), 'xml')
+    end
+    return file_metadata
+  end
+
   def to_hash
     if @hash
       return @hash
