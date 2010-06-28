@@ -223,6 +223,10 @@ end
 opts.on('--source', '=NAME', 'Sources where packages are located', Array) do |opt|
   @tpkg_options["sources"] = opt
 end
+opts.on('--download', '=PACKAGES', 'Download one or more packages', Array) do |opt|
+  @action = :download
+  @action_value = opt
+end
 opts.on('-n', '--no-prompt', 'No confirmation prompts') do |opt|
   @prompt = opt
   Tpkg::set_prompt(@prompt)
@@ -399,6 +403,9 @@ when :upgrade
 when :remove
   tpkg = instantiate_tpkg(@tpkg_options)
   ret_val = tpkg.remove(@action_value, @other_options)
+when :download
+  tpkg = instantiate_tpkg(@tpkg_options)
+  ret_val = tpkg.download_pkgs(@action_value, @other_options)
 when :verify
   result = nil
   # Verify a given .tpkg file

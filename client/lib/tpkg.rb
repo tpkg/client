@@ -2231,14 +2231,13 @@ class Tpkg
     return {:number_of_possible_solutions_checked => number_of_possible_solutions_checked}
   end
  
-  def download(source, path, downloaddir = nil)
+  def download(source, path, downloaddir = nil, use_cache = true)
     http = Tpkg::gethttp(URI.parse(source))
     localdir = source_to_local_directory(source)
     localpath = File.join(localdir, File.basename(path))
-
     # Don't download again if file is already there from previous installation
     # and still has valid checksum
-    if File.file?(localpath)
+    if File.file?(localpath) && use_cache
       begin
         Tpkg::verify_package_checksum(localpath)
         return localpath
@@ -4319,6 +4318,60 @@ class Tpkg
     IO.foreach(File.join(@log_directory,'changes.log')) do |line|
       puts line 
     end
+  end
+
+  def download_pkgs(requests, options={})
+    if options[:out] 
+      if !File.exists?(options[:out])
+        FileUtils.mkdir_p(options[:out])
+      elsif !File.directory?(options[:out])
+        puts "#{options[:out]} is not a valid directory."
+        return GENERIC_ERR
+      end
+    end
+    output_dir = options[:out] || Dir.pwd
+
+    requirements = []
+    packages = {}
+    original_dir = Dir.pwd
+    parse_requests(requests, requirements, packages)
+    packages = packages.values.flatten
+    if packages.size < 1
+      puts "Unable to find any packages that satisfy your request."
+      return 0
+    end
+
+    # Confirm with user what packages will be downloaded
+    packages.delete_if{|pkg|pkg[:source] !~ /^http/}
+    puts "The following packages will be downloaded:"
+    packages.each do |pkg|
+      puts "#{pkg[:metadata][:filename]} (source: #{pkg[:source]})"
+    end
+    unless Tpkg::confirm
+      return 0
+    end
+
+    err_code = 0
+    workdir = Tpkg::tempdir("tpkg_download")
+    Dir.chdir(workdir)
+    puts "Downloading to #{output_dir}"
+    packages.each do |pkg|
+      puts "Downloading #{pkg[:metadata][:filename]}"
+      begin
+        downloaded_file = download(pkg[:source], pkg[:metadata][:filename], Dir.pwd, false)
+        # copy downloaded files over to destination
+        FileUtils.cp(downloaded_file, output_dir)
+      rescue
+        warn "Warning: unable to download #{pkg[:metadata][:filename]} to #{output_dir}"
+        err_code = GENERIC_ERR
+      end
+    end
+
+    # clean up working directory
+    FileUtils.rm_rf(workdir)
+    
+    Dir.chdir(original_dir) 
+    return err_code
   end
 
   # TODO: figure out what other methods above can be turned into protected methods
