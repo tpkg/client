@@ -4308,6 +4308,9 @@ class Tpkg
     end
   end
 
+  # Download packages that meet the requests specified by the user.
+  # Packages are downloaded into the current directory or into the directory
+  # specified in options[:out]
   def download_pkgs(requests, options={})
     if options[:out] 
       if !File.exists?(options[:out])
