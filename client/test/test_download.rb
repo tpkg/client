@@ -52,6 +52,41 @@ class TpkgDownloadTests < Test::Unit::TestCase
     s.shutdown
     t.kill
   end
+
+  def test_download_pkgs
+    # set up multiple packages
+    ['pkga', 'pkgb'].each do |name|
+      pkgfile = make_package(:change => {'name' => name}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      FileUtils.cp(pkgfile, @pkgdir)
+    end
+
+    Tpkg::extract_metadata(@pkgdir)
+
+    s = WEBrick::HTTPServer.new(:Port => 3500, :DocumentRoot => @pkgdir)
+    # There may be an easier way to push WEBrick into the background, but
+    # the WEBrick docs are mostly non-existent so I'm taking the quick and
+    # dirty route.
+    t = Thread.new { s.start }
+
+    testbase = Tempdir.new("testbase")
+    destdir = Tempdir.new("destdir")
+    source = 'http://localhost:3500/'
+    tpkg = Tpkg.new(:base => testbase, :sources => [source])
+
+    # Try to request a download of a non-existing package
+    result = tpkg.download_pkgs('non-existing', {:out => destdir})
+    assert_equal(Tpkg::GENERIC_ERR, result)
+
+    # Try to request a download of existing packages
+    result = tpkg.download_pkgs(['pkga', 'pkgb'], {:out => destdir})
+    assert_equal(0, result)
+    assert_equal(2, Dir.glob(File.join(destdir, '*')).size)  # we have downloaded 2 packages
+
+    FileUtils.rm_rf(testbase)
+    FileUtils.rm_rf(destdir)
+    s.shutdown
+    t.kill
+  end
   
   def teardown
     FileUtils.rm_f(@pkgfile)

@@ -242,6 +242,18 @@ class Metadata
     return metadata
   end
 
+  # Given the directory from which the metadata is saved, returns a Metadata
+  # object. The metadata file can be in yml or xml format
+  def self.instantiate_from_dir(dir)
+    metadata = nil
+    if File.exist?(File.join(dir, 'tpkg.yml'))
+      metadata = Metadata.new(File.read(File.join(dir, 'tpkg.yml')), 'yml')
+    elsif File.exists?(File.join(dir, 'tpkg.xml'))
+      metadata = Metadata.new(File.read(File.join(dir, 'tpkg.xml')), 'xml')
+    end
+    return metadata
+  end
+
   # metadata_text = text representation of the metadata
   # format = yml, xml, json, etc.
   def initialize(metadata_text, format, source=nil)
@@ -302,11 +314,20 @@ class Metadata
     return @hash
   end
 
-  def write(file)
-    # When we convert xml to hash, we store the key as symbol. So when we
-    # write back out to file, we should stringify all the keys for readability.
-    data = to_hash.recursively{|h| h.stringify_keys }
-    YAML::dump(data, file)
+  # Write the metadata to a file under the specified directory
+  # The file will be saved as tpkg.yml or tpkg.xml.
+  def write(dir, retain_format=false)
+    file = nil
+    if retain_format && @format == 'xml'
+      puts "TODO"
+    else
+      file = File.new(File.join(dir, "tpkg.yml"), "w")
+      # When we convert xml to hash, we store the key as symbol. So when we
+      # write back out to file, we should stringify all the keys for readability.
+      data = to_hash.recursively{|h| h.stringify_keys }
+      YAML::dump(data, file)
+    end
+    file.close
   end
 
   def generate_package_filename

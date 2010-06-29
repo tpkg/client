@@ -269,17 +269,10 @@ class Tpkg
  
       # check metadata file 
       errors = []
-      if File.exists?(File.join(tpkgdir, 'tpkg.yml'))
-        metadata_file = File.join(tpkgdir, 'tpkg.yml')
-        metadata_format = 'yml'
-      elsif File.exists?(File.join(tpkgdir, 'tpkg.xml'))
-        metadata_file = File.join(tpkgdir, 'tpkg.xml')
-        metadata_format = 'xml'
-      else
+      metadata = Metadata::instantiate_from_dir(tpkgdir)
+      if !metadata
         raise 'Your source directory does not contain the metadata configuration file.'
       end
-      metadata_text = File.read(metadata_file)
-      metadata = Metadata.new(metadata_text, metadata_format)
 
       # This is for when we're in developement mode or when installed as gem
       if File.exists?(File.join(File.dirname(File.dirname(__FILE__)), "schema"))
@@ -367,7 +360,10 @@ class Tpkg
         end
         File.delete(pkgfile)
       end
-      
+    
+      # update metadata file with the tpkg version 
+      # TODO
+ 
       # Tar up the tpkg directory
       tpkgfile = File.join(package_directory, 'tpkg.tar')
       system("#{find_tar} -C #{workdir} -cf #{tpkgfile} tpkg") || raise("tpkg.tar creation failed")
@@ -1703,16 +1699,10 @@ class Tpkg
             File.join(@metadata_directory,
                       File.basename(entry, File.extname(entry)))
           metadata_file = File.join(package_metadata_dir, "tpkg.yml")
-          m = nil
-          if File.exists?(metadata_file)
-            metadata_text = File.read(metadata_file)
-            m = Metadata.new(metadata_text, 'yml')
-          elsif File.exists?(File.join(package_metadata_dir, "tpkg.xml"))
-            metadata_text = File.read(File.join(package_metadata_dir, "tpkg.xml"))
-            m = Metadata.new(metadata_text, 'xml')
+          m = Metadata::instantiate_from_dir(package_metadata_dir)
           # No cached metadata found, we have to extract it ourselves
           # and save it for next time
-          else
+          if !m
             m = Tpkg::metadata_from_package(
                   File.join(@installed_directory, entry))
             begin
@@ -3022,9 +3012,7 @@ class Tpkg
     package_name = File.basename(package_file, File.extname(package_file))
     package_metadata_dir = File.join(@metadata_directory, package_name)
     FileUtils.mkdir_p(package_metadata_dir)
-    metadata_file = File.new(File.join(package_metadata_dir, "tpkg.yml"), "w")
-    metadata.write(metadata_file)
-    metadata_file.close
+    metadata.write(package_metadata_dir)
     
     # Save file_metadata for this pkg
     file_metadata = FileMetadata::instantiate_from_dir(File.join(workdir, 'tpkg'))
@@ -4334,11 +4322,15 @@ class Tpkg
     requirements = []
     packages = {}
     original_dir = Dir.pwd
+
+    workdir = Tpkg::tempdir("tpkg_download")
+    Dir.chdir(workdir)
     parse_requests(requests, requirements, packages)
     packages = packages.values.flatten
     if packages.size < 1
       puts "Unable to find any packages that satisfy your request."
-      return 0
+      Dir.chdir(original_dir) 
+      return GENERIC_ERR
     end
 
     # Confirm with user what packages will be downloaded
@@ -4347,13 +4339,12 @@ class Tpkg
     packages.each do |pkg|
       puts "#{pkg[:metadata][:filename]} (source: #{pkg[:source]})"
     end
-    unless Tpkg::confirm
+    if @@prompt && !Tpkg::confirm 
+      Dir.chdir(original_dir) 
       return 0
     end
 
     err_code = 0
-    workdir = Tpkg::tempdir("tpkg_download")
-    Dir.chdir(workdir)
     puts "Downloading to #{output_dir}"
     packages.each do |pkg|
       puts "Downloading #{pkg[:metadata][:filename]}"
