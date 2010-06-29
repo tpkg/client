@@ -22,5 +22,7 @@
     <%- @uploads.each do |upload| -%>
       <%= "Uploaded on #{upload["created_at"]} by #{upload[:uploader]}"  %><br/>
     <%- end -%>
+    <%= link_to_remote "List files in this package", :update => "files_listing", :url => {:controller => :packages, :action => :query_files_listing, :filename => @package.filename} %>
+    <div id="files_listing"/>
   </td>
 </table>
