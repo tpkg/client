@@ -7,6 +7,10 @@ operation=$2
 
 read user
 
+# Discard any remaining data fed to us so as not to trigger a
+# SIGPIPE in the caller.
+cat > /dev/null
+
 case "$operation" in
 'install')
 	useradd $user
