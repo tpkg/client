@@ -1,0 +1,26 @@
+#!/bin/sh
+
+set -e
+
+pkgfile=$1
+operation=$2
+
+read user
+
+case "$operation" in
+'install')
+	useradd $user
+	;;
+'remove')
+	# We have no way to know if this package is the only reason this
+	# user is on the system.  It could have been requested by other
+	# packages, or added by something outside of tpkg.  So just warn
+	# the user that we're leaving it behind.
+	echo "tpkg local external leaving behind user $user from $pkgfile"
+	;;
+*)
+	echo "$0: Invalid arguments"
+	exit 1
+	;;
+esac
+
