@@ -5,8 +5,6 @@ set -e
 PKG=scons
 VER=2.0.0.final.0
 PKGVER=1
-OSMAJOR=`facter | grep lsbmajdistrelease | cut -d' ' -f3`
-ARCH=`facter hardwaremodel`
 
 tpkg -q python || tpkg -i python
 # Ensure the proper python is found
