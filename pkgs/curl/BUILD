@@ -3,7 +3,7 @@
 set -e
 
 PKG=curl
-VER=7.19.7
+VER=7.21.0
 PKGVER=1
 OS=`tpkg --qenv | grep 'Operating System' | awk '{print $NF}'`
 if echo $OS | egrep 'RedHat|CentOS'
@@ -14,6 +14,11 @@ then
         OS="RedHat-$OSMAJOR,CentOS-$OSMAJOR"
 fi
 ARCH=`tpkg --qenv | grep 'Architecture' | awk '{print $NF}'`
+
+if echo $OS | egrep 'RedHat|CentOS'
+then
+	rpm --quiet -q openssl-devel || sudo yum install openssl-devel
+fi
 
 # This package doesn't work perfectly well as a relocatable package, as
 # libcurl is compiled as a dynamic library and the curl executable linked to
