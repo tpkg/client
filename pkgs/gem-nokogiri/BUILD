@@ -6,5 +6,5 @@ do
 done
 
 gem2tpkg nokogiri --version=1.4.2 --package-version=1 \
-  --native-deps=libxslt
+  --native-deps=libxml2,,,libxslt,,,
 
