@@ -1,11 +1,17 @@
 #!/bin/sh
 
+# The username might not have a trailing newline, depending on the
+# syntax the user used in their tpkg.xml/tpkg.yml file.  read treats
+# that as an error, although it will still read the name fine.  So if
+# the read is after the "set -e" then the script aborts.  We could work
+# around it by dumping stdin to a file and reading from there, but that
+# seems lame.
+read user
+
 set -e
 
 pkgfile=$1
 operation=$2
-
-read user
 
 # Discard any remaining data fed to us so as not to trigger a
 # SIGPIPE in the caller.
