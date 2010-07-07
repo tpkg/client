@@ -153,7 +153,15 @@ class Tpkg
     else
       pass = passphrase
     end
-    
+
+    # special handling for directory
+    if File.directory?(filename)
+      Find.find(filename) do |f|
+        encrypt(pkgname, f, pass, cipher) if File.file?(f)
+      end
+      return
+    end
+ 
     salt = OpenSSL::Random::random_bytes(SALT_LEN)
     c = OpenSSL::Cipher::Cipher.new(cipher)
     c.encrypt
@@ -173,6 +181,7 @@ class Tpkg
     tmpfile.close
     File.rename(tmpfile.path, filename)
   end
+
   # Decrypt the given file in-place.
   def self.decrypt(pkgname, filename, passphrase, cipher='aes-256-cbc')
     # passphrase can be a callback Proc, call it if that's the case
@@ -184,6 +193,13 @@ class Tpkg
       @@passphrase = pass
     else
       pass = passphrase
+    end
+
+    if File.directory?(filename)
+      Find.find(filename) do |f|
+        decrypt(pkgname, f, pass, cipher) if File.file?(f)
+      end
+      return
     end
     
     file = File.open(filename)
@@ -2615,10 +2631,12 @@ class Tpkg
               end
             end
           end
-          
-          digest = Digest::SHA256.hexdigest(File.read(working_path))
-          # get checksum for the decrypted file. Will be used for creating file_metadata
-          checksums_of_decrypted_files[File.expand_path(tpkg_path)] = digest 
+         
+          if File.file?(working_path) 
+            digest = Digest::SHA256.hexdigest(File.read(working_path))
+            # get checksum for the decrypted file. Will be used for creating file_metadata
+            checksums_of_decrypted_files[File.expand_path(tpkg_path)] = digest 
+          end
         end
       end
     end if metadata[:files] && metadata[:files][:files]
@@ -4298,6 +4316,7 @@ class Tpkg
     return pre_reqs
   end
 
+  # print out history packages installation/remove
   def installation_history
     if !File.exists?(File.join(@log_directory,'changes.log'))
       puts "Tpkg history log does not exist."
