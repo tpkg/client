@@ -1,0 +1,60 @@
+#!/bin/bash
+
+PKG=BerkeleyDB
+OUR_PKG_NAME=berkeleydb-perl
+VER=0.42
+PKGVER=1
+prefix=/home/t
+
+tpkg -q perl || tpkg -i perl
+tpkg -q perl-defaults || tpkg -i perl-defaults
+tpkg -q berkeleydb || tpkg -i berkeleydb
+
+test -e $prefix/berkeleydb/lib/libdb-5.0.a || \
+        { echo >&2 "libdb-5.0.a not found"; exit 1; }
+
+test -e $prefix/berkeleydb/include/db.h || \
+        { echo >&2 "db.h not found"; exit 1; }
+
+OSMAJOR=`facter | grep lsbmajdistrelease | cut -d' ' -f3`
+ARCH=`facter hardwaremodel`
+
+pkgdir=`mktemp -d -t tpkg.XXXXXX` || exit 1
+metadata=$(cat<<EOF
+name: $OUR_PKG_NAME
+version: $VER
+package_version: $PKGVER
+maintainer: system.architecture@yplist.flight.yellowpages.com
+operatingsystem: [RedHat-$OSMAJOR, CentOS-$OSMAJOR]
+architecture: [$ARCH]
+dependencies:
+  - name: berkeleydb
+  - name: perl
+EOF
+)
+
+echo "$metadata" > $pkgdir/tpkg.yml
+
+# http://search.cpan.org/CPAN/authors/id/P/PM/PMQS/BerkeleyDB-0.42.tar.gz
+tar xzvf $PKG-$VER.tar.gz
+
+# Use our own config.in so we can set LIB and INCLUDE to the correct values
+# Currently, we're setting LIB to /home/t/berkeleydb/lib and
+# INCLUDE to /home/t/berkeleydb/include
+cp config.in $PKG-$VER/
+
+pushd .
+cd $PKG-$VER 
+perl Makefile.PL
+make
+make install DESTDIR=$pkgdir/root
+
+# Make package
+tpkg --make $pkgdir || exit 1
+
+popd
+
+# Cleanup
+rm -rf $pkgdir
+rm -rf $PKG-$VER
+

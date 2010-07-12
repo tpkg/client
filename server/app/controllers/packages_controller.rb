@@ -117,8 +117,19 @@ class PackagesController < ApplicationController
     if File.exists?(File.join(AppConfig.upload_path, filename))
       redirect_to :controller => :tpkg, :action => filename
     else
-      render :text => "File #{filename} doesn't exist on repo"
+      render :text => "File #{filename} doesn't exist on repo."
     end
+  end
+
+  def query_files_listing
+    filename = params[:filename]
+    if File.exists?(File.join(AppConfig.upload_path, filename))
+      fip = Tpkg::files_in_package(File.join(AppConfig.upload_path, filename))
+      files = (fip[:root] | fip [:reloc]).join("<br/>")
+    else
+      files = "File #{filename} doesn't exist on repo."
+    end
+    render :text => files
   end
 
   protected

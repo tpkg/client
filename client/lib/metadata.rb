@@ -230,14 +230,26 @@ class Metadata
   end
 
   def self.get_pkgs_metadata_from_yml_doc(yml_doc, metadata=nil, source=nil)
-    metadata = {} if metadata.nil?
+    metadata ||= {} 
     metadata_lists = yml_doc.split("---")
     metadata_lists.each do | metadata_text |
       if metadata_text =~ /^:?name:(.+)/
         name = $1.strip
-        metadata[name] = [] if !metadata[name]
+        metadata[name] ||= []
         metadata[name] << Metadata.new(metadata_text,'yml', source)
       end
+    end
+    return metadata
+  end
+
+  # Given the directory from which the metadata is saved, returns a Metadata
+  # object. The metadata file can be in yml or xml format
+  def self.instantiate_from_dir(dir)
+    metadata = nil
+    if File.exist?(File.join(dir, 'tpkg.yml'))
+      metadata = Metadata.new(File.read(File.join(dir, 'tpkg.yml')), 'yml')
+    elsif File.exists?(File.join(dir, 'tpkg.xml'))
+      metadata = Metadata.new(File.read(File.join(dir, 'tpkg.xml')), 'xml')
     end
     return metadata
   end
@@ -279,17 +291,43 @@ class Metadata
           end
         end
       end if @hash[:dependencies]
+
+      @hash[:files][:files].each do |file|
+        # We need to do this for backward compatibility. In the old yml schema,
+        # the encrypt field can either be "true" or a string value. Now, it is
+        # a hash. We need to use a hash because we need to store info like the 
+        # encryption algorithm.
+        if file[:encrypt] && !file[:encrypt].is_a?(Hash)
+          precrypt = true if file[:encrypt] == 'precrypt'
+          file[:encrypt] = {:precrypt => precrypt}
+        end
+        # perms value are octal, but kwalify might treat it as decimal if it's something like 4550
+        # the user might also use string instead of number
+        if file[:posix] && file[:posix][:perms] && 
+          (file[:posix][:perms].is_a?(String) or file[:posix][:perms] >= 1000)
+          file[:posix][:perms] = "#{file[:posix][:perms]}".oct
+        end
+      end if @hash[:files] && @hash[:files][:files]
     else
       @hash = metadata_xml_to_hash.with_indifferent_access
     end
     return @hash
   end
 
-  def write(file)
-    # When we convert xml to hash, we store the key as symbol. So when we
-    # write back out to file, we should stringify all the keys for readability.
-    data = to_hash.recursively{|h| h.stringify_keys }
-    YAML::dump(data, file)
+  # Write the metadata to a file under the specified directory
+  # The file will be saved as tpkg.yml or tpkg.xml.
+  def write(dir, retain_format=false)
+    file = nil
+    if retain_format && @format == 'xml'
+      puts "TODO"
+    else
+      file = File.new(File.join(dir, "tpkg.yml"), "w")
+      # When we convert xml to hash, we store the key as symbol. So when we
+      # write back out to file, we should stringify all the keys for readability.
+      data = to_hash.recursively{|h| h.stringify_keys }
+      YAML::dump(data, file)
+    end
+    file.close
   end
 
   def generate_package_filename
@@ -362,6 +400,14 @@ class Metadata
     elsif @format == 'xml'
       # TODO: use DTD to validate XML
       errors = verify_required_fields
+    end
+
+    # Verify version and package version begin with a digit
+    if to_hash[:version].to_s !~ /^\d/
+      errors << "Version must begins with a digit"
+    end
+    if to_hash[:package_version] && to_hash[:package_version].to_s !~ /^\d/
+      errors << "Package version must begins with a digit"
     end
     errors
   end
@@ -480,7 +526,7 @@ class Metadata
       external = {}
       external[:name] = extxml.elements['name'].text
       if extxml.elements['data']
-        external[:data] = extxml.elements['data'].text
+        external[:data] = extxml.elements['data'].children.to_s
       elsif extxml.elements['datafile']
         # We don't have access to the package contents here, so we just save
         # the name of the file and leave it up to others to read the file
@@ -551,10 +597,13 @@ class Metadata
       file = {}
       file[:path] = filexml.elements['path'].text
       if filexml.elements['encrypt']
-        encrypt = true
+        encrypt = {}
         if filexml.elements['encrypt'].attribute('precrypt') &&
            filexml.elements['encrypt'].attribute('precrypt').value == 'true'
-          encrypt = "precrypt"
+          encrypt['precrypt'] = true
+        end
+        if filexml.elements['encrypt'].attribute('algorithm')
+          encrypt['algorithm'] = filexml.elements['encrypt'].attribute('algorithm').value
         end
         file[:encrypt] = encrypt
       end
@@ -610,6 +659,20 @@ class Metadata
 end
 
 class FileMetadata < Metadata
+  # Given the directory from which the file_metadata is saved, returns a FileMetadata
+  # object. The file_metadata file can be in binary, yaml or xml.
+  def self.instantiate_from_dir(dir)
+    file_metadata = nil
+    if File.exist?(File.join(dir, 'file_metadata.bin'))
+      file_metadata = FileMetadata.new(File.read(File.join(dir, 'file_metadata.bin')), 'bin')
+    elsif File.exist?(File.join(dir, 'file_metadata.yml'))
+      file_metadata = FileMetadata.new(File.read(File.join(dir, 'file_metadata.yml')), 'yml')
+    elsif File.exists?(File.join(dir, 'file_metadata.xml'))
+      file_metadata = FileMetadata.new(File.read(File.join(dir, 'file_metadata.xml')), 'xml')
+    end
+    return file_metadata
+  end
+
   def to_hash
     if @hash
       return @hash

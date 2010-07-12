@@ -1,0 +1,17 @@
+#!/usr/bin/ruby -w
+
+require 'socket'
+require 'digest/sha1'
+
+# Seed the random number generator with the hostname of this box so that we
+# get a consistent random number.  This ensures that processes run at a
+# consistent time on each individual box, but randomize the runs across the
+# environment.
+srand(Digest::SHA1.hexdigest(Socket.gethostname)[0,7].hex)
+
+MAX_SLEEP = ARGV.shift
+
+sleep(rand(MAX_SLEEP))
+
+exec(*ARGV)
+

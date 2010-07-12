@@ -3,17 +3,61 @@ require 'rexml/document'
 class ClientUpdateController < ApplicationController
   skip_before_filter :verify_authenticity_token
 
+
+  def create
+    # This is to support old client 
+    if params[:xml] or params[:yml]
+      return legacy_create(params)
+    end
+
+    removed = newly_installed = already_installed = []
+
+    # parse the data sent from tpkg client
+    client_name = params[:client]
+    client = Client.find_or_create({"name"=>client_name})
+    tpkg_home = params[:tpkg_home]
+    user = params[:user] || "unknown"
+
+    if params[:removed]
+      removed =PkgUtils::pkgs_metadata_to_db_objects(URI.unescape(params[:removed]))
+    end
+    if params[:newly_installed]
+      newly_installed =PkgUtils::pkgs_metadata_to_db_objects(URI.unescape(params[:newly_installed]))
+    end
+    if params[:already_installed]
+      already_installed =PkgUtils::pkgs_metadata_to_db_objects(URI.unescape(params[:already_installed]))      
+    end
+
+    process_removed_pkgs(removed, client, {:user => user, :tpkg_home => tpkg_home})
+    process_installed_pkgs(newly_installed, client, {:user => user, :tpkg_home => tpkg_home})
+
+    currently_installed_pkgs = [] | already_installed | newly_installed
+    prev_installed_packages = []
+    client.client_packages.each do |client_package|
+      prev_installed_packages << client_package.package if client_package.tpkg_home == tpkg_home
+    end
+
+    packages_to_be_removed = prev_installed_packages - currently_installed_pkgs
+    process_removed_pkgs(packages_to_be_removed, client, {:tpkg_home => tpkg_home})
+
+    new_packages = currently_installed_pkgs - prev_installed_packages
+    process_installed_pkgs(new_packages, client, {:tpkg_home => tpkg_home})
+
+    render :text => "OK"
+  end
+
   # used by the clients to report back the list
   # of installed packages (in xml format)
-  def create
+  def legacy_create(params)
     client_name = params[:client]
+    client = Client.find_or_create({"name"=>client_name})
    
     # parse the POST data and generate a list of packages installed
     # on this client
     if params[:yml]
-      packages = parse_yml_package(URI.unescape(params[:yml]))
+      packages = PkgUtils::parse_yml_packages(URI.unescape(params[:yml]))
     else
-      packages = parse_xml_package(URI.unescape(params[:xml]))
+      packages = PkgUtils::parse_xml_package(URI.unescape(params[:xml]))
     end
 
     # insert into DB if the packages are not there
@@ -22,7 +66,6 @@ class ClientUpdateController < ApplicationController
       packages_id << Package.find_or_create(package).id
     end
 
-    client = Client.find_or_create({"name"=>client_name})
    
     prev_packages = client.client_packages
     prev_packages_id = Array.new
@@ -56,42 +99,28 @@ class ClientUpdateController < ApplicationController
   end
 
   protected
-  # TODO: clean up this mess. Too much hardcode and duplicate code
-  def parse_xml_package(xml)
-    #puts xml
-    packages = Array.new
-    doc = REXML::Document.new(xml)
-    doc.elements.each('packages/tpkg/') do |ele|
-      package = Hash.new
-      package["name"] = ele.elements["name"].text
-      package["version"] = ele.elements["version"].text
-      package["os"] = ele.elements["operatingsystem"].text if ele.elements["operatingsystem"]
-      package["arch"] = ele.elements["architecture"].text if ele.elements["architecture"]
-      package["maintainer"] = ele.elements["maintainer"].text 
-      package["description"] = ele.elements["description"].text if ele.elements["description"]
-      package["package_version"] = ele.elements["package_version"].text if ele.elements["package_version"]
-      package["filename"] = ele.attributes["filename"]
-      packages << package
+  def process_removed_pkgs(pkgs, client, options={})
+    user = options[:user] || "unknown"
+    tpkg_home = options[:tpkg_home]
+    comment = "TPKG_HOME=#{tpkg_home}"
+    pkgs.each do |pkg|
+      ClientPackage.delete_all(["client_id = ? AND package_id = ? AND tpkg_home = ?", client.id, pkg.id, tpkg_home])
+      clientpackagehistory = ClientPackageHistory.new(:client_id => client.id, :package_id => pkg.id, 
+                                                      :action => "REMOVED", :user => user, :comment => comment)
+      clientpackagehistory.save!
     end
-    return packages
   end
 
-#  PKG_ATTR = [:name, :version, :os, :arch, :maintainer, :description, :package_version, :filename]
-  def parse_yml_package(yml)
-    packages = Array.new
-    packages_yaml = YAML::load(yml)
-    packages_yaml.each do |pkg|
-      package = Hash.new
-      package["name"] = pkg[:name]
-      package["version"] = pkg[:version]
-      package["os"] = pkg[:operatingsystem].join(",") if pkg[:operatingsystem]
-      package["arch"] = pkg[:architecture].join(",") if pkg[:architecture]
-      package["maintainer"] = pkg[:maintainer]
-      package["description"] = pkg[:description] if pkg[:description]
-      package["package_version"] = pkg[:package_version] if pkg[:package_version]
-      package["filename"] = pkg[:filename]
-      packages << package
+  def process_installed_pkgs(pkgs, client, options={})
+    user = options[:user] || "unknown"
+    tpkg_home = options[:tpkg_home]
+    comment = "TPKG_HOME=#{tpkg_home}"
+    pkgs.each do |pkg|
+      clientpackage = ClientPackage.new(:client_id => client.id, :package_id => pkg.id, :tpkg_home => tpkg_home)
+      clientpackage.save!
+      clientpackagehistory = ClientPackageHistory.new(:client_id => client.id, :package_id => pkg.id, 
+                                                      :action => "INSTALLED", :user => user, :comment => comment)
+      clientpackagehistory.save!
     end
-    return packages
   end
 end

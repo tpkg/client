@@ -1,8 +1,12 @@
 #!/sbin/sh
-
+# Before running this script, do the following:
+# First, download the jdk*.bin file.
+# Second, execute that .bin file. That should extract and install
+# files into something like "jdk1.6.0_20". Rename it to jdk1.6.0_20.x86_64
+# to distinguish it from the 32bit version
 PKG=jdk
-VER=1.6.0_16
-PKGVER=2
+VER=1.6.0_20
+PKGVER=1
 OSMAJOR=`facter | grep lsbmajdistrelease | cut -d' ' -f3`
 ARCH=`facter hardwaremodel`
 
@@ -10,27 +14,36 @@ rm -rf $PKG-$VER || exit 1
 #tar zxvf $PKG-$VER.tar.gz || exit 1
 #cd $PKG-$VER || exit 1
 #make || exit 1
-src="jdk1.6.0_16.x86_64"
+src="$PKG$VER.x86_64"
 pkgdir=`mktemp -d -t tpkg.XXXXXX` || exit 1
 cat ../tpkg.xml | \
 	sed "s/NAME/$PKG/" | \
 	sed "s/VERSION/$VER/" | \
 	sed "s/PKGVER/$PKGVER/" | \
 	sed "s/OS/RedHat-$OSMAJOR,CentOS-$OSMAJOR,Ubuntu-9,Ubuntu-9.04/" | \
-	sed "s/ARCH/x86_64/"  > $pkgdir/tpkg.xml
+	sed "s/ARCH/x86_64/"  | \
+        sed '/<files>/a\
+<file_defaults><posix><owner>t</owner><group>roleusers</group></posix></file_defaults>' > $pkgdir/tpkg.xml
 
+echo "Copying postinstall script over"
 cp postinstall $pkgdir/postinstall || exit 1
 chmod 755 $pkgdir/postinstall || exit 1
 
+echo "Copying jdk files to staging directory"
 mkdir -p $pkgdir/reloc || exit 1
-cp -r $src $pkgdir/reloc
+cp -r $src $pkgdir/reloc/$PKG$VER
 
+# delete unnecesarry source code
+rm $pkgdir/reloc/$src/src.zip
+
+echo "Setting up symlink"
 # create jdk_current symlink
 pushd .
 cd $pkgdir/reloc
 ln -s $src jdk_current
 popd
 
+echo "Setting up profile.d script"
 mkdir -p $pkgdir/reloc/etc/profile.d || exit 1
 cp java.sh $pkgdir/reloc/etc/profile.d/ || exit 1
 
@@ -40,7 +53,7 @@ sed -i "s,%INSTALLED_DIR%,$src," $pkgdir/reloc/etc/profile.d/java.sh
 echo "Running tpkg --make"
 tpkg --make $pkgdir || exit 1
 # Rename the package to reflect OS and arch
-mv /tmp/$PKG-$VER-$PKGVER.tpkg /tmp/$PKG-$VER-$PKGVER-linux-$ARCH.tpkg
+#mv /tmp/$PKG-$VER-$PKGVER.tpkg /tmp/$PKG-$VER-$PKGVER-linux-$ARCH.tpkg
 # Cleanup
 rm -rf $pkgdir
 

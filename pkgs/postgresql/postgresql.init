@@ -1,0 +1,33 @@
+#!/bin/sh
+
+# Init file for PostgreSQL
+
+case "$1" in
+'start')
+	if [ ! -d /home/t/var/pgsql ]
+	then
+		echo "Initializing PostgreSQL database with initdb"
+		mkdir /home/t/var/pgsql
+		chown postgres:postgres /home/t/var/pgsql
+		su postgres -s /bin/sh -c "/home/t/bin/initdb -D /home/t/var/pgsql"
+	fi
+	echo "Starting PostgreSQL"
+	su postgres -s /bin/sh -c "/home/t/bin/postgres -D /home/t/var/pgsql &" > /home/t/var/log/postgres.log 2>&1
+	;;
+
+'stop')
+	echo "Stopping PostgreSQL"
+	su postgres -s /bin/sh -c "/home/t/bin/pg_ctl -D /home/t/var/pgsql stop"
+	;;
+
+'restart')
+	$0 stop
+	$0 start
+	;;
+*)
+	echo "Usage: $0 { start | stop | restart }"
+	exit 1
+	;;
+esac
+exit 0
+
