@@ -42,7 +42,7 @@ cat ../../tpkg.xml | \
 	sed "s/OS/$OS/" | \
 	sed "s/ARCH/$ARCH/" | \
         sed '/<files>/i\
-<dependencies><dependency><name>ruby-enterprise</name></dependency><dependency><name>gem-nokogiri-rubyenterprise</name></dependency><dependency><name>gem-rake-rubyenterprise</name></dependency><dependency><name>gem-xmlparser-rubyenterprise</name></dependency><dependency><name>sqlite</name></dependency><dependency><name>xmlrpc-c</name></dependency></dependencies>' | \
+<dependencies><dependency><name>ruby</name></dependency><dependency><name>gem-nokogiri</name></dependency><dependency><name>gem-rake</name></dependency><dependency><name>gem-xmlparser</name></dependency><dependency><name>sqlite</name></dependency><dependency><name>xmlrpc-c</name></dependency></dependencies>' | \
         sed '/<files>/i\
 <externals><external><name>user</name><data>oneadmin</data></external></externals>' | \
         sed '/<files>/a\

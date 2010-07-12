@@ -1,41 +1,36 @@
 #!/bin/sh
 
+# The username might not have a trailing newline, depending on the
+# syntax the user used in their tpkg.xml/tpkg.yml file.  read treats
+# that as an error, although it will still read the name fine.  So if
+# the read is after the "set -e" then the script aborts.  We could work
+# around it by dumping stdin to a file and reading from there, but that
+# seems lame.
+read user
+
 set -e
 
 pkgfile=$1
 operation=$2
 
-pwrequestfile=/var/etch/requests/etc/passwd/$pkgfile
-shrequestfile=/var/etch/requests/etc/shadow/$pkgfile
+# Discard any remaining data fed to us so as not to trigger a
+# SIGPIPE in the caller.
+cat > /dev/null
 
 case "$operation" in
 'install')
-	# Grab the data passed to us on stdin
-	datafile=`mktemp`
-	cat > $datafile
-	for requestfile in $pwrequestfile $shrequestfile
-	do
-		mkdir -p `dirname "$requestfile"`
-		tmpfile=`mktemp "$requestfile.XXXXXX"` || exit 1
-		echo "<request>" > $tmpfile
-		# Dump in the data we captured above
-		cat $datafile >> $tmpfile
-		echo "</request>" >> $tmpfile
-		chmod 644 $tmpfile
-	done
-	rm -f $datafile
+	useradd $user
 	;;
 'remove')
-	for requestfile in $pwrequestfile $shrequestfile
-	do
-		rm -f "$requestfile".*
-	done
+	# We have no way to know if this package is the only reason this
+	# user is on the system.  It could have been requested by other
+	# packages, or added by something outside of tpkg.  So just warn
+	# the user that we're leaving it behind.
+	echo "tpkg local external leaving behind user $user from $pkgfile"
 	;;
 *)
 	echo "$0: Invalid arguments"
 	exit 1
 	;;
 esac
-
-/usr/sbin/etch /etc/passwd /etc/shadow
 

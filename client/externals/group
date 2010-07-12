@@ -1,9 +1,36 @@
 #!/bin/sh
 
-# This is a no-op in our environment as we always add all available groups to
-# all systems.
+# The group name might not have a trailing newline, depending on the
+# syntax the user used in their tpkg.xml/tpkg.yml file.  read treats
+# that as an error, although it will still read the name fine.  So if
+# the read is after the "set -e" then the script aborts.  We could work
+# around it by dumping stdin to a file and reading from there, but that
+# seems lame.
+read group
 
-# However, we need to take all the data fed to us so as not to trigger a
+set -e
+
+pkgfile=$1
+operation=$2
+
+# Discard any remaining data fed to us so as not to trigger a
 # SIGPIPE in the caller.
 cat > /dev/null
+
+case "$operation" in
+'install')
+	groupadd $group
+	;;
+'remove')
+	# We have no way to know if this package is the only reason this
+	# group is on the system.  It could have been requested by other
+	# packages, or added by something outside of tpkg.  So just warn
+	# the user that we're leaving it behind.
+	echo "tpkg local external leaving behind group $group from $pkgfile"
+	;;
+*)
+	echo "$0: Invalid arguments"
+	exit 1
+	;;
+esac
 

@@ -3,8 +3,10 @@
 set -e
 
 PKG=rubygems
-VER=1.3.6
+VER=1.3.7
 PKGVER=1
+
+tpkg -q ruby-defaults || tpkg -i ruby-defaults
 
 rm -rf $PKG-$VER
 tar zxvf $PKG-$VER.tgz

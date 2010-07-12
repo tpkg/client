@@ -1,15 +1,20 @@
 #!/bin/sh
 
-PKG=scons
-VER=1.2.0
-PKGVER=1
-OSMAJOR=`facter | grep lsbmajdistrelease | cut -d' ' -f3`
-ARCH=`facter hardwaremodel`
+set -e
 
-rm -rf $PKG-$VER || exit 1
-tar zxvf $PKG-$VER.tar.gz || exit 1
-cd $PKG-$VER || exit 1
-pkgdir=`mktemp -d -t tpkg.XXXXXX` || exit 1
+PKG=scons
+VER=2.0.0.final.0
+PKGVER=1
+
+tpkg -q python || tpkg -i python
+# Ensure the proper python is found
+PATH=/home/t/bin:$PATH
+export PATH
+
+rm -rf $PKG-$VER
+tar zxvf $PKG-$VER.tar.gz
+cd $PKG-$VER
+pkgdir=`mktemp -d -t tpkg.XXXXXX`
 # FIXME: python dep
 cat ../../tpkg.xml | \
 	sed "s/NAME/$PKG/" | \
@@ -17,13 +22,13 @@ cat ../../tpkg.xml | \
 	sed "s/PKGVER/$PKGVER/" | \
 	grep -v operatingsystem | grep -v architecture | \
 	sed '/<files>/i\
-<dependencies><dependency><name>python</name><minimum_version>1.5.2</minimum_version></dependency></dependencies>' \
+<dependencies><dependency><name>python-defaults</name><minimum_version>2.4</minimum_version><maximum_version>2.6</maximum_version></dependency></dependencies>' \
 	> $pkgdir/tpkg.xml
-mkdir -p $pkgdir/root/home/t || exit 1
+mkdir -p $pkgdir/root/home/t
 # Install
-python setup.py install --prefix=$pkgdir/root/home/t || exit 1
+python setup.py install --prefix=$pkgdir/root/home/t
 # Make package
-tpkg --make $pkgdir || exit 1
+tpkg --make $pkgdir
 # Cleanup
 rm -rf $pkgdir
 cd ..

@@ -1,29 +1,38 @@
 #!/bin/sh
 
-PKG=sqlite
-VER=3.6.22
-PKGVER=1
-OSMAJOR=`facter | grep lsbmajdistrelease | cut -d' ' -f3`
-ARCH=`facter hardwaremodel`
+set -e
 
-rm -rf $PKG-$VER || exit 1
-#tar zxvf $PKG-$VER.tar.gz || exit 1
-tar zxvf $PKG-amalgamation-$VER.tar.gz || exit 1
-cd $PKG-$VER || exit 1
-./configure --prefix=/home/t || exit 1
-make || exit 1
-pkgdir=`mktemp -d -t tpkg.XXXXXX` || exit 1
+PKG=sqlite
+VER=3.6.23.1
+PKGVER=1
+OS=`tpkg --qenv | grep 'Operating System' | awk '{print $NF}'`
+if echo $OS | egrep 'RedHat|CentOS'
+then
+        # Save folks from having to build separate packages for Red Hat and
+        # CentOS
+        OSMAJOR=`echo $OS | cut -d- -f2`
+        OS="RedHat-$OSMAJOR,CentOS-$OSMAJOR"
+fi
+ARCH=`tpkg --qenv | grep 'Architecture' | awk '{print $NF}'`
+
+rm -rf $PKG-$VER
+#tar zxvf $PKG-$VER.tar.gz
+tar zxvf $PKG-amalgamation-$VER.tar.gz
+cd $PKG-$VER
+./configure --prefix=/home/t
+make
+pkgdir=`mktemp -d -t tpkg.XXXXXX`
 cat ../../tpkg.xml | \
 	sed "s/NAME/$PKG/" | \
 	sed "s/VERSION/$VER/" | \
 	sed "s/PKGVER/$PKGVER/" | \
-	sed "s/OS/RedHat-$OSMAJOR,CentOS-$OSMAJOR/" | \
+	sed "s/OS/$OS/" | \
 	sed "s/ARCH/$ARCH/" > $pkgdir/tpkg.xml
-mkdir -p $pkgdir/root/home/t || exit 1
+mkdir -p $pkgdir/root/home/t
 # Install
-make install prefix=$pkgdir/root/home/t || exit 1
+make install prefix=$pkgdir/root/home/t
 # Make package
-tpkg --make $pkgdir || exit 1
+tpkg --make $pkgdir
 # Cleanup
 rm -rf $pkgdir
 cd ..

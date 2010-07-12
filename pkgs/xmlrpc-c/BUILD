@@ -3,7 +3,7 @@
 set -e
 
 PKG=xmlrpc-c
-VER=1.06.38
+VER=1.06.40
 PKGVER=1
 OS=`tpkg --qenv | grep 'Operating System' | awk '{print $NF}'`
 if echo $OS | egrep 'RedHat|CentOS'
@@ -16,6 +16,11 @@ fi
 ARCH=`tpkg --qenv | grep 'Architecture' | awk '{print $NF}'`
 
 tpkg --quiet -q curl || tpkg -i curl
+
+if echo $OS | egrep 'RedHat|CentOS'
+then
+	rpm --quiet -q gcc-c++ || sudo yum install gcc-c++
+fi
 
 # Make sure configure finds the tpkg curl-config instead of others
 PATH=/home/t/bin:$PATH
