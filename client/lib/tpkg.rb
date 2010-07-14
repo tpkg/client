@@ -1140,7 +1140,7 @@ class Tpkg
   # Return what type of compression. If tpkg.tar wasn't compressed, then return nil.
   def self.get_compression(package_file)
     compression = nil
-    IO.popen("#{find_tar} -tf #{package_file} #{@@taroptions}") do |pipe|
+    IO.popen("#{find_tar} #{@@taroptions} -tf #{package_file}") do |pipe|
       pipe.each do |file|
         if file =~ /tpkg.tar.gz$/
           compression = "gzip" 
@@ -1157,11 +1157,11 @@ class Tpkg
   def self.cmd_to_extract_tpkg_tar(package_file, topleveldir)
     compression = get_compression(package_file)
     if compression == "gzip"
-      cmd = "#{find_tar} -xf #{package_file} -O #{File.join(topleveldir, 'tpkg.tar.gz')} #{@@taroptions} | gunzip -c"
+      cmd = "#{find_tar} #{@@taroptions} -xf #{package_file} -O #{File.join(topleveldir, 'tpkg.tar.gz')} | gunzip -c"
     elsif compression == "bz2"
-      cmd = "#{find_tar} -xf #{package_file} -O #{File.join(topleveldir, 'tpkg.tar.bz2')} #{@@taroptions} | bunzip2 -c"
+      cmd = "#{find_tar} #{@@taroptions} -xf #{package_file} -O #{File.join(topleveldir, 'tpkg.tar.bz2')} | bunzip2 -c"
     else
-      cmd = "#{find_tar} -xf #{package_file} -O #{File.join(topleveldir, 'tpkg.tar')} #{@@taroptions}"
+      cmd = "#{find_tar} #{@@taroptions} -xf #{package_file} -O #{File.join(topleveldir, 'tpkg.tar')}"
     end
   end
  
