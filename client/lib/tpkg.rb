@@ -492,7 +492,7 @@ class Tpkg
     topleveldir = package_toplevel_directory(package_file)
     # Extract checksum.xml from the package
     checksum_xml = nil
-    IO.popen("#{find_tar} -xf #{package_file} -O #{File.join(topleveldir, 'checksum.xml')} #{@@taroptions}") do |pipe|
+    IO.popen("#{find_tar} #{@@taroptions} -xf #{package_file} -O #{File.join(topleveldir, 'checksum.xml')}") do |pipe|
       checksum_xml = REXML::Document.new(pipe.read)
     end
     if !$?.success?
