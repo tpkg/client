@@ -93,6 +93,9 @@ class Tpkg
   def self.find_tar
     if !@@tar
       catch :tar_found do
+        if !ENV['PATH']
+          raise "tpkg cannot run because the PATH env variable is not set."
+        end
         ENV['PATH'].split(':').each do |path|
           TARNAMES.each do |tarname|
             if File.executable?(File.join(path, tarname))
@@ -378,7 +381,7 @@ class Tpkg
       end
     
       # update metadata file with the tpkg version 
-      # TODO
+      metadata.add_tpkg_version(VERSION)
  
       # Tar up the tpkg directory
       tpkgfile = File.join(package_directory, 'tpkg.tar')

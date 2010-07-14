@@ -1,0 +1,92 @@
+type: map
+mapping: 
+  "schema_file": { type: text }
+  "tpkg_version": { type: text }
+  "name": { type: str, required: yes }
+  "version": { type: text, required: yes }
+  "package_version": { type: text }
+  "maintainer": { type: str, required: yes }
+  "operatingsystem": { type: seq, sequence: [ {type: str} ] }
+  "architecture": { type: seq, sequence: [ {type: str} ] }
+  "description": { type: str }
+  "bugreporting": { type: str }
+  "dependencies": 
+    type: seq
+    sequence: 
+      - type: map
+        mapping:
+          "name": { type: str, required: yes }
+          "minimum_version": { type: text }
+          "maximum_version": { type: text }
+          "minimum_package_version": { type: text }
+          "maximum_package_version": { type: text }
+          "allowed_versions": { type: text }
+          "native": { type: bool }
+          "type": { type: any, pattern: /(native|tpkg)$/ }
+  "conflicts":
+    type: seq
+    sequence:
+      - type: map
+        mapping:
+          "name": { type: str, required: yes }
+          "minimum_version": { type: text }
+          "maximum_version": { type: text }
+          "minimum_package_version": { type: text } 
+          "maximum_package_version": { type: text } 
+          "native": { type: bool }
+          "type": { type: any, pattern: /(native|tpkg)$/ }
+  "externals":
+    type: seq
+    sequence:
+      - type: map
+        mapping:
+          "name": { type: text, required: yes }
+          "data": { type: text }
+          "datascript": { type: text }
+          "datafile": { type: text }
+  "files":
+    type: map
+    mapping:
+      "file_defaults":
+        type: map
+        mapping:
+          "posix":
+            type: map
+            mapping:
+              "owner": { type: text }
+              "group": { type: text }
+              "perms": { type: text }
+      "dirs_defaults":
+        type: map
+        mapping:
+          "posix":
+            type: map
+            mapping:
+              "owner": { type: text }
+              "group": { type: text }
+              "perms": { type: text }
+      "files":
+        type: seq
+        sequence:
+          - type: map
+            mapping:
+              "path": { type: text, required: yes }
+              "encrypt": 
+                type: map
+                mapping:
+                  "algorithm": { type: text }
+                  "precrypt": { type: any, pattern: /^true$|^false$/ }
+              "init":
+                type: map
+                mapping:
+                  "start": { type: int }
+                  "levels": { type: seq, sequence: [ { type: int } ] }
+              "crontab":
+                type: map
+                mapping: { "user": { type: str } }
+              "posix":  
+                type: map
+                mapping: { "owner": { type: text },
+                           "group": { type: text },
+                           "perms": { type: text } }
+

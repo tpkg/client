@@ -270,8 +270,7 @@ opts.on('--debug', 'Print lots of messages about what tpkg is doing') do |opt|
   Tpkg::set_debug(@debug)
 end
 opts.on('--version', 'Show tpkg version') do |opt|
-  puts Tpkg::VERSION
-  exit
+  @action = :query_version
 end
 opts.on_tail("-h", "--help", "Show this message") do
   puts opts
@@ -491,6 +490,8 @@ when :query_info
         end
       end
     end
+    tpkg_version = metadata[:tpkg_version] || "< 1.26.1"
+    puts "This package was built with tpkg version #{tpkg_version}."
     if metadata[:dependencies] 
       puts "This package depends on other packages, use --qd/--qld to view the dependencies."
     end
@@ -631,5 +632,7 @@ when :query_env
 when :query_history
   tpkg = instantiate_tpkg(@tpkg_options)
   tpkg.installation_history
+when :query_version
+  puts Tpkg::VERSION
 end
 exit ret_val

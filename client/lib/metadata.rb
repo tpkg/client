@@ -221,7 +221,7 @@ end
 # is that you can give it a metadata file of any format, such as yaml or xml,
 # and it will provide you a uniform interface for accessing/dealing with the metadata.
 class Metadata
-  attr_accessor :source
+  attr_accessor :source, :file_path
   REQUIRED_FIELDS = [:name, :version, :maintainer]
 
   # Cleans up a string to make it suitable for use in a filename
@@ -248,8 +248,10 @@ class Metadata
     metadata = nil
     if File.exist?(File.join(dir, 'tpkg.yml'))
       metadata = Metadata.new(File.read(File.join(dir, 'tpkg.yml')), 'yml')
+      metadata.file_path = File.join(dir, 'tpkg.yml')
     elsif File.exists?(File.join(dir, 'tpkg.xml'))
       metadata = Metadata.new(File.read(File.join(dir, 'tpkg.xml')), 'xml')
+      metadata.file_path = File.join(dir, 'tpkg.xml')
     end
     return metadata
   end
@@ -328,6 +330,33 @@ class Metadata
       YAML::dump(data, file)
     end
     file.close
+  end
+
+  # Add tpkg_version to the existing tpkg.xml or tpkg.yml file
+  def add_tpkg_version(version)
+    if @format == 'xml'
+      metadata_xml = REXML::Document.new(@metadata_text)
+      if metadata_xml.root.elements["tpkg_version"] && (tpkg_version = metadata_xml.root.elements["tpkg_version"].text) != Tpkg::VERSION
+        warn "Warning: tpkg_version is specified as #{tpkg_version}, which doesn't match with the actual tpkg version being used (#{Tpkg::VERSION})."
+      elsif !metadata_xml.root.elements["tpkg_version"]
+        tpkg_version_ele = REXML::Element.new("tpkg_version")
+        tpkg_version_ele.text = Tpkg::VERSION
+        metadata_xml.root.add_element(tpkg_version_ele)  
+        File.open(@file_path, 'w') do |file|
+          metadata_xml.write(file)
+        end
+      end
+    elsif @format == 'yml'
+      if (tpkg_version = to_hash[:tpkg_version]) && tpkg_version != Tpkg::VERSION
+        warn "Warning: tpkg_version is specified as #{tpkg_version}, which doesn't match with the actual tpkg version being used (#{Tpkg::VERSION})."
+      elsif !tpkg_version
+        File.open(@file_path, 'a') do |file|
+          file.puts "tpkg_version: #{Tpkg::VERSION}"
+        end 
+      end
+    else
+      raise "Unknown metadata format"
+    end
   end
 
   def generate_package_filename
@@ -454,7 +483,7 @@ class Metadata
       end
     end
 
-    [:package_version, :description, :bugreporting].each do |optfield|
+    [:tpkg_version, :package_version, :description, :bugreporting].each do |optfield|
       if metadata_xml.elements["/tpkg/#{optfield.to_s}"]
         metadata_hash[optfield] =
           metadata_xml.elements["/tpkg/#{optfield.to_s}"].text
