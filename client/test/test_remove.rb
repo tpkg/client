@@ -76,7 +76,10 @@ class TpkgRemoveTests < Test::Unit::TestCase
       File.open(File.join(srcdir, 'reloc', 'directory', pkgname), 'w') do |file|
         file.puts pkgname
       end
-      pkgfiles << make_package(:output_directory => @tempoutdir, :change => {'name' => pkgname}, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      File.open(File.join(srcdir, 'reloc', 'directory', "#{pkgname}.conf"), 'w') do |file|
+        file.puts pkgname
+      end
+      pkgfiles << make_package(:output_directory => @tempoutdir, :change => {'name' => pkgname}, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'], :files => { "directory/#{pkgname}.conf" => { 'config' => true}})
       FileUtils.rm_rf(srcdir)
     end
     
@@ -127,6 +130,16 @@ class TpkgRemoveTests < Test::Unit::TestCase
     assert_nothing_raised { tpkg.remove }
     assert(!File.exist?(File.join(testbase, 'directory', 'a')))
     assert(!File.exist?(File.join(testbase, 'directory', 'b')))
+
+    # Test removing config files
+    # If config file has been modified, then tpkg should not remove it
+    tpkg.install(['a', 'b'], PASSPHRASE)
+    File.open(File.join(testbase, 'directory', "a.conf"), 'w') do |file|
+      file.puts "Modified"
+    end
+    assert_nothing_raised { tpkg.remove }
+    assert(File.exist?(File.join(testbase, 'directory', 'a.conf')))
+    assert(!File.exist?(File.join(testbase, 'directory', 'b.conf')))
     
     # Clean up
     pkgfiles.each { |pkgfile| FileUtils.rm_f(pkgfile) }

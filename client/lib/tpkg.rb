@@ -311,10 +311,15 @@ class Tpkg
         raise "Failed to create package."  unless options[:force]
       end
 
-      # file_metadata.yml hold information for files that are installed
+      # file_metadata hold information for files that are installed
       # by the package. For example, checksum, path, relocatable or not, etc.
       File.open(File.join(tpkgdir, "file_metadata.bin"), "w") do |file|
         filemetadata = get_filemetadata_from_directory(tpkgdir)
+        filemetadata[:files].each do |file1|
+          if metadata[:files][:files] && metadata[:files][:files].any?{|file2|file2[:path] == file1[:path] && file2[:config]}
+            file1[:config] = true
+          end 
+        end
         data = filemetadata.to_hash.recursively{|h| h.stringify_keys }
         Marshal::dump(data, file)
       end
@@ -1762,7 +1767,7 @@ class Tpkg
     ret = {}
 
     if package_files
-      packages_files.collect!{|package_file| File.basename(package_file, File.extname(package_file))}
+      package_files.collect!{|package_file| File.basename(package_file, File.extname(package_file))}
     end
 
     if File.directory?(@metadata_directory)
@@ -2486,24 +2491,18 @@ class Tpkg
     files_info = {} # store perms, uid, gid, etc. for files
     checksums_of_decrypted_files = {}
 
-    # Get list of conflicting files/directories & store their perm/ownership. That way, we can
-    # set them to the correct values later on in order to preserve them.
-    rel_root_dir = File.join('tpkg', 'root')
-    rel_reloc_dir = File.join('tpkg', 'reloc')
-    files = `#{extract_tpkg_tar_cmd} | #{@tar} #{@@taroptions} -tf -`
-    files = files.split("\n")
+    # Get list of files/directories that already exist in the system. Store their perm/ownership. 
+    # That way, when we copy over the new files, we can set the new files to have the same perm/owernship.
     conflicting_files = {}
-    files.each do | file |
-      if file =~ /^#{rel_root_dir}/
-        possible_conflicting_file = File.join(@file_system_root, file[rel_root_dir.length ..-1])
-      elsif file =~ /^#{rel_reloc_dir}/
-        possible_conflicting_file = File.join(@base, file[rel_reloc_dir.length + 1..-1])
-      end
-      if possible_conflicting_file && (File.exists?(possible_conflicting_file) && !File.symlink?(possible_conflicting_file))
-         conflicting_files[File.join(workdir, file)] = File.stat(possible_conflicting_file)
+    fip = Tpkg::files_in_package(package_file)
+    (fip[:root] | fip[:reloc]).each do |file|
+      file_in_staging = normalize_path(file, File.join(workdir, 'tpkg', 'root'), File.join(workdir, 'tpkg', 'reloc'))
+      file_in_system = normalize_path(file)
+      if File.exists?(file_in_system) && !File.symlink?(file_in_system)
+        conflicting_files[file] = {:normalized => file_in_staging, :stat => File.stat(file_in_system)}
       end
     end
-    
+
     run_preinstall(package_file, workdir)
     
     run_externals_for_install(metadata, workdir, options[:externals_to_skip])
@@ -2571,12 +2570,14 @@ class Tpkg
     # Reset the permission/ownership of the conflicting files as how they were before.
     # This needs to be done after the default permission/ownership is applied, but before
     # the handling of ownership/permissions on specific files
-    conflicting_files.each do | file, stat |
-      File.chmod(stat.mode, file)
-      File.chown(stat.uid, stat.gid, file)
+    conflicting_files.each do | file, info |
+      stat = info[:stat]
+      file_path = info[:normalized]
+      File.chmod(stat.mode, file_path)
+      File.chown(stat.uid, stat.gid, file_path)
     end
     
-    # Handle any decryption and ownership/permissions on specific files
+    # Handle any decryption, ownership/permissions, and other issues for specific files
     metadata[:files][:files].each do |tpkgfile|
       tpkg_path = tpkgfile[:path]
       working_path = normalize_path(tpkg_path, File.join(workdir, 'tpkg', 'root'), File.join(workdir, 'tpkg', 'reloc'))
@@ -2641,6 +2642,12 @@ class Tpkg
             checksums_of_decrypted_files[File.expand_path(tpkg_path)] = digest 
           end
         end
+      end
+
+      # If a conf file already exists on the file system, don't overwrite it. Rename
+      # the new one with .tpkgnew file extension.
+      if tpkgfile[:config] && conflicting_files[tpkgfile[:path]]
+        FileUtils.mv(conflicting_files[tpkgfile[:path]][:normalized], "#{conflicting_files[tpkgfile[:path]][:normalized]}.tpkgnew")
       end
     end if metadata[:files] && metadata[:files][:files]
 
@@ -3949,13 +3956,36 @@ class Tpkg
           run_external(pkg[:metadata][:filename], :remove, external[:name], external[:data])
         end
       end if pkg[:metadata][:externals]
-      
+
+      # determine which configuration files have been modified
+      modified_conf_files = []
+      file_metadata = file_metadata_for_installed_packages([pkg[:metadata][:filename]]).values[0]
+      file_metadata[:files].each do |file|
+        if file[:config]
+          # get expected checksum. For files that were encrypted, we're interested in the
+          # checksum of the decrypted version 
+          chksum_expected = file[:checksum][:digests].first[:value]
+          file[:checksum][:digests].each do | digest |
+            if digest[:decrypted] == true
+              chksum_expected = digest[:value].to_s
+            end
+          end
+          fp = normalize_path(file[:path])
+          chksum_actual = Digest::SHA256.hexdigest(File.read(fp))
+          if chksum_actual != chksum_expected
+            modified_conf_files << fp
+          end
+        end
+      end if file_metadata
+
       # Remove files
       files_to_remove = conflicting_files(package_file, CHECK_REMOVE)
       # Reverse the order of the files, as directories will appear first
       # in the listing but we want to remove any files in them before
       # trying to remove the directory.
       files_to_remove.reverse.each do |file|
+        # don't remove conf files that have been modified
+        next if modified_conf_files.include?(file)
         begin
           if !File.directory?(file)
             File.delete(file)
@@ -4082,12 +4112,7 @@ class Tpkg
           perms_expected = file[:perms].to_s
         end 
 
-        # normalize file path
-        if file[:relocatable] == true
-          fp = File.join(@base, fp)
-        else
-          fp = File.join(@file_system_root, fp)
-        end
+        fp  = normalize_path(fp)
   
         # can't handle symlink
         if File.symlink?(fp)

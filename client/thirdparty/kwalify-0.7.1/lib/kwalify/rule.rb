@@ -38,7 +38,7 @@ module Kwalify
 
 
     def initialize(hash=nil, parent=nil)
-      @ident = @unique = @sequence = @default = @enum = @pattern = @mapping = @range = @length = nil
+      @required = @ident = @unique = @sequence = @default = @enum = @pattern = @mapping = @range = @length = nil
       _init(hash, "", {}) if hash
       @parent = parent
     end

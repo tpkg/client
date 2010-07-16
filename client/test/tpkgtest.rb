@@ -156,6 +156,9 @@ module TpkgTests
             end
             tpkgdst.puts('      </posix>')
           end
+          if opts['config']
+            tpkgdst.puts('      <config/>')
+          end
           if opts['encrypt']
             if opts['encrypt'] = 'precrypt'
               tpkgdst.puts('      <encrypt precrypt="true"/>')

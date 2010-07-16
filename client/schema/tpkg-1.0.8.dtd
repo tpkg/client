@@ -30,8 +30,9 @@
 <!ELEMENT owner (#PCDATA)>
 <!ELEMENT group (#PCDATA)>
 <!ELEMENT perms (#PCDATA)>
-<!ELEMENT file (path, encrypt?, init?, crontab?, posix?)>
+<!ELEMENT file (path, config?, encrypt?, init?, crontab?, posix?)>
 <!ELEMENT path (#PCDATA)>
+<!ELEMENT config EMPTY>
 <!ELEMENT encrypt EMPTY>
 <!ATTLIST encrypt precrypt (true|false) #IMPLIED>
 <!ATTLIST encrypt algorithm CDATA #IMPLIED>

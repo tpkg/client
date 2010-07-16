@@ -625,6 +625,7 @@ class Metadata
     metadata_xml.elements.each('/tpkg/files/file') do |filexml|
       file = {}
       file[:path] = filexml.elements['path'].text
+      file[:config] = true if filexml.elements['config']
       if filexml.elements['encrypt']
         encrypt = {}
         if filexml.elements['encrypt'].attribute('precrypt') &&

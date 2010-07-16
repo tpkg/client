@@ -70,6 +70,7 @@ mapping:
         sequence:
           - type: map
             mapping:
+              "config": { type: bool, default: false }
               "path": { type: text, required: yes }
               "encrypt": 
                 type: map

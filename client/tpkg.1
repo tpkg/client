@@ -14,6 +14,8 @@
 .IR DIRECTORY ]
 .RB [ --extract | \-x
 .IR DIRECTORY ]
+.RB [ --download
+.IR PACKAGES ]
 .RB [ --install | \-i
 .IR PACKAGES ]
 .RB [ --upgrade | \-u
@@ -115,6 +117,10 @@ Extract the metadata from a directory of packages to metadata.xml.  The
 client expects source directories to have this operation performed on
 them so that it can resolve dependencies without having to download all
 packages.
+.TP
+.BI --download " PACKAGES"
+Download the specified package(s).  Packages may be specified as name,
+name=version, name=version=packageversion, or as a filename or URL.
 .TP
 .BI --install|\-i " PACKAGES"
 Install the specified package(s).  Packages may be specified as name,
@@ -252,7 +258,7 @@ Replace the conflicting package(s) with the new one(s).
 Force the execution of a given task.
 .TP 
 .BR --out | \-o
-Output directory for the -m option
+Output directory for the -m and --download option.
 .TP
 .B --use-ssh-key
 Eliminate the prompt for an SSH password when deploying.

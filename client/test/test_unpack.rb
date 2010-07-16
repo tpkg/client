@@ -443,7 +443,41 @@ class TpkgUnpackTests < Test::Unit::TestCase
     assert_equal(0666, File.stat(File.join(testbase, 'etc', 'rootfile')).mode & 07777)
     FileUtils.rm_rf(testbase)
   end
-  
+
+  # Check that if a config file already existed in the system, then we don't
+  # overwrite it. Instead we save the new one with a .tpkgnew extension. 
+  def test_config_files_handling
+    srcdir = Tempdir.new("srcdir")
+    # The stock test package has a reloc directory we can use
+    system("#{Tpkg::find_tar} -C #{TESTPKGDIR} --exclude .svn -cf - . | #{Tpkg::find_tar} -C #{srcdir} -xf -")
+    # Then add some configuration files
+    FileUtils.mkdir_p(File.join(srcdir, 'root'))
+    ['conf1', 'conf2'].each do |conf|
+      File.open(File.join(srcdir, 'root', conf), 'w') do |file|
+        file.puts conf
+      end
+    end
+    pkgfile = make_package(:output_directory => @tempoutdir, :source_directory => srcdir, 
+                            :files => {'/conf1' => {'config' => true}, '/conf2' => {'config' => true}}, 
+                            :remove => ['posix_acl', 'windows_acl'])
+
+    testbase = Tempdir.new("testbase")
+
+    # Create an existing configuration file
+    File.open(File.join(testbase, 'conf1'), 'w') do |file|
+      file.puts "Existing conf file"
+    end
+
+    tpkg = Tpkg.new(:file_system_root => testbase, :base => File.join('home', 'tpkg'), :sources => [@pkgfile])
+    assert_nothing_raised { tpkg.unpack(pkgfile, :passphrase => PASSPHRASE) }
+    assert(File.exists?(File.join(testbase, 'conf1.tpkgnew')))
+    assert(!File.exists?(File.join(testbase, 'conf2.tpkgnew')))
+
+    # clean up
+    FileUtils.rm_rf(srcdir)
+    FileUtils.rm_rf(testbase)
+  end
+
   def test_install_init_scripts
     srcdir = Tempdir.new("srcdir")
     FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
