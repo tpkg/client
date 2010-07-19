@@ -19,7 +19,10 @@ cat > /dev/null
 
 case "$operation" in
 'install')
-	useradd $user
+	if ! grep ^$user: /etc/passwd > /dev/null 2>&1
+	then
+		useradd $user
+	fi
 	;;
 'remove')
 	# We have no way to know if this package is the only reason this
