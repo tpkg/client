@@ -492,9 +492,9 @@ class Tpkg
     #return FileMetadata.new(YAML::dump(filemetadata),'yml')
     return FileMetadata.new(Marshal::dump(filemetadata),'bin')
   end
-  
-  def self.verify_package_checksum(package_file)
-    topleveldir = package_toplevel_directory(package_file)
+ 
+  def self.verify_package_checksum(package_file, options = {}) 
+    topleveldir = options[:topleveldir] || package_toplevel_directory(package_file)
     # Extract checksum.xml from the package
     checksum_xml = nil
     IO.popen("#{find_tar} #{@@taroptions} -xf #{package_file} -O #{File.join(topleveldir, 'checksum.xml')}") do |pipe|
@@ -544,8 +544,8 @@ class Tpkg
   end
 
   # Extracts and returns the metadata from a package file
-  def self.metadata_from_package(package_file)
-    topleveldir = package_toplevel_directory(package_file)
+  def self.metadata_from_package(package_file, options = {})
+    topleveldir = options[:topleveldir] || package_toplevel_directory(package_file)
     # Verify checksum
     verify_package_checksum(package_file)
     # Extract and parse tpkg.xml
@@ -2467,7 +2467,6 @@ class Tpkg
   # calling this method.
   def unpack(package_file, options={})
     ret_val = 0
-    metadata = Tpkg::metadata_from_package(package_file)
 
     # set env variable to let pre/post install know  whether this unpack 
     # is part of an install or upgrade
@@ -2490,6 +2489,8 @@ class Tpkg
     system("#{extract_tpkg_tar_cmd} | #{@tar} #{@@taroptions} -C #{workdir} -xpf -")
     files_info = {} # store perms, uid, gid, etc. for files
     checksums_of_decrypted_files = {}
+
+    metadata = Tpkg::metadata_from_package(package_file, {:topleveldir => topleveldir})
 
     # Get list of files/directories that already exist in the system. Store their perm/ownership. 
     # That way, when we copy over the new files, we can set the new files to have the same perm/owernship.
