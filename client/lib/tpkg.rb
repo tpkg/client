@@ -888,10 +888,7 @@ class Tpkg
   end
   
   def self.files_in_package(package_file, options = {})
-    file_lists = []
-    files = {}
-    files[:root] = []
-    files[:reloc] = []
+    files = {:root => [], :reloc => []}
 
     # If the metadata_directory option is available, it means this package
     # has been installed and the file_metadata might be available in that directory.
@@ -911,6 +908,7 @@ class Tpkg
         end
       end
     else
+      file_lists = []
       topleveldir = package_toplevel_directory(package_file)
       extract_tpkg_tar_cmd = cmd_to_extract_tpkg_tar(package_file, topleveldir)
       IO.popen("#{extract_tpkg_tar_cmd} | #{find_tar} #{@@taroptions} -tf -") do |pipe|
@@ -3526,6 +3524,8 @@ class Tpkg
         else
           if prompt_for_conflicting_files(pkgfile)
             ret_val |= unpack(pkgfile, :passphrase => passphrase)
+            # create and install stubbed native package if needed
+            stub_native_pkg(pkg)
           end
         end
       end
@@ -3779,7 +3779,8 @@ class Tpkg
             ret_val |= unpack(pkgfile, :passphrase => passphrase, :externals_to_skip => externals_to_skip,
                                        :is_doing_upgrade => is_doing_upgrade)
           end
-
+          # create and install stubbed native package if needed
+          stub_native_pkg(pkg)
           has_updates = true
         end
       end
@@ -4039,6 +4040,9 @@ class Tpkg
       # delete metadata dir of this package
       package_metadata_dir = File.join(@metadata_directory, File.basename(package_file, File.extname(package_file)))
       FileUtils.rm_rf(package_metadata_dir)
+
+      # remove native dependency stub packages if needed
+      remove_native_stub_pkg(pkg)
 
       # Cleanup
       FileUtils.rm_rf(workdir)
@@ -4492,6 +4496,102 @@ class Tpkg
       puts "Failed to send update to reporter server"
     end
   end
+ 
+  # create and install native stub package if needed 
+  # this helps prevent user from remove native packages that our tpkg packages
+  # depend on 
+  def stub_native_pkg(pkg)
+    # gather all of the native dependencies
+    native_deps = pkg[:metadata].get_native_deps
 
+    return if native_deps.nil? or native_deps.empty?
+    
+    if Tpkg::get_os =~ /RedHat|CentOS|Fedora/
+      rpm = create_rpm("stub_for_#{pkg[:metadata][:name]}", native_deps)
+      return if rpm.nil?
+  
+      # install the rpm
+      cmd = "rpm -i #{rpm}"
+      puts cmd if @@debug
+      system(cmd)
+      if !$?.success?
+        warn "Warning: Failed to install native stub package for #{pkg[:metadata][:name]}"
+      end
+    else
+      # TODO: support other OSes
+    end
+  end
+
+  # remove the native dependency stub packages if there's any
+  def remove_native_stub_pkg(pkg)
+    # Don't have to do anything if this package has no native dependencies
+    native_deps = pkg[:metadata].get_native_deps
+    return if native_deps.nil? or native_deps.empty?
+
+    # the convention is that stub package is named as "stub_for_pkgname"
+    stub_pkg_name = "stub_for_#{pkg[:metadata][:name]}"
+
+    if Tpkg::get_os =~ /RedHat|CentOS|Fedora/
+      cmd = "yum -y remove #{stub_pkg_name}"
+      puts cmd if @@debug
+      system(cmd)
+      if !$?.success?
+        warn "Warning: Failed to remove native stub package for #{pkg[:metadata][:name]}"
+      end
+    else
+      # TODO: support other OSes
+    end
+  end
+
+  def create_rpm(name, deps=[])
+    # setup directories for rpmbuild
+    topdir = Tpkg::tempdir('rpmbuild')
+    %w[BUILD RPMS SOURCES SPECS SRPMS].each do |dir|
+      FileUtils.mkdir_p(File.join(topdir, dir))
+    end
+
+    dep_list = deps.collect{|dep|dep[:name]}.join(",")
+
+    # create rpm spec file
+    spec = <<-EOS.gsub(/^\s+/, "")
+    Name: #{name}
+    Summary: stub pkg created by tpkg
+    Version: 1
+    Release: 1
+    buildarch: noarch
+    Requires: #{dep_list}
+    Group: Applications/System
+    License: MIT
+    BuildRoot: %{_builddir}/%{name}-buildroot
+    %description
+    stub pkg created by tpkg for the following dependencies: #{dep_list}
+    %files
+    EOS
+    spec_file = File.join(topdir, 'SPECS', 'pkg.spec')
+    File.open(spec_file, 'w') do |file|
+      file.puts(spec)
+    end
+
+    # run rpmbuild
+    system("rpmbuild -bb --define '_topdir #{topdir}' #{spec_file}")
+    if !$?.success?
+      warn "Warning: Failed to create native stub package for #{name}"
+      return nil
+    end
+
+    # copy result over to tmpfile
+    result = File.join(topdir, 'RPMS', 'noarch', "#{name}-1-1.noarch.rpm")
+    rpm = nil
+    if File.exists?(result)
+      tmpfile = Tempfile.new(File.basename(result))
+      FileUtils.cp(result, tmpfile.path)
+      rpm = tmpfile.path
+    end
+
+    # cleanup
+    FileUtils.rm_rf(topdir)
+
+    return rpm
+  end
 end
 

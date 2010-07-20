@@ -686,6 +686,13 @@ class Metadata
 
     return metadata_hash
   end
+
+  def get_native_deps
+    dependencies = to_hash[:dependencies]
+    return nil if dependencies.nil? or dependencies.empty?
+
+    return dependencies.select{|dep| dep[:type] == :native}
+  end
 end
 
 class FileMetadata < Metadata
