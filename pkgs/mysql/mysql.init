@@ -4,27 +4,27 @@
 
 case "$1" in
 'start')
-	if [ ! -d /home/t/var/mysql ]
+	if [ ! -d /home/t/mysql/var/mysql ]
 	then
 		echo "Initializing MySQL database with mysql_install_db"
-		/home/t/bin/mysql_install_db --user=mysql
+		/home/t/mysql/bin/mysql_install_db --user=mysql
 		# mysql_install_db sets restrictive permissions on the
 		# top level directory by default, but we put the socket
 		# file (mysql.sock) into that directory and thus need
 		# the directory to be world readable.  mysqld sets
 		# restrictive permissions on the individual data files
 		# so there's no harm in making the directory readable.
-		chmod 755 /home/t/var/mysql
+		chmod 755 /home/t/mysql/var/mysql
 	fi
 	echo "Starting mysqld"
-	/home/t/bin/mysqld_safe --defaults-file=/home/t/etc/my.cnf > /home/t/var/log/mysqld_safe.log 2>&1 &
+	/home/t/mysql/bin/mysqld_safe --defaults-file=/home/t/mysql/etc/my.cnf > /home/t/mysql/var/log/mysqld_safe.log 2>&1 &
 	;;
 
 'stop')
-	if [ -f /home/t/var/run/mysqld/mysqld.pid ]
+	if [ -f /home/t/mysql/var/run/mysqld/mysqld.pid ]
 	then
 		echo "Stopping mysqld"
-		kill `cat /home/t/var/run/mysqld/mysqld.pid`
+		kill `cat /home/t/mysql/var/run/mysqld/mysqld.pid`
 	else
 		echo "No pid file for mysqld"
 	fi

@@ -1,10 +1,10 @@
-#!/sbin/sh
+#!/bin/bash
 
 set -e
 
 PKG=mysql
-VER=5.1.33
-PKGVER=4
+VER=5.1.48
+PKGVER=1
 OS=`tpkg --qenv | grep 'Operating System' | awk '{print $NF}'`
 if echo $OS | egrep 'RedHat|CentOS'
 then
@@ -21,9 +21,9 @@ cd $PKG-$VER
 rpm --quiet -q ncurses-devel || sudo yum install ncurses-devel
 rpm --quiet -q openssl-devel || sudo yum install openssl-devel
 ./configure \
-	--prefix=/home/t \
-	--localstatedir=/home/t/var/mysql \
-	--with-unix-socket-path=/home/t/var/mysql/mysql.sock \
+	--prefix=/home/t/$PKG-$VER \
+	--localstatedir=/home/t/$PKG-$VER/var/mysql \
+	--with-unix-socket-path=/home/t/$PKG-$VER/var/mysql/mysql.sock \
 	--with-innodb \
 	--with-extra-charsets=complex \
 	--with-ssl=/usr
@@ -38,31 +38,32 @@ cat ../../tpkg.xml | \
 	sed '/<files>/i\
 <externals><external><name>user</name><data>mysql</data></external><external><name>group</name><data>mysql</data></external></externals>' | \
 	sed '/<files>/a\
-<file><path>/home/t/etc/init.d/mysql</path><init/></file>' | \
+<file><path>/home/t/'$PKG-$VER'/etc/init.d/mysql</path><init/></file>' | \
 	sed '/<files>/a\
-<file><path>/home/t/var/run/mysqld</path><posix><owner>mysql</owner><group>mysql</group></posix></file>' > $pkgdir/tpkg.xml
-mkdir -p $pkgdir/root/home/t
+<file><path>/home/t/'$PKG-$VER'/var/run/mysqld</path><posix><owner>mysql</owner><group>mysql</group></posix></file>' > $pkgdir/tpkg.xml
 # Add config file
-mkdir -p $pkgdir/root/home/t/etc
-cp ../my.cnf $pkgdir/root/home/t/etc/my.cnf
+mkdir -p $pkgdir/root/home/t/$PKG-$VER/etc
+cp ../my.cnf $pkgdir/root/home/t/$PKG-$VER/etc/my.cnf
 # Add init script
-mkdir -p $pkgdir/root/home/t/etc/init.d
-cp ../$PKG.init $pkgdir/root/home/t/etc/init.d/$PKG
-chmod 755 $pkgdir/root/home/t/etc/init.d/$PKG
+mkdir -p $pkgdir/root/home/t/$PKG-$VER/etc/init.d
+cp ../$PKG.init $pkgdir/root/home/t/$PKG-$VER/etc/init.d/$PKG
+chmod 755 $pkgdir/root/home/t/$PKG-$VER/etc/init.d/$PKG
 # Make directory for data and socket
 #mkdir -p $pkgdir/root/home/t/var/mysql
 #chown mysql:mysql $pkgdir/root/home/t/var/mysql
 # Directories for log and pid file
-mkdir -p $pkgdir/root/home/t/var/log
-mkdir -p $pkgdir/root/home/t/var/run/mysqld
+mkdir -p $pkgdir/root/home/t/$PKG-$VER/var/log
+mkdir -p $pkgdir/root/home/t/$PKG-$VER/var/run/mysqld
+# Create link
+ln -s -f /home/t/$PKG-$VER $pkgdir/root/home/t/$PKG
 # Install
-make install prefix=$pkgdir/root/home/t
+make install prefix=$pkgdir/root/home/t/$PKG-$VER
 # Clean out stuff we don't want
 rm -rf $pkgdir/root/home/t/mysql-test
 rm -rf $pkgdir/root/home/t/sql-bench
 # Make package
 tpkg --make $pkgdir
-# Cleanup
+## Cleanup
 rm -rf $pkgdir
 cd ..
 rm -rf $PKG-$VER
