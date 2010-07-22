@@ -3599,8 +3599,10 @@ class Tpkg
             if dep[:name] == req[:name]
               # Package metadata is almost usable as-is as a req, just need to
               # set :type
-              addreq = metadata.to_hash
+              # and remove filename (since we're not explicitly requesting the exact file)
+              addreq = metadata.to_hash.clone
               addreq[:type] = :tpkg
+              addreq[:filename] = nil
               additional_requirements << addreq
             end
           end if metadata[:dependencies]
