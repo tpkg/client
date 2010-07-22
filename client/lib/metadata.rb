@@ -222,7 +222,7 @@ end
 # and it will provide you a uniform interface for accessing/dealing with the metadata.
 class Metadata
   attr_accessor :source, :file_path
-  REQUIRED_FIELDS = [:name, :version, :maintainer]
+  REQUIRED_FIELDS = [:name, :version, :maintainer, :description]
 
   # Cleans up a string to make it suitable for use in a filename
   def self.clean_for_filename(dirtystring)
