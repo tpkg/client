@@ -16,7 +16,7 @@ ActionController::Routing::Routes.draw do |map|
                                    :purge     => :delete }
   map.resource :session
 
-  map.resources :packages, :collection => { :field_names => :get, :search => :get, :download => :get, :query_files_listing => :get }, :member => { :version_history => :get }
+  map.resources :packages, :collection => { :field_names => :get, :search => :get, :download => :get, :query_files_listing => :get, :detail_index => :get }, :member => { :version_history => :get }
   map.resources :clients,  :collection => { :field_names => :get, :search => :get }, :member => { :version_history => :get }
   map.resources :uploads,  :collection => { :swfupload => :post }
   map.resources :client_update

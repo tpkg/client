@@ -4,13 +4,70 @@ class PackagesController < ApplicationController
   before_filter :login_required
 #  skip_before_filter :verify_authenticity_token
 
-  # lists out all packages
   def index
+    exact_match = params[:exact] && params[:exact] == '1' || false
+    @search_str = params[:name]
+    sort = case params[:sort]
+           when 'count'              then 'count'
+           when 'count_reverse'      then 'count DESC'
+           when 'name'              then 'packages.name'
+           when 'name_reverse'      then 'packages.name DESC'
+           end
+
+    # If a sort was not defined we'll make one default
+    if sort.nil?
+      params[:sort] = 'name'
+      sort = 'packages.name'
+    end
+
+    conditions_query = []
+    conditions_values = []
+    params.each_pair do |key, value|
+      next if key == 'action'
+      next if key == 'controller'
+      next if key == 'format'
+      next if key == 'page'
+      next if key == 'sort'
+
+      if key == Package.default_search_attribute
+        if exact_match
+          conditions_query << "name = ?"
+          conditions_values << value
+        else
+          conditions_query << "name LIKE ?"
+          conditions_values << '%' + value + '%'
+        end
+      end
+    end
+
+    if !conditions_query.empty?
+      conditions_string = conditions_query.join(' AND ')
+      @packages = Package.paginate(:all,
+                                   :select => "packages.name, count(packages.name) as count",
+                                   :group => "packages.name",
+                                   :order => sort,
+                                   :conditions => [ conditions_string, *conditions_values ],
+                                   :page => params[:page])
+    else
+      @packages = Package.paginate(:all,
+                                   :select => "packages.name, count(packages.name) as count",
+                                   :group => "packages.name",
+                                   :order => sort,
+                                   :page => params[:page])
+    end
+    respond_to do |format|
+      format.html
+      format.xml  { render :xml => @packages.to_xml(:dasherize => false) }
+    end
+  end
+
+  # lists out all packages
+  def detail_index
     # whether we want to show all packages or only packages
     # that are currently installed
     show_all = true
     @mainmodel = Package 
-
+    @search_str = params[:name]
     sort = case params[:sort]
            when 'name'              then 'packages.name'
            when 'name_reverse'      then 'packages.name DESC'
@@ -30,24 +87,7 @@ class PackagesController < ApplicationController
       sort = 'packages.name'
     end
 
-#    def_attr = @mainmodel.default_search_attribute                                                  
-    # Set the sort var ; used later in the find query                                               
-#    if params['sort'].nil?
-#      params['sort'] = @mainmodel.default_search_attribute                                         
-#      sort = "#{@mainmodel.to_s.tableize}.#{def_attr}"
-#    elsif params['sort'] == def_attr.to_s
-#      sort = "#{@mainmodel.to_s.tableize}.#{def_attr}"                                              
-#    elsif params['sort'] == "#{def_attr}_reverse"
-#      sort = "#{@mainmodel.to_s.tableize}.#{def_attr} DESC"                                         
-#    elsif params['sort'] =~ /(.*)_reverse/
-#      puts "HERE and it is #{$1}"
-#      this_model = $1.camelize.constantize
-#      sort = "#{this_model.to_s.tableize}.#{this_model.default_search_attribute} DESC"              
-#    else
-#      params['sort'] =~ /(.*)/                                                                     
-#      this_model = $1.camelize.constantize                                                          
-#      sort = "#{this_model.to_s.tableize}.#{this_model.default_search_attribute}"                   
-#    end
+    exact_match = params[:exact] && params[:exact] == '1' || false
 
     conditions_query = []
     conditions_values = []
@@ -59,8 +99,13 @@ class PackagesController < ApplicationController
       next if key == 'sort' 
 
       if key == @mainmodel.default_search_attribute
-        conditions_query << "name LIKE ?"
-        conditions_values << '%' + value + '%'
+        if exact_match
+          conditions_query << "name = ?"
+          conditions_values << value
+        else
+          conditions_query << "name LIKE ?"
+          conditions_values << '%' + value + '%'
+        end
       end
     end
 

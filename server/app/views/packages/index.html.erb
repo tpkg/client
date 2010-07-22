@@ -1,0 +1,16 @@
+<%- @page_title = "Packages" %>
+<%- if @search_str %>
+  <h1>Package Listing for <%= @search_str %></h1>
+<%- else -%>
+  <h1>Package Listing</h1>
+<%- end -%>
+<div id="search_box" style="text-align:right">
+  <%= render :partial => 'shared/search_box', :locals => { :objects => @packages } %>
+</div>
+<div id="results_table">
+<%- if @packages.size > 0 -%>
+  <%= render :partial => 'listing_table' %>
+<%- else -%>
+  No data
+<%- end -%>
+</div>

@@ -1,0 +1,7 @@
+<tr class="<%= cycle('odd', 'even') -%>">
+  <td nowrap="nowrap" width="5%">
+    <%= link_to 'View', {:action=>"detail_index", :name => item.name, :exact => 1}  %> 
+  </td>
+  <td><%= h(item.name) %></td>
+  <td><%= h(item.count) %></td>
+</tr>

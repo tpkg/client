@@ -1,0 +1,10 @@
+<%= will_paginate @packages %>
+
+<table cellspacing="0" class="styled">
+<thead>
+<%= render :partial => 'index_header' %>
+</thead>
+<tbody>
+<%= render :partial => 'index_row', :collection => @packages, :as => :item  %>
+</tbody>
+</table>
