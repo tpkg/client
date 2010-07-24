@@ -7,9 +7,7 @@ export ONE_LOCATION
 ONE_AUTH=$ONE_LOCATION/etc/oneauth.conf
 export ONE_AUTH
 # Make sure that 'one' and anything it spawns find the correct ruby
-# FIXME: Hard-coding this path makes we quesy, we should use
-#        ruby-defaults or something to make this less horrible.
-PATH=/home/t/ree-1.8.7-2010.01-1/bin:$PATH
+PATH=/home/t/ruby-1.8/bin:$PATH
 export PATH
 
 case "$1" in
