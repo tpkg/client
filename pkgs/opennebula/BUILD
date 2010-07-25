@@ -55,6 +55,10 @@ mkdir -p $pkgdir/root/home/t/$PKG-$VER
 mkdir -p $pkgdir/root/home/t/etc/init.d
 sed "s,%ONE_LOCATION%,/home/t/$PKG-$VER," ../$PKG.init > $pkgdir/root/home/t/etc/init.d/$PKG
 chmod 755 $pkgdir/root/home/t/etc/init.d/$PKG
+# Add profile.d file
+mkdir -p $pkgdir/root/home/t/etc/profile.d
+sed "s,%ONE_LOCATION%,/home/t/$PKG-$VER," ../$PKG.profile > $pkgdir/root/home/t/etc/profile.d/$PKG
+chmod 755 $pkgdir/root/home/t/etc/profile.d/$PKG
 # Install
 DESTDIR=$pkgdir/root ./install.sh -d /home/t/$PKG-$VER
 # Make package
