@@ -4500,8 +4500,8 @@ class Tpkg
   end
  
   # create and install native stub package if needed 
-  # this helps prevent user from remove native packages that our tpkg packages
-  # depend on 
+  # this stub package helps prevent user from removing native packages that 
+  # our tpkg packages depend on 
   def stub_native_pkg(pkg)
     # gather all of the native dependencies
     native_deps = pkg[:metadata].get_native_deps
