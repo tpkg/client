@@ -21,7 +21,7 @@
     </dependency>
     <dependency>
       <name>tpkg</name>
-      <minimum_version>1.20</minimum_version>
+      <minimum_version>1.27</minimum_version>
     </dependency>
     <dependency>
       <name>logrotate</name>
