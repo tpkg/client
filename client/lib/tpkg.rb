@@ -1269,12 +1269,11 @@ class Tpkg
     @installed_directory = File.join(@var_directory, 'installed')
     @metadata_directory = File.join(@installed_directory, 'metadata')
     @sources_directory = File.join(@var_directory, 'sources')
-    @external_directory = File.join(@var_directory, 'externals')
     @tmp_directory = File.join(@var_directory, 'tmp')
     @log_directory = File.join(@var_directory, 'logs')
     # It is important to create these dirs in correct order
     dirs_to_create = [@installed_directory, @metadata_directory, @sources_directory, 
-                      @external_directory, @tmp_directory, @log_directory]
+                      @tmp_directory, @log_directory]
     dirs_to_create.each do |dir|
       if !File.exist?(dir)
         begin
@@ -1285,6 +1284,7 @@ class Tpkg
       end
     end
     @tar = Tpkg::find_tar
+    @external_directory = File.join(@file_system_root, 'usr', 'lib', 'tpkg', 'externals')
     @lock_directory = File.join(@var_directory, 'lock')
     @lock_pid_file = File.join(@lock_directory, 'pid')
     @locks = 0

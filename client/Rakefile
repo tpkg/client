@@ -191,7 +191,7 @@ task :rpm do
   libdir = File.join('usr', 'lib', 'ruby', 'site_ruby', '1.8')
   mandir = File.join('usr', 'share', 'man')
   etcdir = '/etc'
-  externalsdir = File.join('home', 't', 'var', 'tpkg', 'externals')
+  externalsdir = File.join('usr', 'lib', 'tpkg', 'externals')
   schemadir = File.join('etc', 'tpkg', 'schema')
   profiledir = File.join('etc', 'profile.d')
   copy_tpkg_files(BUILDROOT,
@@ -248,7 +248,7 @@ task :deb do
   libdir = File.join('usr', 'local', 'lib', 'site_ruby', '1.8')
   mandir = File.join('usr', 'share', 'man')
   etcdir = '/etc'
-  externalsdir = File.join('home', 't', 'var', 'tpkg', 'externals')
+  externalsdir = File.join('usr', 'lib', 'tpkg', 'externals')
   schemadir = File.join('etc', 'tpkg', 'schema')
   copy_tpkg_files(BUILDROOT,
                   :bindir => bindir,
@@ -292,7 +292,7 @@ task :sysvpkg do
   libdir = File.join('opt', 'csw', 'lib', 'ruby', 'site_ruby', '1.8')
   mandir = File.join('usr', 'share', 'man')
   etcdir = '/etc'
-  externalsdir = File.join('home', 't', 'var', 'tpkg', 'externals')
+  externalsdir = File.join('usr', 'lib', 'tpkg', 'externals')
   schemadir = File.join('etc', 'tpkg', 'schema')
   profiledir = File.join('etc', 'profile.d')
   copy_tpkg_files(BUILDROOT,

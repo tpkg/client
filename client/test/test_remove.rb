@@ -314,7 +314,7 @@ class TpkgRemoveTests < Test::Unit::TestCase
     testroot = Tempdir.new("testroot")
     testbase = File.join(testroot, 'home', 'tpkg')
     FileUtils.mkdir_p(testbase)
-    externalsdir = File.join(testbase, 'var', 'tpkg', 'externals')
+    externalsdir = File.join(testroot, 'usr', 'lib', 'tpkg', 'externals')
     FileUtils.mkdir_p(externalsdir)
     # Create an external script which puts the data into a file named after
     # the package, and removes any files named after the package on removal.
@@ -378,7 +378,7 @@ EOF
     testroot = Tempdir.new("testroot")
     testbase = File.join(testroot, 'home', 'tpkg')
     FileUtils.mkdir_p(testbase)
-    externalsdir = File.join(testbase, 'var', 'tpkg', 'externals')
+    externalsdir = File.join(testroot, 'usr', 'lib', 'tpkg', 'externals')
     FileUtils.mkdir_p(externalsdir)
     # Create an external script which puts the data into a file named after
     # the package, and removes any files named after the package on removal.
@@ -445,7 +445,7 @@ EOF
     testroot = Tempdir.new("testroot")
     testbase = File.join(testroot, 'home', 'tpkg')
     FileUtils.mkdir_p(testbase)
-    externalsdir = File.join(testbase, 'var', 'tpkg', 'externals')
+    externalsdir = File.join(testroot, 'usr', 'lib', 'tpkg', 'externals')
     FileUtils.mkdir_p(externalsdir)
     # Create an external script which puts the data into a file named after
     # the package, and removes any files named after the package on removal.

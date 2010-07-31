@@ -199,7 +199,7 @@ class TpkgUpgradeTests < Test::Unit::TestCase
     # files, so that we can verify the external scripts received the data
     # properly.
     exttmpfile1 = Tempfile.new('tpkgtest_external')
-    externalsdir = File.join(@testbase, 'var', 'tpkg', 'externals')
+    externalsdir = File.join(@testroot, 'usr', 'lib', 'tpkg', 'externals')
     FileUtils.mkdir_p(externalsdir)
     extscript1 = File.join(externalsdir, extname1)
     File.open(extscript1, 'w') do |file|
@@ -236,7 +236,7 @@ class TpkgUpgradeTests < Test::Unit::TestCase
     # properly.
     exttmpfile1 = Tempfile.new('tpkgtest_external')
     exttmpfile2 = Tempfile.new('tpkgtest_external')
-    externalsdir = File.join(@testbase, 'var', 'tpkg', 'externals')
+    externalsdir = File.join(@testroot, 'usr', 'lib', 'tpkg', 'externals')
     FileUtils.mkdir_p(externalsdir)
     extscript1 = File.join(externalsdir, extname1)
     extscript2 = File.join(externalsdir, extname2)
@@ -284,7 +284,7 @@ class TpkgUpgradeTests < Test::Unit::TestCase
     # files, so that we can verify the external scripts received the data
     # properly.
     exttmpfile1 = Tempfile.new('tpkgtest_external')
-    externalsdir = File.join(@testbase, 'var', 'tpkg', 'externals')
+    externalsdir = File.join(@testroot, 'usr', 'lib', 'tpkg', 'externals')
     FileUtils.mkdir_p(externalsdir)
     extscript1 = File.join(externalsdir, extname1)
     File.open(extscript1, 'w') do |file|
