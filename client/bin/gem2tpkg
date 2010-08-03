@@ -397,6 +397,7 @@ def package(gem)
     file.puts "  <name>gem-#{gem}#{pkgnamesuffix}</name>"
     file.puts "  <version>#{gemspec.version.to_s}</version>"
     file.puts "  <package_version>#{@pkgver}</package_version>"
+    file.puts "  <description>Ruby gem for #{gem}</description>"
     file.puts '  <maintainer>gem2tpkg</maintainer>'
     # If the gemspec lists any extensions then the package has native
     # code and needs to be flagged as specific to the OS and architecture

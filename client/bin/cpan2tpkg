@@ -325,6 +325,7 @@ MODULE: foreach my $name ($extinst->modules)
 	print $xmlfh "  <name>cpan-perl$majorminor-$pkgname</name>", "\n";
 	print $xmlfh "  <version>$ver</version>", "\n";
 	print $xmlfh "  <package_version>$pkgver</package_version>", "\n";
+	print $xmlfh "  <description>cpan package for $pkgname</description>", "\n";
 	print $xmlfh '  <maintainer>cpan2tpkg</maintainer>', "\n";
 	# If the package has native code then it needs to be flagged as
 	# specific to the OS and architecture
