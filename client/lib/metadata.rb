@@ -334,29 +334,34 @@ class Metadata
 
   # Add tpkg_version to the existing tpkg.xml or tpkg.yml file
   def add_tpkg_version(version)
-    if @format == 'xml'
-      metadata_xml = REXML::Document.new(@metadata_text)
-      if metadata_xml.root.elements["tpkg_version"] && (tpkg_version = metadata_xml.root.elements["tpkg_version"].text) != Tpkg::VERSION
-        warn "Warning: tpkg_version is specified as #{tpkg_version}, which doesn't match with the actual tpkg version being used (#{Tpkg::VERSION})."
-      elsif !metadata_xml.root.elements["tpkg_version"]
-        tpkg_version_ele = REXML::Element.new("tpkg_version")
-        tpkg_version_ele.text = Tpkg::VERSION
-        metadata_xml.root.add_element(tpkg_version_ele)  
-        File.open(@file_path, 'w') do |file|
-          metadata_xml.write(file)
+    begin
+      if @format == 'xml'
+        metadata_xml = REXML::Document.new(@metadata_text)
+        if metadata_xml.root.elements["tpkg_version"] && (tpkg_version = metadata_xml.root.elements["tpkg_version"].text) != Tpkg::VERSION
+          warn "Warning: tpkg_version is specified as #{tpkg_version}, which doesn't match with the actual tpkg version being used (#{Tpkg::VERSION})."
+        elsif !metadata_xml.root.elements["tpkg_version"]
+          tpkg_version_ele = REXML::Element.new("tpkg_version")
+          tpkg_version_ele.text = Tpkg::VERSION
+          metadata_xml.root.add_element(tpkg_version_ele)  
+          File.open(@file_path, 'w') do |file|
+            metadata_xml.write(file)
+          end
         end
+      elsif @format == 'yml'
+        if (tpkg_version = to_hash[:tpkg_version]) && tpkg_version != Tpkg::VERSION
+          warn "Warning: tpkg_version is specified as #{tpkg_version}, which doesn't match with the actual tpkg version being used (#{Tpkg::VERSION})."
+        elsif !tpkg_version
+          File.open(@file_path, 'a') do |file|
+            file.puts "tpkg_version: #{Tpkg::VERSION}"
+          end 
+        end
+      else
+        raise "Unknown metadata format"
       end
-    elsif @format == 'yml'
-      if (tpkg_version = to_hash[:tpkg_version]) && tpkg_version != Tpkg::VERSION
-        warn "Warning: tpkg_version is specified as #{tpkg_version}, which doesn't match with the actual tpkg version being used (#{Tpkg::VERSION})."
-      elsif !tpkg_version
-        File.open(@file_path, 'a') do |file|
-          file.puts "tpkg_version: #{Tpkg::VERSION}"
-        end 
-      end
-    else
-      raise "Unknown metadata format"
-    end
+    rescue Errno::EACCES => e
+      warn "Warning: Failed to insert tpkg_version into tpkg.(xml|yml)."
+      puts e
+    end 
   end
 
   def generate_package_filename
