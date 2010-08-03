@@ -316,7 +316,8 @@ class Tpkg
       File.open(File.join(tpkgdir, "file_metadata.bin"), "w") do |file|
         filemetadata = get_filemetadata_from_directory(tpkgdir)
         filemetadata[:files].each do |file1|
-          if metadata[:files][:files] && metadata[:files][:files].any?{|file2|file2[:path] == file1[:path] && file2[:config]}
+          if metadata[:files] && metadata[:files][:files] && 
+             metadata[:files][:files].any?{|file2|file2[:path] == file1[:path] && file2[:config]}
             file1[:config] = true
           end 
         end
