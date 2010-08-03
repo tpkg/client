@@ -235,7 +235,7 @@ class TpkgMiscTests < Test::Unit::TestCase
     # to a temporary file, so that we can verify the external script received
     # them properly.
     exttmpfile = Tempfile.new('tpkgtest_external')
-    externalsdir = File.join(testbase, 'var', 'tpkg', 'externals')
+    externalsdir = File.join(testroot, 'usr', 'lib', 'tpkg', 'externals')
     FileUtils.mkdir_p(externalsdir)
     extscript = File.join(externalsdir, extname)
     File.open(extscript, 'w') do |file|

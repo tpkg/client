@@ -321,7 +321,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
     # file, so that we can verify the external script received the data
     # properly.
     exttmpfile = Tempfile.new('tpkgtest_external')
-    externalsdir = File.join(testbase, 'var', 'tpkg', 'externals')
+    externalsdir = File.join(testroot, 'usr', 'lib', 'tpkg', 'externals')
     FileUtils.mkdir_p(externalsdir)
     extscript = File.join(externalsdir, extname)
     File.open(extscript, 'w') do |file|
@@ -356,7 +356,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
     # file, so that we can verify the external script received the data
     # properly.
     exttmpfile = Tempfile.new('tpkgtest_external')
-    externalsdir = File.join(testbase, 'var', 'tpkg', 'externals')
+    externalsdir = File.join(testroot, 'usr', 'lib', 'tpkg', 'externals')
     FileUtils.mkdir_p(externalsdir)
     extscript = File.join(externalsdir, extname)
     File.open(extscript, 'w') do |file|
@@ -394,7 +394,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
     # file, so that we can verify the external script received the data
     # properly.
     exttmpfile = Tempfile.new('tpkgtest_external')
-    externalsdir = File.join(testbase, 'var', 'tpkg', 'externals')
+    externalsdir = File.join(testroot, 'usr', 'lib', 'tpkg', 'externals')
     FileUtils.mkdir_p(externalsdir)
     extscript = File.join(externalsdir, extname)
     File.open(extscript, 'w') do |file|
@@ -868,7 +868,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
     # Make external scripts which write the data they receive to temporary
     # files so that we can verify that run_externals_for_install called
     # run_external with the proper parameters.
-    externalsdir = File.join(testbase, 'var', 'tpkg', 'externals')
+    externalsdir = File.join(testroot, 'usr', 'lib', 'tpkg', 'externals')
     FileUtils.mkdir_p(externalsdir)
     [inlineextname, fileextname, scriptextname].each do |extname|
       exttmpfile = Tempfile.new('tpkgtest_external')
