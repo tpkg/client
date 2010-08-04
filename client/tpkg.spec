@@ -5,7 +5,7 @@ Release: 1
 Group: Applications/System
 License: MIT
 buildarch: noarch
-Requires: ruby, facter, redhat-lsb, crontabs
+Requires: ruby, facter, redhat-lsb, rpm-build, crontabs
 BuildRoot: %{_builddir}/%{name}-buildroot
 AutoReqProv: no
 %description
