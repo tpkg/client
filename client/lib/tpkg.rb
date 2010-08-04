@@ -469,7 +469,7 @@ class Tpkg
       end
 
       # check if it's from root dir or reloc dir
-      if f =~ /^#{root_dir}/
+      if f =~ /^#{Regexp.escape(root_dir)}/
         short_fn = f[root_dir.length ..-1]
       else
         short_fn = f[reloc_dir.length + 1..-1]
@@ -2661,7 +2661,7 @@ class Tpkg
       next if File.symlink?(f)
 
       # check if it's from root dir or reloc dir
-      if f =~ /^#{root_dir}/
+      if f =~ /^#{Regexp.escape(root_dir)}/
         short_fn = f[root_dir.length ..-1]
       else
         short_fn = f[reloc_dir.length + 1..-1]
