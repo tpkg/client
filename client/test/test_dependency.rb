@@ -652,6 +652,26 @@ class TpkgDependencyTests < Test::Unit::TestCase
     assert_equal(1, packages['a'].length)
     requirements.clear
     packages.clear
+
+    # Test package with special character like "++"
+    apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a++', 'version' => '2.0' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    tpkg = Tpkg.new(:base => testbase, :sources => (@pkgfiles << apkg))
+    tpkg.parse_requests(apkg, requirements, packages)
+    assert_equal(1, requirements.length)
+    assert_equal(2, requirements.first.length)  
+    assert_equal('a++', requirements.first[:name])
+    assert_equal(:tpkg, requirements.first[:type])
+    assert_equal(1, packages['a++'].length)
+
+    requirements.clear
+    packages.clear
+
+    tpkg.parse_requests("a++", requirements, packages)
+    assert_equal(1, requirements.length)
+    assert_equal(2, requirements.first.length)  
+    assert_equal('a++', requirements.first[:name])
+    assert_equal(:tpkg, requirements.first[:type])
+    assert_equal(1, packages['a++'].length)
   end
   
   def test_check_requests

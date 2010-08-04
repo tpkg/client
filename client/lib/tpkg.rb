@@ -3120,19 +3120,8 @@ class Tpkg
     requests.each do |request|
       puts "parse_requests processing #{request.inspect}" if @@debug
 
-      if request =~ /^[-\w=<>\d\.]+$/ && !File.file?(request)  # basic package specs ('foo' or 'foo=1.0')
-        puts "parse_requests request looks like package spec" if @@debug
-
-        # Tpkg::parse_request is a class method and doesn't know where packages are installed. 
-        # So we have to tell it ourselves.
-        req = Tpkg::parse_request(request, @installed_directory)
-        newreqs << req
-
-        puts "Initializing the list of possible packages for this req" if @@debug
-        if !packages[req[:name]]
-          packages[req[:name]] = available_packages_that_meet_requirement(req)
-        end
-      else  # User specified a file or URI
+      # User specified a file or URI
+      if request =~ /^http[s]?:\/\// or File.file?(request)
         req = {}
         metadata = nil
         source = nil
@@ -3168,6 +3157,18 @@ class Tpkg
         # The user specified a particular package, so it is the only package
         # that can be used to meet the requirement
         packages[req[:name]] = [pkg]
+      else # basic package specs ('foo' or 'foo=1.0')
+        puts "parse_requests request looks like package spec" if @@debug
+
+        # Tpkg::parse_request is a class method and doesn't know where packages are installed. 
+        # So we have to tell it ourselves.
+        req = Tpkg::parse_request(request, @installed_directory)
+        newreqs << req
+
+        puts "Initializing the list of possible packages for this req" if @@debug
+        if !packages[req[:name]]
+          packages[req[:name]] = available_packages_that_meet_requirement(req)
+        end
       end
     end
 
