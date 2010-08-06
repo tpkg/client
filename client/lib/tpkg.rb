@@ -3782,9 +3782,9 @@ class Tpkg
             is_doing_upgrade = true if removed_pkgs.include?(pkg[:metadata][:name])
             ret_val |= unpack(pkgfile, :passphrase => passphrase, :externals_to_skip => externals_to_skip,
                                        :is_doing_upgrade => is_doing_upgrade)
+            # create and install stubbed native package if needed
+            stub_native_pkg(pkg)
           end
-          # create and install stubbed native package if needed
-          stub_native_pkg(pkg)
           has_updates = true
         end
       end
