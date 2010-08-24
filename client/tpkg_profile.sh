@@ -1,6 +1,6 @@
 #!/bin/bash
 
-tpkgbase="/home/t"
+tpkgbase="/opt/tpkg"
 
 if [ -f /etc/tpkg.conf ]
 then

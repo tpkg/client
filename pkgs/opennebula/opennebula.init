@@ -7,16 +7,16 @@ export ONE_LOCATION
 ONE_AUTH=$ONE_LOCATION/etc/oneauth.conf
 export ONE_AUTH
 # Make sure that 'one' and anything it spawns find the correct ruby
-PATH=/home/t/ruby-1.8/bin:$PATH
+PATH=/opt/tpkg/ruby-1.8/bin:$PATH
 export PATH
 
 case "$1" in
 'start')
-	su oneadmin -s /bin/sh -c "/home/t/opennebula-1.4.0/bin/one start"
+	su oneadmin -s /bin/sh -c "/opt/tpkg/opennebula-1.4.0/bin/one start"
 	;;
 
 'stop')
-	su oneadmin -s /bin/sh -c "/home/t/opennebula-1.4.0/bin/one stop"
+	su oneadmin -s /bin/sh -c "/opt/tpkg/opennebula-1.4.0/bin/one stop"
 	;;
 
 'restart')

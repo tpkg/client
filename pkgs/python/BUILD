@@ -24,7 +24,7 @@ do
 	rm -rf Python-$ver
 	tar jxvf Python-$ver.tar.bz2
 	cd Python-$ver
-	./configure --prefix=/home/t
+	./configure --prefix=/opt/tpkg
 	make
 	pkgdir=`mktemp -d -t tpkg.XXXXXX`
 	cat ../../tpkg.xml | \

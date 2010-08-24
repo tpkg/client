@@ -9,7 +9,7 @@
 
 #INCLUDE	= /usr/local/include
 #INCLUDE	= ../..
-INCLUDE	= /home/t/berkeleydb/include
+INCLUDE	= /opt/tpkg/berkeleydb/include
 
 # 2. Where is libdb?
 #
@@ -18,7 +18,7 @@ INCLUDE	= /home/t/berkeleydb/include
 
 #LIB	= /usr/local/lib
 #LIB	= ../..
-LIB	= /home/t/berkeleydb/lib
+LIB	= /opt/tpkg/berkeleydb/lib
 
 # 3. Is the library called libdb?
 #

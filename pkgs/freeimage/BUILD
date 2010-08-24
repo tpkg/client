@@ -24,14 +24,14 @@ EOF
 )
 
 echo "$metadata" > $pkgdir/tpkg.yml
-mkdir -p $pkgdir/root/home/t || exit 1
+mkdir -p $pkgdir/root/opt/tpkg || exit 1
 
 rm -rf FreeImage
 unzip FreeImage3131.zip
 cd FreeImage
 
 make -j4 || exit 1
-sudo make install DESTDIR=$pkgdir/root/home/t  INCDIR=$pkgdir/root/home/t/include INSTALLDIR=$pkgdir/root/home/t/lib || exit 1
+sudo make install DESTDIR=$pkgdir/root/opt/tpkg  INCDIR=$pkgdir/root/opt/tpkg/include INSTALLDIR=$pkgdir/root/opt/tpkg/lib || exit 1
 
 # Make package
 tpkg --make $pkgdir || exit 1

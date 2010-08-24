@@ -8,7 +8,7 @@ PKGVER=1
 
 tpkg -q python || tpkg -i python
 # Ensure the proper python is found
-PATH=/home/t/bin:$PATH
+PATH=/opt/tpkg/bin:$PATH
 export PATH
 
 rm -rf $PKG-$VER
@@ -24,9 +24,9 @@ cat ../../tpkg.xml | \
 	sed '/<files>/i\
 <dependencies><dependency><name>python-defaults</name><minimum_version>2.4</minimum_version><maximum_version>2.6</maximum_version></dependency></dependencies>' \
 	> $pkgdir/tpkg.xml
-mkdir -p $pkgdir/root/home/t
+mkdir -p $pkgdir/root/opt/tpkg
 # Install
-python setup.py install --prefix=$pkgdir/root/home/t
+python setup.py install --prefix=$pkgdir/root/opt/tpkg
 # Make package
 tpkg --make $pkgdir
 # Cleanup

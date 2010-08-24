@@ -20,7 +20,7 @@ cat ../../tpkg.xml | \
 	grep -v "ARCH" > $pkgdir/tpkg.xml
 mkdir $pkgdir/root
 # Install
-/home/t/bin/ruby setup.rb --destdir=$pkgdir/root
+/opt/tpkg/bin/ruby setup.rb --destdir=$pkgdir/root
 # Make package
 tpkg --make $pkgdir
 # Cleanup

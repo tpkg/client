@@ -19,7 +19,7 @@ do
 	# tpkg expects i686 as the architecture on 32 bit Red Hat boxes
 	for arch in i686 x86_64
 	do
-		if [ -d "/home/t/$PKG-$ver" ]
+		if [ -d "/opt/tpkg/$PKG-$ver" ]
 		then
 			echo "Install directory already exist, unfortunately you need to build this package on a box where the package is not installed because the Oracle installer has to install the files into the real location." >&2
 			exit 1
@@ -28,8 +28,8 @@ do
 		rm -rf $HOME/oraInventory
 
 		# Make the appropriate directory structure
-		sudo mkdir -p /home/t/$PKG-$ver || exit 1
-		sudo chown $USER /home/t/$PKG-$ver || exit 1
+		sudo mkdir -p /opt/tpkg/$PKG-$ver || exit 1
+		sudo chown $USER /opt/tpkg/$PKG-$ver || exit 1
 		# Unpack Oracle's zip file
 		rm -rf client || exit 1
 		# Oracle's filenames are completely inconsistent.  Sigh.
@@ -62,8 +62,8 @@ do
 		# ORACLE_BASE is new in 11g
 		cat client/response/clientadmin.rsp | \
 			sed '/^UNIX_GROUP_NAME/s,=.*,=dba,' | \
-			sed "/^ORACLE_BASE/s,=.*,=/home/t/$PKG-$ver," | \
-			sed "/^ORACLE_HOME/s,=.*,=/home/t/$PKG-$ver," | \
+			sed "/^ORACLE_BASE/s,=.*,=/opt/tpkg/$PKG-$ver," | \
+			sed "/^ORACLE_HOME/s,=.*,=/opt/tpkg/$PKG-$ver," | \
 			sed "/^ORACLE_HOME_NAME/s,=.*,=OraClient," > client/response/tpkg.rsp
 		cat client/response/tpkg.rsp
 		# Run install
@@ -86,11 +86,11 @@ do
 			grep -v files > $pkgdir/tpkg.xml
 		cat $pkgdir/tpkg.xml
 		# Move over installed files
-		mkdir -p $pkgdir/root/home/t || exit 1
-		sudo mv /home/t/$PKG-$ver $pkgdir/root/home/t || exit 1
+		mkdir -p $pkgdir/root/opt/tpkg || exit 1
+		sudo mv /opt/tpkg/$PKG-$ver $pkgdir/root/opt/tpkg || exit 1
 		# Fix permissions
-		find $pkgdir/root/home/t -type d | xargs chmod g-w,o+rx
-		find $pkgdir/root/home/t -type f | xargs chmod g-w,o+rX
+		find $pkgdir/root/opt/tpkg -type d | xargs chmod g-w,o+rx
+		find $pkgdir/root/opt/tpkg -type f | xargs chmod g-w,o+rX
 		# Make package
 		tpkg --make $pkgdir || exit 1
 		# Cleanup

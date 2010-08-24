@@ -20,11 +20,11 @@ tpkg -q lua,pcre || tpkg -i lua,pcre
 rm -rf $PKG-$VER
 tar jxvf $PKG-$VER.tar.bz2
 cd $PKG-$VER
-#./configure --prefix=/home/t
-./configure -p /home/t
-sed '/^INCDIRS/s,$, -I/home/t/include,' Makefile > Makefile.new
+#./configure --prefix=/opt/tpkg
+./configure -p /opt/tpkg
+sed '/^INCDIRS/s,$, -I/opt/tpkg/include,' Makefile > Makefile.new
 mv Makefile.new Makefile
-sed '/^LIBDIRS/s,$, -L/home/t/lib,' Makefile > Makefile.new
+sed '/^LIBDIRS/s,$, -L/opt/tpkg/lib,' Makefile > Makefile.new
 mv Makefile.new Makefile
 make
 pkgdir=`mktemp -d -t tpkg.XXXXXX`

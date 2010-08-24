@@ -49,9 +49,9 @@ fi
 # sitelib directory, which means we have to specify it ourselves.
 sh Configure \
 	-de \
-	-Dprefix=/home/t/perl-$MAJORVER \
-	-Dsiteprefix=/home/t \
-	-Dsitelib=/home/t/lib/perl5/site_perl/$VER \
+	-Dprefix=/opt/tpkg/perl-$MAJORVER \
+	-Dsiteprefix=/opt/tpkg \
+	-Dsitelib=/opt/tpkg/lib/perl5/site_perl/$VER \
 	-Dinc_version_list="$inc_version_list" \
 	$use64bitint \
 	-Dperladmin=tpkg-users@lists.sourceforge.net \
@@ -73,7 +73,7 @@ make install DESTDIR=$pkgdir/root || exit 1
 # exist.
 for prev in $PREVIOUS
 do
-	mkdir -p $pkgdir/root/home/t/lib/perl5/site_perl/$prev/$archname
+	mkdir -p $pkgdir/root/opt/tpkg/lib/perl5/site_perl/$prev/$archname
 done
 # Make package
 tpkg --make $pkgdir || exit 1

@@ -21,7 +21,7 @@ rm -rf httpd-$VER
 tar jxvf httpd-$VER.tar.bz2
 mv httpd-$VER $PKG-$VER
 cd $PKG-$VER
-./configure --prefix=/home/t/$PKG-$MAJORVER
+./configure --prefix=/opt/tpkg/$PKG-$MAJORVER
 make
 pkgdir=`mktemp -d -t tpkg.XXXXXX`
 cat ../../tpkg.xml | \

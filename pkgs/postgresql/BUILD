@@ -25,7 +25,7 @@ rm -rf $PKG-$VER
 tar jxvf $PKG-$VER.tar.bz2
 cd $PKG-$VER
 ./configure \
-	--prefix=/home/t \
+	--prefix=/opt/tpkg \
 	|| exit 1
 make
 pkgdir=`mktemp -d -t tpkg.XXXXXX`
@@ -38,18 +38,18 @@ cat ../../tpkg.xml | \
 	sed '/<files>/i\
 <externals><external><name>user</name><data>postgres</data></external><external><name>group</name><data>postgres</data></external></externals>' | \
 	sed '/<files>/a\
-<file><path>/home/t/etc/init.d/postgresql</path><init/></file>' \
+<file><path>/opt/tpkg/etc/init.d/postgresql</path><init/></file>' \
 	> $pkgdir/tpkg.xml
-mkdir -p $pkgdir/root/home/t
+mkdir -p $pkgdir/root/opt/tpkg
 # Add config file
-#mkdir -p $pkgdir/root/home/t/etc
-#cp ../my.cnf $pkgdir/root/home/t/etc/my.cnf
+#mkdir -p $pkgdir/root/opt/tpkg/etc
+#cp ../my.cnf $pkgdir/root/opt/tpkg/etc/my.cnf
 # Add init script
-mkdir -p $pkgdir/root/home/t/etc/init.d
-cp ../$PKG.init $pkgdir/root/home/t/etc/init.d/$PKG
-chmod 755 $pkgdir/root/home/t/etc/init.d/$PKG
+mkdir -p $pkgdir/root/opt/tpkg/etc/init.d
+cp ../$PKG.init $pkgdir/root/opt/tpkg/etc/init.d/$PKG
+chmod 755 $pkgdir/root/opt/tpkg/etc/init.d/$PKG
 # Directory for log file
-mkdir -p $pkgdir/root/home/t/var/log
+mkdir -p $pkgdir/root/opt/tpkg/var/log
 # Install
 make install DESTDIR=$pkgdir/root
 # Make package

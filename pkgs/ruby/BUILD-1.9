@@ -5,7 +5,7 @@ set -u
 PKG=ruby
 VER=1.9.1-p243
 PKGVER=1
-prefix=/home/t/$PKG-1.9
+prefix=/opt/tpkg/$PKG-1.9
 OSMAJOR=`facter | grep lsbmajdistrelease | cut -d' ' -f3`
 ARCH=`facter hardwaremodel`
 

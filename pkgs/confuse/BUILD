@@ -9,7 +9,7 @@ ARCH=`facter hardwaremodel`
 rm -rf $PKG-$VER || exit 1
 tar zxvf $PKG-$VER.tar.gz || exit 1
 cd $PKG-$VER || exit 1
-./configure --prefix=/home/t CFLAGS=-fPIC --disable-nls || exit 1
+./configure --prefix=/opt/tpkg CFLAGS=-fPIC --disable-nls || exit 1
 make || exit 1
 pkgdir=`mktemp -d -t tpkg.XXXXXX` || exit 1
 
@@ -20,9 +20,9 @@ cat ../../tpkg.xml | \
         sed "s/OS/RedHat-$OSMAJOR,CentOS-$OSMAJOR/" | \
         sed "s/ARCH/$ARCH/"  > $pkgdir/tpkg.xml
 
-mkdir -p $pkgdir/root/home/t || exit 1
+mkdir -p $pkgdir/root/opt/tpkg || exit 1
 # Install
-make install prefix=$pkgdir/root/home/t || exit 1
+make install prefix=$pkgdir/root/opt/tpkg || exit 1
 
 # Make package
 tpkg --make $pkgdir || exit 1

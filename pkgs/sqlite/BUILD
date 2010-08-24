@@ -19,7 +19,7 @@ rm -rf $PKG-$VER
 #tar zxvf $PKG-$VER.tar.gz
 tar zxvf $PKG-amalgamation-$VER.tar.gz
 cd $PKG-$VER
-./configure --prefix=/home/t
+./configure --prefix=/opt/tpkg
 make
 pkgdir=`mktemp -d -t tpkg.XXXXXX`
 cat ../../tpkg.xml | \
@@ -28,9 +28,9 @@ cat ../../tpkg.xml | \
 	sed "s/PKGVER/$PKGVER/" | \
 	sed "s/OS/$OS/" | \
 	sed "s/ARCH/$ARCH/" > $pkgdir/tpkg.xml
-mkdir -p $pkgdir/root/home/t
+mkdir -p $pkgdir/root/opt/tpkg
 # Install
-make install prefix=$pkgdir/root/home/t
+make install prefix=$pkgdir/root/opt/tpkg
 # Make package
 tpkg --make $pkgdir
 # Cleanup

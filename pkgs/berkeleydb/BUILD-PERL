@@ -4,7 +4,7 @@ PKG=BerkeleyDB
 OUR_PKG_NAME=berkeleydb-perl
 VER=0.42
 PKGVER=1
-prefix=/home/t
+prefix=/opt/tpkg
 
 tpkg -q perl || tpkg -i perl
 tpkg -q perl-defaults || tpkg -i perl-defaults
@@ -39,8 +39,8 @@ echo "$metadata" > $pkgdir/tpkg.yml
 tar xzvf $PKG-$VER.tar.gz
 
 # Use our own config.in so we can set LIB and INCLUDE to the correct values
-# Currently, we're setting LIB to /home/t/berkeleydb/lib and
-# INCLUDE to /home/t/berkeleydb/include
+# Currently, we're setting LIB to /opt/tpkg/berkeleydb/lib and
+# INCLUDE to /opt/tpkg/berkeleydb/include
 cp config.in $PKG-$VER/
 
 pushd .

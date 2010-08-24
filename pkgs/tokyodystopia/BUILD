@@ -6,7 +6,7 @@ set -o pipefail
 PKG=tokyodystopia
 VER=0.9.11
 PKGVER=1
-prefix=/home/t
+prefix=/opt/tpkg
 OSMAJOR=`facter | grep lsbmajdistrelease | cut -d' ' -f3`
 ARCH=`facter hardwaremodel`
 

@@ -28,8 +28,8 @@ cat ../../tpkg.xml | \
 # Install
 cp ../setup.cfg .   # use our own cfg to enable building with pytz
 mkdir $pkgdir/reloc
-/home/t/bin/python2.6 setup.py build --prefix $pkgdir/reloc
-/home/t/bin/python2.6 setup.py install --prefix $pkgdir/reloc
+/opt/tpkg/bin/python2.6 setup.py build --prefix $pkgdir/reloc
+/opt/tpkg/bin/python2.6 setup.py install --prefix $pkgdir/reloc
 
 
 # Make package

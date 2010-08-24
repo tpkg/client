@@ -4,14 +4,14 @@
 
 case "$1" in
 'start')
-	/home/t/sbin/collectd
+	/opt/tpkg/sbin/collectd
 	;;
 
 'stop')
-	if [ -f /home/t/var/run/collectd.pid ]
+	if [ -f /opt/tpkg/var/run/collectd.pid ]
 	then
-		kill `cat /home/t/var/run/collectd.pid`
-		rm -f /home/t/var/run/collectd.pid
+		kill `cat /opt/tpkg/var/run/collectd.pid`
+		rm -f /opt/tpkg/var/run/collectd.pid
 	fi
 	;;
 

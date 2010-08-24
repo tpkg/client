@@ -1,9 +1,9 @@
 #!/bin/sh
 
 # http://perl-xml.sourceforge.net/faq/#parserdetails.ini
-if [ ! -f /home/t/lib/perl5/site_perl/5.10.1/XML/SAX/ParserDetails.ini ]
+if [ ! -f /opt/tpkg/lib/perl5/site_perl/5.10.1/XML/SAX/ParserDetails.ini ]
 then
 	echo "Generating ParserDetails.ini for XML::SAX"
-	/home/t/perl-5.10/bin/perl -MXML::SAX -e "XML::SAX->add_parser(q(XML::SAX::PurePerl))->save_parsers()"
+	/opt/tpkg/perl-5.10/bin/perl -MXML::SAX -e "XML::SAX->add_parser(q(XML::SAX::PurePerl))->save_parsers()"
 fi
 

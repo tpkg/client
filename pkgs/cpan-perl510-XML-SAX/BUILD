@@ -2,7 +2,7 @@
 
 set -e
 
-/home/t/perl-5.10/bin/perl /usr/bin/cpan2tpkg --package-version 2 XML::SAX
+/opt/tpkg/perl-5.10/bin/perl /usr/bin/cpan2tpkg --package-version 2 XML::SAX
 
 # Probably should add an option to cpan2tpkg to allow the user to
 # specify a postinstall script

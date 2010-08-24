@@ -22,10 +22,10 @@ rm -rf $PKG-$VER || exit 1
 tar zxvf $PKG-$VER.tar.gz || exit 1
 cd $PKG-$VER || exit 1
 # The directory where monit writes its pid file is not configurable
-sed 's,/var/run,/home/t/var/run,' configure > configure.new || exit 1
+sed 's,/var/run,/opt/tpkg/var/run,' configure > configure.new || exit 1
 chmod 755 configure.new
 mv configure.new configure || exit 1
-./configure --prefix=/home/t || exit 1
+./configure --prefix=/opt/tpkg || exit 1
 make || exit 1
 pkgdir=`mktemp -d -t tpkg.XXXXXX` || exit 1
 cat ../../tpkg.xml | \

@@ -18,7 +18,7 @@ ARCH=`tpkg --qenv | grep 'Architecture' | awk '{print $NF}'`
 rm -rf $PKG-$VER
 tar jxvf $PKG-$VER-src.tar.bz2
 cd $PKG-$VER
-./configure --prefix=/home/t
+./configure --prefix=/opt/tpkg
 make
 pkgdir=`mktemp -d -t tpkg.XXXXXX`
 cat ../../tpkg.xml | \

@@ -6,7 +6,7 @@ set -o pipefail
 PKG=google-perftools
 VER=1.5
 PKGVER=1
-prefix=/home/t
+prefix=/opt/tpkg
 OS=`tpkg --qenv | grep 'Operating System' | awk '{print $NF}'`
 if echo $OS | egrep 'RedHat|CentOS'
 then

@@ -6,7 +6,7 @@ set -o pipefail
 PKG=memcached
 VER=1.2.8
 PKGVER=1
-prefix=/home/t
+prefix=/opt/tpkg
 OSMAJOR=`facter | grep lsbmajdistrelease | cut -d' ' -f3`
 ARCH=`facter hardwaremodel`
 

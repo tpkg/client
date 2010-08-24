@@ -7,7 +7,7 @@ set -u
 PKG=python-defaults
 VERS="2.6 3.1"
 PKGVER=1
-prefix=/home/t
+prefix=/opt/tpkg
 
 for ver in $VERS
 do
