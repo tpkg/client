@@ -21,7 +21,7 @@ ARCH=`tpkg --qenv | grep 'Architecture' | awk '{print $NF}'`
 rm -rf $PKG-$VER
 tar zxvf $PKG-$VER.tar.gz
 cd $PKG-$VER
-STATEFILE="/home/t/var/lib/logrotate.status" make
+STATEFILE="/opt/tpkg/var/lib/logrotate.status" make
 pkgdir=`mktemp -d -t tpkg.XXXXXX`
 cat ../../tpkg.xml | \
 	sed "s/NAME/$PKG/" | \

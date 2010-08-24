@@ -23,13 +23,13 @@ then
 fi
 
 # Make sure configure finds the tpkg curl-config instead of others
-PATH=/home/t/bin:$PATH
+PATH=/opt/tpkg/bin:$PATH
 export PATH
 
 rm -rf $PKG-$VER
 tar zxvf $PKG-$VER.tgz
 cd $PKG-$VER
-./configure --prefix=/home/t
+./configure --prefix=/opt/tpkg
 # CADD setting per doc/INSTALL
 make CADD=-fPIC
 pkgdir=`mktemp -d -t tpkg.XXXXXX`

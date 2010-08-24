@@ -23,7 +23,7 @@ fi
 rm -rf $PKG-$VER
 tar zxvf $PKG-$VER.tar.gz
 cd $PKG-$VER
-#./configure --prefix=/home/t
+#./configure --prefix=/opt/tpkg
 make linux
 pkgdir=`mktemp -d -t tpkg.XXXXXX`
 cat ../../tpkg.xml | \

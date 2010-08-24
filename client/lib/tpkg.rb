@@ -1202,7 +1202,7 @@ class Tpkg
   # Instance methods
   #
   
-  DEFAULT_BASE = '/home/t'
+  DEFAULT_BASE = '/opt/tpkg'
   
   def initialize(options)
     # Options

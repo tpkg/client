@@ -7,7 +7,7 @@ set -u
 PKG=perl-defaults
 VERS="5.8 5.10"
 PKGVER=1
-prefix=/home/t
+prefix=/opt/tpkg
 
 for ver in $VERS
 do

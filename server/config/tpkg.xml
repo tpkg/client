@@ -74,21 +74,21 @@
   
   <files>
     <file>
-      <path>/home/t/tpkg/config/ssl-key.pem</path>
+      <path>/opt/tpkg/tpkg/config/ssl-key.pem</path>
       <encrypt precrypt="true"/>
       <posix>
         <perms>0400</perms>
       </posix>
     </file>
     <file>
-      <path>/home/t/tpkg/config/mysql-credentials</path>
+      <path>/opt/tpkg/tpkg/config/mysql-credentials</path>
       <encrypt precrypt="true"/>
       <posix>
         <perms>0400</perms>
       </posix>
     </file>
     <file>
-      <path>/home/t/tpkg/config/database.yml</path>
+      <path>/opt/tpkg/tpkg/config/database.yml</path>
       <encrypt precrypt="true"/>
       <posix>
         <owner>t</owner>
@@ -96,41 +96,41 @@
       </posix>
     </file>
     <file>
-      <path>/home/t/etc/init.d/tpkg-db</path>
+      <path>/opt/tpkg/etc/init.d/tpkg-db</path>
       <init/>
       <posix>
         <perms>0555</perms>
       </posix>
     </file>
     <file>
-      <path>/home/t/etc/init.d/tpkg-app</path>
+      <path>/opt/tpkg/etc/init.d/tpkg-app</path>
       <init/>
       <posix>
         <perms>0555</perms>
       </posix>
     </file>
     <file>
-      <path>/home/t/etc/init.d/tpkg-web</path>
+      <path>/opt/tpkg/etc/init.d/tpkg-web</path>
       <init/>
       <posix>
         <perms>0555</perms>
       </posix>
     </file>
     <file>
-      <path>/home/t/etc/cron.d/tpkg_server</path>
+      <path>/opt/tpkg/etc/cron.d/tpkg_server</path>
       <crontab/>
       <posix>
         <perms>0444</perms>
       </posix>
     </file>
     <file>
-      <path>/home/t/tpkg/log</path>
+      <path>/opt/tpkg/tpkg/log</path>
       <posix>
         <owner>t</owner>
       </posix>
     </file>
     <file>
-      <path>/home/t/tpkg/tmp/pids</path>
+      <path>/opt/tpkg/tpkg/tmp/pids</path>
       <posix>
         <owner>t</owner>
       </posix>

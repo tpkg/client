@@ -6,7 +6,7 @@ set -o pipefail
 PKG=tokyotyrant
 VER=1.1.33
 PKGVER=1
-prefix=/home/t
+prefix=/opt/tpkg
 OSMAJOR=`facter | grep lsbmajdistrelease | cut -d' ' -f3`
 ARCH=`facter hardwaremodel`
 

@@ -17,7 +17,7 @@ rpm --quiet -q openssl-devel || sudo yum install openssl-devel
 rpm --quiet -q curl-devel || sudo yum install curl-devel
 rpm --quiet -q expat-devel || sudo yum install expat-devel
 # Build
-make prefix=/home/t
+make prefix=/opt/tpkg
 pkgdir=`mktemp -d -t tpkg.XXXXXX`
 cat ../../tpkg.xml | \
 	sed "s/NAME/$PKG/" | \
@@ -25,9 +25,9 @@ cat ../../tpkg.xml | \
 	sed "s/PKGVER/$PKGVER/" | \
 	sed "s/OS/RedHat-$OSMAJOR,CentOS-$OSMAJOR/" | \
 	sed "s/ARCH/$ARCH/" > $pkgdir/tpkg.xml
-mkdir -p $pkgdir/root/home/t
+mkdir -p $pkgdir/root/opt/tpkg
 # Install
-make DESTDIR=$pkgdir/root prefix=/home/t install
+make DESTDIR=$pkgdir/root prefix=/opt/tpkg install
 # Make package
 tpkg --make $pkgdir
 # Cleanup

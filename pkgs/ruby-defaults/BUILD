@@ -7,7 +7,7 @@ set -u
 PKG=ruby-defaults
 VERS="1.8 1.9"
 PKGVER=1
-prefix=/home/t
+prefix=/opt/tpkg
 
 for ver in $VERS
 do

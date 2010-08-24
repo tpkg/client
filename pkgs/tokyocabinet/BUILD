@@ -6,7 +6,7 @@ set -o pipefail
 PKG=tokyocabinet
 VER=1.4.31
 PKGVER=1
-prefix=/home/t
+prefix=/opt/tpkg
 OSMAJOR=`facter | grep lsbmajdistrelease | cut -d' ' -f3`
 ARCH=`facter hardwaremodel`
 

@@ -22,9 +22,9 @@ cat ../../../tpkg.xml | \
 	sed "s/OS/RedHat-$OSMAJOR,CentOS-$OSMAJOR/" | \
 	sed "s/ARCH/$ARCH/" \
 	> $pkgdir/tpkg.xml
-mkdir -p $pkgdir/root/home/t || exit 1
+mkdir -p $pkgdir/root/opt/tpkg || exit 1
 # Install
-JS_DIST=$pkgdir/root/home/t make -f Makefile.ref export
+JS_DIST=$pkgdir/root/opt/tpkg make -f Makefile.ref export
 # Make package
 tpkg --make $pkgdir || exit 1
 # Cleanup

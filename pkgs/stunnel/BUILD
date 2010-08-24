@@ -9,7 +9,7 @@ ARCH=`facter hardwaremodel`
 rm -rf $PKG-$VER || exit 1
 tar zxvf $PKG-$VER.tar.gz || exit 1
 cd $PKG-$VER || exit 1
-./configure --prefix=/home/t || exit 1
+./configure --prefix=/opt/tpkg || exit 1
 make || exit 1
 pkgdir=`mktemp -d -t tpkg.XXXXXX` || exit 1
 cat ../../tpkg.xml | \

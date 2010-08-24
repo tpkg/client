@@ -8,7 +8,7 @@ OUR_PKG_NAME=berkeleydb
 VER=5.0.21
 PKGVER=1
 
-prefix=/home/t/$OUR_PKG_NAME
+prefix=/opt/tpkg/$OUR_PKG_NAME
 
 OSMAJOR=`facter | grep lsbmajdistrelease | cut -d' ' -f3`
 ARCH=`facter hardwaremodel`

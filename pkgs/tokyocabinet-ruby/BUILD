@@ -7,7 +7,7 @@ PKG=tokyocabinet-ruby
 VER=1.23
 RUBYDEP=${RUBYDEP-"ruby"}
 PKGVER=1$RUBYDEP
-prefix=/home/t
+prefix=/opt/tpkg
 rubyprefix=$prefix/$RUBYDEP
 
 test -x $rubyprefix/bin/ruby || \

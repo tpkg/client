@@ -2,20 +2,20 @@
 
 # Init file for mongod
 
-pidfile=/home/t/var/run/mongodb.pid
+pidfile=/opt/tpkg/var/run/mongodb.pid
 
 case "$1" in
 'start')
 	echo "Starting mongodb"
-	if [ ! -f /home/t/var/log/mongodb.log ]
+	if [ ! -f /opt/tpkg/var/log/mongodb.log ]
 	then
 		# Give 't' permission to write to log file
-		touch /home/t/var/log/mongodb.log
-		chown t /home/t/var/log/mongodb.log
+		touch /opt/tpkg/var/log/mongodb.log
+		chown t /opt/tpkg/var/log/mongodb.log
 	fi
 	startout=`mktemp /tmp/mongodstart.XXXXXX`
 	chown t $startout
-	su t -s /bin/sh -c "/home/t/bin/mongod --fork --logpath /home/t/var/log/mongodb.log --logappend --config /home/t/etc/mongodb.conf > $startout 2>&1"
+	su t -s /bin/sh -c "/opt/tpkg/bin/mongod --fork --logpath /opt/tpkg/var/log/mongodb.log --logappend --config /opt/tpkg/etc/mongodb.conf > $startout 2>&1"
 	pid=`grep 'forked process:' $startout | awk '{print $NF}'`
 	if [ -n "$pid" ]
 	then

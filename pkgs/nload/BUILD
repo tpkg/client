@@ -6,7 +6,7 @@ set -o pipefail
 PKG=nload
 VER=0.7.2
 PKGVER=1
-prefix=/home/t
+prefix=/opt/tpkg
 OSMAJOR=`facter | grep lsbmajdistrelease | cut -d' ' -f3`
 ARCH=`facter hardwaremodel`
 

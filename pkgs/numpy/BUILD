@@ -26,7 +26,7 @@ cat ../../tpkg.xml | \
 
 # Install
 mkdir $pkgdir/reloc
-/home/t/bin/python2.6 setup.py install --prefix $pkgdir/reloc
+/opt/tpkg/bin/python2.6 setup.py install --prefix $pkgdir/reloc
 
 # Make package
 tpkg --make $pkgdir || exit 1

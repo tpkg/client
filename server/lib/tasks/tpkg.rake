@@ -92,29 +92,29 @@ namespace :tpkg do
     end
     
     # Copy init scripts into the appropriate place
-    mkdir_p(File.join(rootdir, 'home', 't', 'etc', 'init.d'))
+    mkdir_p(File.join(rootdir, 'opt', 'tpkg', 'etc', 'init.d'))
     ['web', 'app', 'db'].each do |appclass|
       cp(File.join(apppath, 'config', "init-tpkg-#{appclass}"),
-         File.join(rootdir, 'home', 't', 'etc', 'init.d', "tpkg-#{appclass}"))
+         File.join(rootdir, 'opt', 'tpkg', 'etc', 'init.d', "tpkg-#{appclass}"))
     end
     
     # Copy crontab into the appropriate place
-    mkdir_p(File.join(rootdir, 'home', 't', 'etc', 'cron.d'))
+    mkdir_p(File.join(rootdir, 'opt', 'tpkg', 'etc', 'cron.d'))
     # The tpkg client package installs a crontab named 'tpkg',
     # so we name this file 'tpkg_server' to differentiate
     cp(File.join(apppath, 'config', "cron-tpkg_server"),
-       File.join(rootdir, 'home', 't', 'etc', 'cron.d', "tpkg_server"))
+       File.join(rootdir, 'opt', 'tpkg', 'etc', 'cron.d', "tpkg_server"))
     
-    # stunnel server config -> /home/t/etc/stunnel
-    mkdir_p(File.join(rootdir, 'home', 't', 'etc', 'stunnel'))
+    # stunnel server config -> /opt/tpkg/etc/stunnel
+    mkdir_p(File.join(rootdir, 'opt', 'tpkg', 'etc', 'stunnel'))
     cp(File.join(apppath, 'config', 'stunnel-mysql_server.conf'),
-       File.join(rootdir, 'home', 't', 'etc', 'stunnel', 'mysql_server.conf'))
+       File.join(rootdir, 'opt', 'tpkg', 'etc', 'stunnel', 'mysql_server.conf'))
     
-    # logrotate configs -> /home/t/etc/logrotate.d
-    mkdir_p(File.join(rootdir, 'home', 't', 'etc', 'logrotate.d'))
+    # logrotate configs -> /opt/tpkg/etc/logrotate.d
+    mkdir_p(File.join(rootdir, 'opt', 'tpkg', 'etc', 'logrotate.d'))
     ['web', 'app', 'db'].each do |appclass|
       cp(File.join(apppath, 'config', "logrotate-tpkg-#{appclass}"),
-         File.join(rootdir, 'home', 't', 'etc', 'logrotate.d', "tpkg-#{appclass}"))
+         File.join(rootdir, 'opt', 'tpkg', 'etc', 'logrotate.d', "tpkg-#{appclass}"))
     end
     
     @pkgfile = Tpkg::make_package(pkgdir)

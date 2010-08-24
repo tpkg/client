@@ -8,9 +8,9 @@ set -o pipefail # bash v3 dependency
 PKG=nginx
 VER=0.6.37
 PKGVER=1
-prefix=/home/t
+prefix=/opt/tpkg
 perl_version=5.10.0
-perl_prefix=/home/t/perl-$perl_version
+perl_prefix=/opt/tpkg/perl-$perl_version
 
 OSMAJOR=`facter | grep lsbmajdistrelease | cut -d' ' -f3`
 ARCH=`facter hardwaremodel`

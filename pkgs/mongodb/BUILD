@@ -29,7 +29,7 @@ cd $PKG-src-r$VER
 sed '/for.*GetOption.*extrapath/a\
         env.Append( LIBPATH=[ x + "/lib64" ] )' SConstruct > SConstruct.new
 mv SConstruct.new SConstruct
-scons --extrapath /home/t all
+scons --extrapath /opt/tpkg all
 pkgdir=`mktemp -d -t tpkg.XXXXXX`
 # Note no dependencies are added.  The build process links all non-core
 # libraries (boost, ncurses, js, etc.) statically.
@@ -40,30 +40,30 @@ cat ../../tpkg.xml | \
 	sed "s/OS/$OS/" | \
 	sed "s/ARCH/$ARCH/" | \
 	sed '/<files>/a\
-<file><path>/home/t/etc/init.d/mongodb</path><init/></file>' | \
+<file><path>/opt/tpkg/etc/init.d/mongodb</path><init/></file>' | \
 	sed '/<files>/a\
-<file><path>/home/t/var/mongodb</path><posix><owner>t</owner></posix></file>' \
+<file><path>/opt/tpkg/var/mongodb</path><posix><owner>t</owner></posix></file>' \
 	> $pkgdir/tpkg.xml
-mkdir -p $pkgdir/root/home/t
+mkdir -p $pkgdir/root/opt/tpkg
 # Add config file
-mkdir -p $pkgdir/root/home/t/etc
-cp ../mongodb.conf $pkgdir/root/home/t/etc/mongodb.conf
+mkdir -p $pkgdir/root/opt/tpkg/etc
+cp ../mongodb.conf $pkgdir/root/opt/tpkg/etc/mongodb.conf
 # Add init script
-mkdir -p $pkgdir/root/home/t/etc/init.d
-cp ../$PKG.init $pkgdir/root/home/t/etc/init.d/$PKG
-chmod 755 $pkgdir/root/home/t/etc/init.d/$PKG
+mkdir -p $pkgdir/root/opt/tpkg/etc/init.d
+cp ../$PKG.init $pkgdir/root/opt/tpkg/etc/init.d/$PKG
+chmod 755 $pkgdir/root/opt/tpkg/etc/init.d/$PKG
 # Directories for log and pid file
-mkdir -p $pkgdir/root/home/t/var/log
-mkdir -p $pkgdir/root/home/t/var/run
+mkdir -p $pkgdir/root/opt/tpkg/var/log
+mkdir -p $pkgdir/root/opt/tpkg/var/run
 # Data directory
-mkdir -p $pkgdir/root/home/t/var/mongodb
+mkdir -p $pkgdir/root/opt/tpkg/var/mongodb
 # Install
-scons --extrapath /home/t --prefix=$pkgdir/root/home/t install
+scons --extrapath /opt/tpkg --prefix=$pkgdir/root/opt/tpkg install
 # Move a few files to a more appropriate location
-mkdir -p $pkgdir/root/home/t/share/doc/mongodb-$VER
+mkdir -p $pkgdir/root/opt/tpkg/share/doc/mongodb-$VER
 for doc in GNU-AGPL-3.0 README THIRD-PARTY-NOTICES
 do
-	mv $pkgdir/root/home/t/$doc $pkgdir/root/home/t/share/doc/mongodb-$VER
+	mv $pkgdir/root/opt/tpkg/$doc $pkgdir/root/opt/tpkg/share/doc/mongodb-$VER
 done
 # Make package
 tpkg --make $pkgdir

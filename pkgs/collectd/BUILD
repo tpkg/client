@@ -26,7 +26,7 @@ fi
 rm -rf $PKG-$VER
 tar jxvf $PKG-$VER.tar.bz2
 cd $PKG-$VER
-./configure --prefix=/home/t
+./configure --prefix=/opt/tpkg
 make
 pkgdir=`mktemp -d -t tpkg.XXXXXX`
 cat ../../tpkg.xml | \
@@ -36,13 +36,13 @@ cat ../../tpkg.xml | \
 	sed "s/OS/$OS/" | \
 	sed "s/ARCH/$ARCH/" |
 	sed '/<files>/a\
-<file><path>/home/t/etc/init.d/collectd</path><posix><perms>0755</perms></posix><init/></file>' > $pkgdir/tpkg.xml
+<file><path>/opt/tpkg/etc/init.d/collectd</path><posix><perms>0755</perms></posix><init/></file>' > $pkgdir/tpkg.xml
 mkdir $pkgdir/root
 # Install
 make install DESTDIR=$pkgdir/root
 # Init script
-mkdir -p $pkgdir/root/home/t/etc/init.d
-cp ../collectd.init $pkgdir/root/home/t/etc/init.d/collectd
+mkdir -p $pkgdir/root/opt/tpkg/etc/init.d
+cp ../collectd.init $pkgdir/root/opt/tpkg/etc/init.d/collectd
 # Make package
 tpkg --make $pkgdir
 # Cleanup

@@ -13,7 +13,7 @@ do
 done
 
 # Ensure that rake is found
-PATH=/home/t/ruby-1.8/bin:/home/t/bin:$PATH
+PATH=/opt/tpkg/ruby-1.8/bin:/opt/tpkg/bin:$PATH
 export PATH
 
 gem2tpkg xmlparser --version=0.6.81 --package-version=1 \

@@ -3,20 +3,20 @@
 # Do initial database configuration if necessary
 # These will all fail after the first run because we'll no longer be
 # able to authenticate to the database as root with no password.
-#/home/t/bin/mysql -u root -e "drop user ''"
-/home/t/bin/mysql -u root -e "CREATE DATABASE IF NOT EXISTS tpkg"
+#/opt/tpkg/bin/mysql -u root -e "drop user ''"
+/opt/tpkg/bin/mysql -u root -e "CREATE DATABASE IF NOT EXISTS tpkg"
 # The passwords here are hashed, not raw passwords
-/home/t/bin/mysql -u root -e "GRANT ALL ON tpkg.* to tpkg@localhost IDENTIFIED BY PASSWORD 'password_goes_here'"
-/home/t/bin/mysql -u root -e "GRANT REPLICATION SLAVE ON *.* to repl@localhost IDENTIFIED BY PASSWORD 'password_goes_here'"
-/home/t/bin/mysql -u root -e "FLUSH PRIVILEGES"
-/home/t/bin/mysql -u root -e "set password for root@'`hostname`' = 'password_goes_here'"
+/opt/tpkg/bin/mysql -u root -e "GRANT ALL ON tpkg.* to tpkg@localhost IDENTIFIED BY PASSWORD 'password_goes_here'"
+/opt/tpkg/bin/mysql -u root -e "GRANT REPLICATION SLAVE ON *.* to repl@localhost IDENTIFIED BY PASSWORD 'password_goes_here'"
+/opt/tpkg/bin/mysql -u root -e "FLUSH PRIVILEGES"
+/opt/tpkg/bin/mysql -u root -e "set password for root@'`hostname`' = 'password_goes_here'"
 # This will lock you out, so make sure it is your last mysql command
-/home/t/bin/mysql -u root -e "set password for root@'localhost' = 'password_goes_here'"
+/opt/tpkg/bin/mysql -u root -e "set password for root@'localhost' = 'password_goes_here'"
 
 # Run rake db:migrate if appropriate
 if nv --exactget name=`hostname` --fields node_groups | grep -qs tpkg-db-admin_prod
 then
-	(cd /home/t/tpkg && RAILS_ENV=production rake db:migrate)
+	(cd /opt/tpkg/tpkg && RAILS_ENV=production rake db:migrate)
 	if [ $? != 0 ]
 	then
 		echo "Looks like 'rake db:migrate' failed" >&2

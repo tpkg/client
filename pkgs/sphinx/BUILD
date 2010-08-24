@@ -7,7 +7,7 @@ set -o pipefail
 PKG=sphinx
 VER=0.9.8.1
 PKGVER=1
-prefix=/home/t
+prefix=/opt/tpkg
 OSMAJOR=`facter | grep lsbmajdistrelease | cut -d' ' -f3`
 ARCH=`facter hardwaremodel`
 

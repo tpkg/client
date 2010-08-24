@@ -1,4 +1,4 @@
-#!/home/t/bin/perl
+#!/opt/tpkg/bin/perl
 
 use warnings;
 use strict;
@@ -275,8 +275,8 @@ MODULE: foreach my $name ($extinst->modules)
 				my $depmod = CPAN::Shell->expand('Module', $dep);
 				# This is a bit of an indirect way to identify core
 				# modules but the only way I can figure out.  Core stuff
-				# gets installed with perl into /home/t/perl-version,
-				# CPAN modules into /home/t/lib/perl5/site_perl.
+				# gets installed with perl into /opt/tpkg/perl-version,
+				# CPAN modules into /opt/tpkg/lib/perl5/site_perl.
 				#
 				# What seems like it should be the "right" way is that
 				# the "D" (aka "Development Stage") field in
