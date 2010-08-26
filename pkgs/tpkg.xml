@@ -7,6 +7,7 @@
   <maintainer>tpkg-users@lists.sourceforge.net</maintainer>
   <operatingsystem>OS</operatingsystem>
   <architecture>ARCH</architecture>
+  <description>See https://sourceforge.net/apps/trac/tpkg/browser/trunk/pkgs</description>
   <files>
   </files>
 </tpkg>
