@@ -332,6 +332,14 @@ def instantiate_tpkg(options = {})
     # if they don't realize there's an environment variable set.
     warn "Using base '#{base}' base from $TPKG_HOME"
   end
+  if !@sudo 
+    if !File::exists?(File.join(ENV['HOME'], ".tpkg.conf"))
+      puts "** ERROR **\nWhen specifying --no-sudo, #{File.join(ENV['HOME'], ".tpkg.conf")} and custom 'base' dir with write privileges is required\n"
+    elsif base == '/home/t'
+      puts "** ERROR **\nWhen specifying --no-sudo, custom base dir with write privileges is required\n"
+    end
+    exit 1
+  end
   
   tpkg = Tpkg.new(:base => base, :sources => sources, :report_server => report_server, :lockforce => @lockforce, :force => @force)
 end
