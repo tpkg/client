@@ -20,6 +20,7 @@ do
   <version>$ver</version>
   <package_version>$PKGVER</package_version>
   <maintainer>tpkg-users@lists.sourceforge.net</maintainer>
+  <description>Link python binaries into top level bin directory</description>
   <dependencies>
     <dependency>
       <name>python</name>
