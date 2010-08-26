@@ -503,7 +503,7 @@ when :query_list_files
   if File.exist?(@action_value)
     fip = Tpkg::files_in_package(@action_value)
     tpkg.normalize_paths(fip)
-    puts "#{pkgfile}:"
+    puts "#{@action_value}:"
     fip[:normalized].each { |file| puts file }
   else
     pkgfiles = []
