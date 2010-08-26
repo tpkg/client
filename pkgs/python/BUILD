@@ -19,7 +19,7 @@ then
 	rpm --quiet -q gcc || sudo yum install gcc
 fi
 
-for ver in 2.6.5 3.1.2
+for ver in 2.6.6 3.1.2
 do
 	rm -rf Python-$ver
 	tar jxvf Python-$ver.tar.bz2

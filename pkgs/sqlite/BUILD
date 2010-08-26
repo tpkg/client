@@ -3,7 +3,7 @@
 set -e
 
 PKG=sqlite
-VER=3.6.23.1
+VER=3.7.2
 PKGVER=1
 OS=`tpkg --qenv | grep 'Operating System' | awk '{print $NF}'`
 if echo $OS | egrep 'RedHat|CentOS'

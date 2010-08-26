@@ -3,7 +3,7 @@
 set -e
 
 PKG=scons
-VER=2.0.0.final.0
+VER=2.0.1
 PKGVER=1
 
 tpkg -q python || tpkg -i python
@@ -15,7 +15,6 @@ rm -rf $PKG-$VER
 tar zxvf $PKG-$VER.tar.gz
 cd $PKG-$VER
 pkgdir=`mktemp -d -t tpkg.XXXXXX`
-# FIXME: python dep
 cat ../../tpkg.xml | \
 	sed "s/NAME/$PKG/" | \
 	sed "s/VERSION/$VER/" | \
