@@ -334,11 +334,10 @@ def instantiate_tpkg(options = {})
   end
   if !@sudo 
     if !File::exists?(File.join(ENV['HOME'], ".tpkg.conf"))
-      puts "** ERROR **\nWhen specifying --no-sudo, #{File.join(ENV['HOME'], ".tpkg.conf")} and custom 'base' dir with write privileges is required\n"
+      puts "** ERROR **\nWhen specifying --no-sudo, #{File.join(ENV['HOME'], ".tpkg.conf")} and custom 'base' dir with write privileges is required\n" and exit 1
     elsif base == '/home/t'
-      puts "** ERROR **\nWhen specifying --no-sudo, custom base dir with write privileges is required\n"
+      puts "** ERROR **\nWhen specifying --no-sudo, custom base dir with write privileges is required\n" and exit 1
     end
-    exit 1
   end
   
   tpkg = Tpkg.new(:base => base, :sources => sources, :report_server => report_server, :lockforce => @lockforce, :force => @force)
