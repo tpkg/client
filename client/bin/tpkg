@@ -336,7 +336,7 @@ def instantiate_tpkg(options = {})
   if !@sudo 
     curruid = Etc.getpwuid.uid
     if curruid == 0
-      puts "** ERROR **\n--no-suid cannot be used as 'root' user or with sudo command."
+      puts "** ERROR **\n--no-sudo cannot be used as 'root' user or with sudo command."
       exit 1
      end
     if !File::exists?(File.join(ENV['HOME'], ".tpkg.conf"))
