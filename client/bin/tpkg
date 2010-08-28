@@ -9,6 +9,7 @@ $:.unshift File.join(File.dirname(__FILE__), "..", "lib")
 
 require 'optparse'
 require 'tpkg'
+require 'etc' 
 
 #
 # Parse the command line options
@@ -333,14 +334,23 @@ def instantiate_tpkg(options = {})
     warn "Using base '#{base}' base from $TPKG_HOME"
   end
   if !@sudo 
+    curruid = Etc.getpwuid.uid
+    if curruid == 0
+      puts "** ERROR **\n--no-suid cannot be used as 'root' user or with sudo command."
+      exit 1
+     end
     if !File::exists?(File.join(ENV['HOME'], ".tpkg.conf"))
       puts "** ERROR **\nWhen specifying --no-sudo, #{File.join(ENV['HOME'], ".tpkg.conf")} and custom 'base' dir with write privileges is required\n" and exit 1
     elsif base == '/home/t'
       puts "** ERROR **\nWhen specifying --no-sudo, custom base dir with write privileges is required\n" and exit 1
     end
+    baseuid = File.stat(base).uid 
+    if baseuid != curruid 
+      puts "** ERROR **\nbase dir (#{base}) not owned by you.\n" 
+      exit 1
+    end
   end
-  
-  tpkg = Tpkg.new(:base => base, :sources => sources, :report_server => report_server, :lockforce => @lockforce, :force => @force)
+  tpkg = Tpkg.new(:base => base, :sources => sources, :report_server => report_server, :lockforce => @lockforce, :force => @force, :sudo => @sudo)
 end
 
 passphrase_callback = lambda do | package |
