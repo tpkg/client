@@ -1233,6 +1233,10 @@ class Tpkg
     if options.has_key?(:force)
       @force = options[:force]
     end
+    @sudo = true
+    if options.has_key?(:sudo)
+      @sudo = options[:sudo]
+    end
     
     @file_system_root = '/'  # Not sure if this needs to be more portable
     # This option is only intended for use by the test suite
@@ -2774,6 +2778,11 @@ class Tpkg
   
   def install_crontabs(metadata)
     crontab_destinations(metadata).each do |crontab, destination|
+      if !@sudo && (destination[destination.keys.first] =~ /\/var\/spool\/cron/)
+        install_crontab_bycmd(metadata, crontab, destination) 
+        next
+      end
+
       begin
         if destination[:link]
           install_crontab_link(metadata, crontab, destination)
@@ -2868,8 +2877,25 @@ class Tpkg
     # FIXME: On Solaris we should bounce cron or use the crontab
     # command, otherwise cron won't pick up the changes
   end
+  def install_crontab_bycmd(metadata, crontab, destination)
+    oldcron = `crontab -l`
+    tmpf = '/tmp/tpkg_cron.' + rand.to_s
+    tmpfh = File.open(tmpf,'w')
+    tmpfh.write(oldcron) unless oldcron.empty?
+    tmpfh.puts "### TPKG START - #{@base} - #{File.basename(metadata[:filename].to_s)}"
+    tmpfh.write File.readlines(crontab)
+    tmpfh.puts "### TPKG END - #{@base} - #{File.basename(metadata[:filename].to_s)}" 
+    tmpfh.close
+    `crontab #{tmpf}`
+    FileUtils.rm(tmpf)
+  end
   def remove_crontabs(metadata)
     crontab_destinations(metadata).each do |crontab, destination|
+      if !@sudo && (destination[destination.keys.first] =~ /\/var\/spool\/cron/)
+        remove_crontab_bycmd(metadata, crontab, destination) 
+        next
+      end
+
       begin
         if destination[:link]
           remove_crontab_link(metadata, crontab, destination)
@@ -2936,6 +2962,24 @@ class Tpkg
       # FIXME: On Solaris we should bounce cron or use the crontab
       # command, otherwise cron won't pick up the changes
     end
+  end
+  def remove_crontab_bycmd(metadata, crontab, destination)
+    oldcron = `crontab -l`
+    tmpf = '/tmp/tpkg_cron.' + rand.to_s
+    tmpfh = File.open(tmpf,'w')
+    skip = false
+    oldcron.each do |line|
+      if line == "### TPKG START - #{@base} - #{File.basename(metadata[:filename].to_s)}\n"
+        skip = true
+      elsif line == "### TPKG END - #{@base} - #{File.basename(metadata[:filename].to_s)}\n"
+        skip = false
+      elsif !skip
+        tmpfh.write(line)
+      end
+    end
+    tmpfh.close
+    `crontab #{tmpf}`
+    FileUtils.rm(tmpf)
   end
   
   def run_preinstall(package_file, workdir)
