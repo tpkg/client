@@ -1126,7 +1126,7 @@ class Tpkg
     metadata = data[:metadata]
     if (metadata && metadata[:files] && metadata[:files][:file_defaults] && metadata[:files][:file_defaults][:posix])
       uid = Tpkg::lookup_uid(metadata[:files][:file_defaults][:posix][:owner]) if metadata[:files][:file_defaults][:posix][:owner]
-      gid = Tpkg::lookup_uid(metadata[:files][:file_defaults][:posix][:group]) if metadata[:files][:file_defaults][:posix][:group]
+      gid = Tpkg::lookup_gid(metadata[:files][:file_defaults][:posix][:group]) if metadata[:files][:file_defaults][:posix][:group]
       perms = metadata[:files][:file_defaults][:posix][:perms] if metadata[:files][:file_defaults][:posix][:perms]
     end
 
@@ -1134,7 +1134,7 @@ class Tpkg
     file_metadata = data[:file_metadata]
     if file_metadata && file_metadata[:posix]
       uid = Tpkg::lookup_uid(file_metadata[:posix][:owner]) if file_metadata[:posix][:owner]
-      gid = Tpkg::lookup_uid(file_metadata[:posix][:group]) if file_metadata[:posix][:group]
+      gid = Tpkg::lookup_gid(file_metadata[:posix][:group]) if file_metadata[:posix][:group]
       perms = file_metadata[:posix][:perms] if file_metadata[:posix][:perms]
     end
     return perms, uid, gid
