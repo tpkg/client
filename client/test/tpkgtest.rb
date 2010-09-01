@@ -13,6 +13,21 @@ require 'facter'
 
 Tpkg::set_debug(true) if ENV['debug']
 
+require 'stringio'
+ 
+module Kernel
+ 
+  def capture_stdout
+    out = StringIO.new
+    $stdout = out
+    yield
+    return out
+  ensure
+    $stdout = STDOUT
+  end
+ 
+end
+
 module TpkgTests
   # Directory with test package contents
   TESTPKGDIR = File.join(File.dirname(__FILE__), 'testpkg')

@@ -54,7 +54,7 @@ class TpkgMakeTests < Test::Unit::TestCase
       # package
       assert(File.exist?(File.join(unpackdir, 'tpkg', 'tpkg.xml')), 'tpkg.xml in package')
       assert(File.directory?(File.join(unpackdir, 'tpkg', 'reloc')), 'reloc in package')
-      assert_equal(5, Dir.entries(File.join(unpackdir, 'tpkg')).length, 'nothing else in tpkg directory') # ., .., reloc|root, tpkg.xml, file_metadata.xml
+      assert_equal(6, Dir.entries(File.join(unpackdir, 'tpkg')).length, 'nothing else in tpkg directory') # ., .., reloc|root, tpkg.xml, file_metadata.xml
       assert(File.exist?(File.join(unpackdir, 'tpkg', 'reloc', 'file')), 'generic file in package')
       assert(File.directory?(File.join(unpackdir, 'tpkg', 'reloc', 'directory')), 'directory in package')
       assert(File.symlink?(File.join(unpackdir, 'tpkg', 'reloc', 'directory', 'link')), 'link in package')
@@ -148,6 +148,22 @@ class TpkgMakeTests < Test::Unit::TestCase
     end
     assert_raise(RuntimeError, testname) { Tpkg.make_package(@pkgdir, PASSPHRASE) }
   end
+
+  def test_group_owner
+    # Ensure a warning given if file owner and group set to non-existing accounts
+    FileUtils.cp("#{TESTPKGDIR}/tpkg-bad-ownergroup.xml", "#{@pkgdir}/tpkg.xml")
+    out = capture_stdout do 
+      Tpkg.make_package(@pkgdir,nil)
+    end
+    expectederr = "Package requests user baduser, but that user can't be found.  Using UID 0.\nPackage requests group badgroup, but that group can't be found.  Using GID 0.\n"
+    assert_equal(expectederr,out.string)
+    FileUtils.cp("#{TESTPKGDIR}/tpkg-good-ownergroup.xml", "#{@pkgdir}/tpkg.xml")
+    out = capture_stdout do 
+      Tpkg.make_package(@pkgdir,nil)
+    end
+    assert_equal("",out.string)
+  end
+ 
   
   def test_make_nil_passphrase
     # Pass a nil passphrase with a package that requests encryption,
@@ -381,7 +397,7 @@ class TpkgMakeTests < Test::Unit::TestCase
 
     FileUtils.rm_rf(outdir)
   end
-  
+
   def teardown
     FileUtils.rm_rf(@pkgdir)
   end
