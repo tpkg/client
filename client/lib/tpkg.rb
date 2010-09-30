@@ -431,6 +431,7 @@ class Tpkg
     # FIXME: This is so lame, to read the whole package to get the
     # first filename.  Blech.
     IO.popen("#{find_tar} -tf #{package_file} #{@@taroptions}") do |pipe|
+      raise "Problem seeing contents while untar'ing tpkg #{package_file}" if pipe.gets.nil?
       toplevel = pipe.gets
       if toplevel.nil?
          raise "Package directory structure of #{package_file} unexpected. Unable to get top level."
@@ -3266,7 +3267,7 @@ class Tpkg
 
     if !all_requests_satisfied
       puts errors.join("\n")
-      raise "Unable to satisfy the request(s)"
+      raise "Unable to satisfy the request(s).  Try running with --debug for more info"
     end
   end
   
@@ -3456,7 +3457,7 @@ class Tpkg
     #solution_packages = best_solution(requirements.dup, packages.dup)
     solution_packages = best_solution(requirements, packages, core_packages)
     if !solution_packages
-      raise "Unable to resolve dependencies"
+      raise "Unable to resolve dependencies.  Try running with --debug for more info"
     end
     
     success = handle_conflicting_pkgs(installed_packages, solution_packages, options)
@@ -3678,7 +3679,7 @@ class Tpkg
     solution_packages = best_solution(requirements, packages, core_packages)
   
     if solution_packages.nil?
-      raise "Unable to find solution for upgrading. Please verify that you specified the correct package(s) for upgrade."
+      raise "Unable to find solution for upgrading. Please verify that you specified the correct package(s) for upgrade.  Try running with --debug for more info"
     end
 
     success = handle_conflicting_pkgs(installed_packages, solution_packages, options)
@@ -4431,7 +4432,7 @@ class Tpkg
     parse_requests(requests, requirements, packages)
     packages = packages.values.flatten
     if packages.size < 1
-      puts "Unable to find any packages that satisfy your request."
+      puts "Unable to find any packages that satisfy your request.  Try running with --debug for more info"
       Dir.chdir(original_dir) 
       return GENERIC_ERR
     end
