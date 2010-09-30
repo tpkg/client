@@ -61,7 +61,8 @@ opts.on('--extract', '-x', '=DIRECTORY', 'Extract the metadata for a directory o
   @action = :extract
   @action_value = opt
 end
-opts.on('--install', '-i', '=PACKAGES', 'Install one or more packages', Array) do |opt|
+installexample = "      --install pkgname=version=package_version\n          (Example: tpkg --install hive=2.1)  Will install hive version 2.1"
+opts.on('--install', '-i', '=PACKAGES', "Install one or more packages\n#{installexample}", Array) do |opt|
   @rerun_with_sudo = true
   @action = :install
   @action_value = opt
