@@ -13,7 +13,7 @@ class TpkgMakeTests < Test::Unit::TestCase
     @tar = Tpkg::find_tar
     
     @pkgdir = Tempdir.new("pkgdir")
-    system("#{@tar} -C #{TESTPKGDIR} --exclude .svn --exclude tpkg-nofiles.xml --exclude tpkg-dir-default.xml -cf - . | #{@tar} -C #{@pkgdir} -xf -")
+    system("#{@tar} -C #{TESTPKGDIR} --exclude .svn --exclude tpkg-*.xml -cf - . | #{@tar} -C #{@pkgdir} -xf -")
     # Set special permissions on a file so that we can verify they are
     # preserved
     File.chmod(0400, File.join(@pkgdir, 'reloc', 'file'))
@@ -54,7 +54,7 @@ class TpkgMakeTests < Test::Unit::TestCase
       # package
       assert(File.exist?(File.join(unpackdir, 'tpkg', 'tpkg.xml')), 'tpkg.xml in package')
       assert(File.directory?(File.join(unpackdir, 'tpkg', 'reloc')), 'reloc in package')
-      assert_equal(6, Dir.entries(File.join(unpackdir, 'tpkg')).length, 'nothing else in tpkg directory') # ., .., reloc|root, tpkg.xml, file_metadata.xml
+      assert_equal(5, Dir.entries(File.join(unpackdir, 'tpkg')).length, 'nothing else in tpkg directory') # ., .., reloc|root, tpkg.xml, file_metadata.bin
       assert(File.exist?(File.join(unpackdir, 'tpkg', 'reloc', 'file')), 'generic file in package')
       assert(File.directory?(File.join(unpackdir, 'tpkg', 'reloc', 'directory')), 'directory in package')
       assert(File.symlink?(File.join(unpackdir, 'tpkg', 'reloc', 'directory', 'link')), 'link in package')
