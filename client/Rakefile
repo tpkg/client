@@ -169,7 +169,7 @@ begin
     t.dirs = ['lib']
   end
 rescue LoadError
-  warn "Flay not installed"
+  warn "Flay gem not installed, flay rake tasks will be unavailable"
 end
 
 desc 'Build an tpkg client RPM on a Red Hat box'
