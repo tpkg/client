@@ -28,6 +28,31 @@ class TpkgOptionTests < Test::Unit::TestCase
     #assert(output.size <= 23, 'help output lines')
   end
   
+  def test_qenv
+    output = nil
+    # The File.join(blah) is roughly equivalent to '../bin/tpkg'
+    parentdir = File.dirname(File.dirname(__FILE__))
+    IO.popen("ruby -I #{File.join(parentdir, 'lib')} #{File.join(parentdir, 'bin', 'tpkg')} --qenv") do |pipe|
+      output = pipe.readlines
+    end
+    # Make sure the expected lines are there
+    assert(output.any? {|line| line.include?('Operating System:')})
+    assert(output.any? {|line| line.include?('Architecture:')})
+  end
+  
+  def test_qconf
+    output = nil
+    # The File.join(blah) is roughly equivalent to '../bin/tpkg'
+    parentdir = File.dirname(File.dirname(__FILE__))
+    IO.popen("ruby -I #{File.join(parentdir, 'lib')} #{File.join(parentdir, 'bin', 'tpkg')} --qconf") do |pipe|
+      output = pipe.readlines
+    end
+    # Make sure the expected lines are there
+    assert(output.any? {|line| line.include?('Base:')})
+    assert(output.any? {|line| line.include?('Sources:')})
+    assert(output.any? {|line| line.include?('Report server:')})
+  end
+  
   def teardown
   end
 end

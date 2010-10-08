@@ -1297,6 +1297,14 @@ class Tpkg
     @available_packages_cache = {}
   end
   
+  attr_reader :base
+  attr_reader :sources
+  attr_reader :report_server
+  attr_reader :lockforce
+  attr_reader :force
+  attr_reader :sudo
+  attr_reader :file_system_root
+  
   def source_to_local_directory(source)
     source_as_directory = source.gsub(/[^a-zA-Z0-9]/, '')
     File.join(@sources_directory, source_as_directory)

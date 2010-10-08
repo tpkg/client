@@ -222,6 +222,9 @@ end
 opts.on('--qenv', "Display machine's information") do |opt|
   @action = :query_env
 end
+opts.on('--qconf', "Display tpkg's configuration settings") do |opt|
+  @action = :query_conf
+end
 opts.on('--source', '=NAME', 'Sources where packages are located', Array) do |opt|
   @tpkg_options["sources"] = opt
 end
@@ -647,6 +650,17 @@ when :query_tpkg_metadata
 when :query_env
   puts "Operating System: #{Tpkg::get_os}"
   puts "Architecture: #{Tpkg::get_arch}"
+when :query_conf
+  # This is somewhat arbitrarily limited to the options read from the
+  # tpkg.conf config files.  The reason it exists at all is that it is
+  # difficult for users to programatically find out what these will be set to
+  # without recreating all of our logic about deciding which config files to
+  # read, which order to read them in, what environment variables override the
+  # config files, etc.
+  tpkg = instantiate_tpkg(@tpkg_options)
+  puts "Base: #{tpkg.base}"
+  puts "Sources: #{tpkg.sources.inspect}"
+  puts "Report server: #{tpkg.report_server}"
 when :query_history
   tpkg = instantiate_tpkg(@tpkg_options)
   tpkg.installation_history
