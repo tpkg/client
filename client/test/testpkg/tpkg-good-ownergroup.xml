@@ -12,8 +12,8 @@
   <files>
     <file_defaults>
       <posix>
-        <owner>rpc</owner>
-        <group>users</group>
+        <owner>root</owner>
+        <group>0</group>
         <perms>0444</perms>      
       </posix>
     </file_defaults>
