@@ -431,7 +431,6 @@ class Tpkg
     # FIXME: This is so lame, to read the whole package to get the
     # first filename.  Blech.
     IO.popen("#{find_tar} -tf #{package_file} #{@@taroptions}") do |pipe|
-      raise "Problem seeing contents while untar'ing tpkg #{package_file}" if pipe.gets.nil?
       toplevel = pipe.gets
       if toplevel.nil?
          raise "Package directory structure of #{package_file} unexpected. Unable to get top level."
