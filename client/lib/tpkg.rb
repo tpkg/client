@@ -2786,11 +2786,14 @@ class Tpkg
   
   def install_crontabs(metadata)
     crontab_destinations(metadata).each do |crontab, destination|
+      # FIXME: Besides the regex being ugly it is also only going to match on
+      # Linux, need to figure out if there's a reason for that or if this can
+      # be made more generic.
       if !@sudo && (destination[destination.keys.first] =~ /\/var\/spool\/cron/)
         install_crontab_bycmd(metadata, crontab, destination) 
         next
       end
-
+      
       begin
         if destination[:link]
           install_crontab_link(metadata, crontab, destination)
@@ -2844,6 +2847,7 @@ class Tpkg
       end
     end
   end
+  # FIXME: Can this be replaced by install_crontab_bycmd?
   def install_crontab_file(metadata, crontab, destination)
     if !File.exist?(File.dirname(destination[:file]))
       FileUtils.mkdir_p(File.dirname(destination[:file]))
@@ -2899,11 +2903,14 @@ class Tpkg
   end
   def remove_crontabs(metadata)
     crontab_destinations(metadata).each do |crontab, destination|
+      # FIXME: Besides the regex being ugly it is also only going to match on
+      # Linux, need to figure out if there's a reason for that or if this can
+      # be made more generic.
       if !@sudo && (destination[destination.keys.first] =~ /\/var\/spool\/cron/)
         remove_crontab_bycmd(metadata, crontab, destination) 
         next
       end
-
+      
       begin
         if destination[:link]
           remove_crontab_link(metadata, crontab, destination)
@@ -2935,6 +2942,7 @@ class Tpkg
       end
     end
   end
+  # FIXME: Can this be replaced by remove_crontab_bycmd?
   def remove_crontab_file(metadata, crontab, destination)
     if File.exist?(destination[:file])
       tmpfile = Tempfile.new(File.basename(destination[:file]), File.dirname(destination[:file]))
