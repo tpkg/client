@@ -9,7 +9,6 @@ $:.unshift File.join(File.dirname(__FILE__), "..", "lib")
 
 require 'optparse'
 require 'tpkg'
-require 'etc' 
 
 #
 # Parse the command line options
@@ -337,23 +336,23 @@ def instantiate_tpkg(options = {})
     # if they don't realize there's an environment variable set.
     warn "Using base '#{base}' base from $TPKG_HOME"
   end
-  if !@sudo 
-    curruid = Etc.getpwuid.uid
+  
+  if !@sudo
+    curruid = Process.euid
     if curruid == 0
-      puts "** ERROR **\n--no-sudo cannot be used as 'root' user or with sudo command."
-      exit 1
-     end
-    if !File::exists?(File.join(ENV['HOME'], ".tpkg.conf"))
-      puts "** ERROR **\nWhen specifying --no-sudo, #{File.join(ENV['HOME'], ".tpkg.conf")} and custom 'base' dir with write privileges is required\n" and exit 1
-    elsif base == '/home/t'
-      puts "** ERROR **\nWhen specifying --no-sudo, custom base dir with write privileges is required\n" and exit 1
+      # Besides there being no point to running with --no-sudo when root, we
+      # don't want users to accidentally create files/directories that can't be
+      # modified by other users who properly run --no-sudo as a regular user.
+      raise "--no-sudo cannot be used as 'root' user or via sudo"
     end
-    baseuid = File.stat(base).uid 
-    if baseuid != curruid 
-      puts "** ERROR **\nbase dir (#{base}) not owned by you.\n" 
-      exit 1
+    baseuid = File.stat(base).uid
+    # We want to ensure that all --no-sudo usage within a given base directory
+    # is done under the same account.
+    if baseuid != curruid
+      raise "Base dir #{base} owned by UID #{baseuid}, not your UID #{curruid}"
     end
   end
+  
   tpkg = Tpkg.new(:base => base, :sources => sources, :report_server => report_server, :lockforce => @lockforce, :force => @force, :sudo => @sudo)
 end
 
@@ -378,8 +377,8 @@ if @deploy
   @deploy_options["abort-on-fail"] = false
 
   # check to see if ssh-key is accessible
-  ssh_key =  @deploy_options["use-ssh-key"]
-  if ssh_key && ssh_key.is_a?(String) 
+  if @deploy_options["use-ssh-key"]
+    ssh_key = @deploy_options["ssh-key"]
     if !File.readable?(ssh_key) && Process.euid == 0
       raise "Unable to read ssh key from #{ssh_key}"
     elsif !File.readable?(ssh_key)
