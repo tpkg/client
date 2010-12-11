@@ -1,6 +1,6 @@
 #!/bin/sh
 
-VER=2.7
+VER=2.8.1
 PKGVER=1
 
 rpm --quiet -q openssl-devel zlib-devel || sudo yum -y install openssl-devel zlib-devel
