@@ -26,7 +26,7 @@ fi
 rm -rf $PKG-$VER
 tar jxvf $PKG-$VER.tar.bz2
 cd $PKG-$VER
-./configure --prefix=/opt/tpkg
+./configure --prefix=/opt/tpkg --datarootdir=/opt/tpkg
 make
 pkgdir=`mktemp -d -t tpkg.XXXXXX`
 cat ../../tpkg.xml | \
