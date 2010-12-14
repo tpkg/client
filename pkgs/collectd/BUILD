@@ -4,7 +4,7 @@ set -e
 
 PKG=collectd
 VER=4.9.4
-PKGVER=1
+PKGVER=2
 OS=`tpkg --qenv | grep 'Operating System' | awk '{print $NF}'`
 if echo $OS | egrep 'RedHat|CentOS'
 then
