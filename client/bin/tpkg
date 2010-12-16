@@ -131,6 +131,12 @@ opts.on('--reload', '=NAME', 'Reload the init script for the specified package',
   @init_options[:packages] = opt
   @init_options[:cmd] = 'reload'
 end
+opts.on('--status', '=NAME', 'Get status from init script for the specified package', Array) do |opt|
+  @rerun_with_sudo = true
+  @action = :execute_init
+  @init_options[:packages] = opt
+  @init_options[:cmd] = 'status'
+end
 opts.on('--start-all', 'Start the init scripts for all packages') do |opt|
   @rerun_with_sudo = true
   @action = :execute_init
