@@ -19,6 +19,25 @@ case "$1" in
 	$0 stop
 	$0 start
 	;;
+
+'status')
+	if [ -f /opt/tpkg/var/run/collectd.pid ]
+	then
+		pid=`cat /opt/tpkg/var/run/collectd.pid`
+		if ps -e | grep $pid > /dev/null 2>&1
+		then
+			echo "collectd (pid $pid) is running..."
+			exit 0
+		else
+			echo "collectd dead but pid file exists"
+			exit 1
+		fi
+	else
+		echo "collectd is stopped"
+		exit 3
+	fi
+	;;
+
 *)
 	echo "Usage: $0 { start | stop | restart }"
 	exit 1
