@@ -1,0 +1,28 @@
+#!/bin/sh
+
+case "$1" in
+'start')
+	if [ -x /opt/tpkg/bin/gogoc ]; then
+		# This thing daemonizes very poorly.  We do our best to help it out.
+		cd /opt/tpkg/var/lib/gogoclient || exit 1
+		nohup /opt/tpkg/bin/gogoc -y -f /opt/tpkg/etc/gogoc.conf > /dev/null 2>&1 &
+		echo "Started gogoCLIENT gogoc"
+	fi
+	;;
+
+'stop')
+	pkill -x gogoc && echo "Stopped gogoCLIENT gogoc"
+	;;
+
+'restart')
+	$0 stop
+	$0 start
+	;;
+
+*)
+	echo "Usage: $0 { start | stop | restart }"
+	exit 1
+	;;
+esac
+exit 0
+
