@@ -4091,7 +4091,7 @@ class Tpkg
         # desirable.  We could reinstall the package's files and raise an
         # exception, but this seems the best approach to me.
         system(File.join(workdir, 'tpkg', 'postremove')) || warn("Warning: postremove for #{File.basename(package_file)} failed with exit value #{$?.exitstatus}")
-        ret_val = POSTREMOVE_ERR if $?.exitstatus > 0
+        ret_val = POSTREMOVE_ERR if !$?.success?
         
         # Switch back to our previous directory
         Dir.chdir(pwd)
@@ -4293,7 +4293,7 @@ class Tpkg
     ordered_init_scripts.each do |init_script|
       installed_path = init_script[:path]
       system("#{installed_path} #{action}")
-      ret_val = INITSCRIPT_ERR if $?.exitstatus > 0
+      ret_val = INITSCRIPT_ERR if !$?.success?
     end
     return ret_val
   end
