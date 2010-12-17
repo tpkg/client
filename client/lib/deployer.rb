@@ -37,15 +37,15 @@ class Deployer
       @ssh_key = options["ssh-key"]
     end
   end
-
+  
   def prompt_username
     ask("Username: ")
-  end     
-         
-  def prompt_password
-    ask("SSH Password (leave blank if using ssh key): ", true) 
   end
-
+  
+  def prompt_password
+    ask("SSH Password (leave blank if using ssh key): ", true)
+  end
+  
   def ask(str,mask=false)
     begin
       system 'stty -echo;' if mask
@@ -53,20 +53,20 @@ class Deployer
       input = STDIN.gets.chomp
     ensure
       system 'stty echo; echo ""'
-    end  
+    end
     return input
   end
-
+  
   def get_sudo_pw
     @mutex.synchronize {
       if @sudo_pw.nil?
         @sudo_pw = ask("Sudo password: ", true)
       else
         return @sudo_pw
-      end    
+      end
     }
   end
-
+  
   # Prompt user for input and cache it. If in the future, we see
   # the same prompt again, we can reuse the existing inputs. This saves
   # the users from having to type in a bunch of inputs (such as password)
@@ -78,13 +78,13 @@ class Deployer
       return @pw_prompts[prompt]
     }
   end
-
+  
   # Return a block that can be used for executing a cmd on the remote server
   def ssh_execute(server, username, password, key, cmd)
-    return lambda { 
+    return lambda {
       exit_status = 0
       result = []
-
+      
       params = {}
       params[:password] = password if password
       params[:keys] = [key] if key
@@ -96,11 +96,11 @@ class Deployer
             # now we request a "pty" (i.e. interactive) session so we can send data
             # back and forth if needed. it WILL NOT WORK without this, and it has to
             # be done before any call to exec.
-  
+            
             channel.request_pty do |ch, success|
               raise "Could not obtain pty (i.e. an interactive ssh session)" if !success
             end
-  
+            
             channel.exec(cmd) do |ch, success|
               puts "Executing #{cmd} on #{server}"
               # 'success' isn't related to bash exit codes or anything, but more
@@ -108,7 +108,7 @@ class Deployer
               # not sure why it would fail at such a basic level, but it seems smart
               # to do something about it.
               abort "could not execute command" unless success
-  
+              
               # on_data is a hook that fires when the loop that this block is fired
               # in (see below) returns data. This is what we've been doing all this
               # for; now we can check to see if it's a password prompt, and
@@ -117,7 +117,7 @@ class Deployer
                 if data =~ /Password:/
                   password = get_sudo_pw unless !password.nil? && password != ""
                   channel.send_data "#{password}\n"
-                elsif data =~ /password/i or data  =~ /passphrase/i or 
+                elsif data =~ /password/i or data  =~ /passphrase/i or
                       data =~ /pass phrase/i or data =~ /incorrect passphrase/i
                   input = get_input_for_pw_prompt(data)
                   channel.send_data "#{input}\n"
@@ -125,25 +125,24 @@ class Deployer
                   result << data unless data.nil? or data.empty?
                 end
               end
-  
+              
               channel.on_extended_data do |ch, type, data|
                 print "SSH command returned on stderr: #{data}"
               end
-  
-              channel.on_request "exit-status" do |ch, data| 
+              
+              channel.on_request "exit-status" do |ch, data|
                 exit_status = data.read_long
               end
             end
           end
           ch.wait
           ssh.loop
-        end  
+        end
         if $debug
-          puts "==================================================\nResult from #{server}:" 
-          puts result.join 
+          puts "==================================================\nResult from #{server}:"
+          puts result.join
           puts "=================================================="
         end
-
       rescue Net::SSH::AuthenticationFailed
         exit_status = 1
         puts "Bad username/password combination"
@@ -153,28 +152,33 @@ class Deployer
         puts e.backtrace
         puts "Can't connect to server"
       end
-
+      
       return exit_status
     }
   end
-
+  
   # deploy_params is an array that holds the list of paramters that is used when invoking tpkg on to the remote
-  # servers where we want to deploy to. 
+  # servers where we want to deploy to.
   # 
   # servers is an array, a filename or a callback that list the remote servers where we want to deploy to
   def deploy(deploy_params, servers)
-    params = deploy_params.join(" ")  
-    cmd = "tpkg #{params} -n"
+    params = deploy_params.join(" ")
+    cmd = nil
+    if ENV['TPKG_HOME']
+      cmd = "env TPKG_HOME=#{ENV['TPKG_HOME']} tpkg #{params} -n"
+    else
+      cmd = "tpkg #{params} -n"
+    end
     user = @user
-
+    
     if @user.nil?  && !@use_ssh_key
       @user = prompt_username
     end
-
+    
     if @password.nil? && !@use_ssh_key
       @password = prompt_password
     end
-
+    
     tp = ThreadPool.new(@max_worker)
     statuses = {}
     deploy_to = []
@@ -191,7 +195,7 @@ class Deployer
     else
       deploy_to = servers
     end
-
+    
     deploy_to.each do | server |
       tp.process do
         status = ssh_execute(server, @user, @password, @ssh_key, cmd).call
@@ -205,3 +209,4 @@ class Deployer
     return statuses
   end
 end
+

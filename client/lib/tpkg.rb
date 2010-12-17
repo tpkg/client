@@ -57,7 +57,6 @@ require 'kwalify'        # for validating yaml
 class Tpkg
   
   VERSION = 'trunk'
-  CONFIGDIR = '/etc'
 
   GENERIC_ERR = 1  
   POSTINSTALL_ERR = 2
@@ -121,11 +120,11 @@ class Tpkg
         raise "Unable to find GNU tar or bsdtar in PATH"
       end
     end
-    # bsdtar uses pax format by default. This format allows for vendor extensions, such 
+    # bsdtar uses pax format by default. This format allows for vendor extensions, such
     # as the SCHILY.* extensions which were introduced by star). bsdtar actually uses
     # these extensions. These extension headers includde useful, but not vital information.
     # gnu tar should just ignore them and gives a warning. This is what the latest gnu tar
-    # will do. However, on older gnu tar, it only threw an error at the end. The work 
+    # will do. However, on older gnu tar, it only threw an error at the end. The work
     # around is to explicitly tell gnu tar to ignore those extensions.
     if @@tarinfo[:type] == 'gnu' && @@tarinfo[:version] != 'unknown' && @@tarinfo[:version] >= '1.15.1'
       @@taroptions = "--pax-option='delete=SCHILY.*,delete=LIBARCHIVE.*'"
@@ -286,7 +285,7 @@ class Tpkg
       # code (tar) ever touch the user's files.
       system("#{find_tar} -C #{pkgsrcdir} -cf - . | #{find_tar} -C #{tpkgdir} -xpf -") || raise("Package content copy failed")
  
-      # check metadata file 
+      # check metadata file
       errors = []
       metadata = Metadata::instantiate_from_dir(tpkgdir)
       if !metadata
@@ -298,14 +297,15 @@ class Tpkg
         schema_dir = File.join(File.dirname(File.dirname(__FILE__)), "schema")
       # This is the directory where we put our dtd/schema for validating
       # the metadata file
-      elsif File.exist?(File.join(CONFIGDIR, 'tpkg', 'schema'))
-        schema_dir = File.join(CONFIGDIR, 'tpkg', 'schema')
+      # FIXME: This method should become an instance method and use @configdir
+      elsif File.exist?(File.join(DEFAULT_CONFIGDIR, 'tpkg', 'schema'))
+        schema_dir = File.join(DEFAULT_CONFIGDIR, 'tpkg', 'schema')
       else
         warn "Warning: unable to find schema for tpkg.yml"
       end
       
       errors = metadata.validate(schema_dir) if schema_dir
-      if errors && !errors.empty? 
+      if errors && !errors.empty?
         puts "Bad metadata file. Possible error(s):"
         errors.each {|e| puts e }
         raise "Failed to create package."  unless options[:force]
@@ -316,10 +316,10 @@ class Tpkg
       File.open(File.join(tpkgdir, "file_metadata.bin"), "w") do |file|
         filemetadata = get_filemetadata_from_directory(tpkgdir)
         filemetadata[:files].each do |file1|
-          if metadata[:files] && metadata[:files][:files] && 
+          if metadata[:files] && metadata[:files][:files] &&
              metadata[:files][:files].any?{|file2|file2[:path] == file1[:path] && file2[:config]}
             file1[:config] = true
-          end 
+          end
         end
         data = filemetadata.to_hash.recursively{|h| h.stringify_keys }
         Marshal::dump(data, file)
@@ -344,7 +344,7 @@ class Tpkg
           data = {:actual_file => working_path, :metadata => metadata, :file_metadata => tpkgfile}
           perms, uid, gid = predict_file_perms_and_ownership(data)
           # crontab needs to be owned by root, and is not writable by group or others
-          if uid != 0 
+          if uid != 0
             warn "Warning: Your cron jobs in \"#{tpkgfile[:path]}\" might fail to run because the file is not owned by root."
           end
           if (perms & 0022) != 0
@@ -369,7 +369,7 @@ class Tpkg
       package_directory = File.join(workdir, package_filename)
       Dir.mkdir(package_directory)
       
-      if outdir 
+      if outdir
         pkgfile = File.join(outdir, package_filename + '.tpkg')
       else
         pkgfile = File.join(File.dirname(pkgsrcdir), package_filename + '.tpkg')
@@ -386,7 +386,7 @@ class Tpkg
         File.delete(pkgfile)
       end
     
-      # update metadata file with the tpkg version 
+      # update metadata file with the tpkg version
       metadata.add_tpkg_version(VERSION)
  
       # Tar up the tpkg directory
@@ -395,7 +395,7 @@ class Tpkg
       
       # Checksum the tarball
       # Older ruby version doesn't support this
-      # digest = Digest::SHA256.file(tpkgfile).hexdigest 
+      # digest = Digest::SHA256.file(tpkgfile).hexdigest
       digest = Digest::SHA256.hexdigest(File.read(tpkgfile))
       
       # Create checksum.xml
@@ -410,7 +410,7 @@ class Tpkg
       
       # compress if needed
       if options[:compress]
-        tpkgfile = compress_file(tpkgfile, options[:compress]) 
+        tpkgfile = compress_file(tpkgfile, options[:compress])
       end
 
       # Tar up checksum.xml and the main tarball
@@ -494,7 +494,7 @@ class Tpkg
     return FileMetadata.new(Marshal::dump(filemetadata),'bin')
   end
  
-  def self.verify_package_checksum(package_file, options = {}) 
+  def self.verify_package_checksum(package_file, options = {})
     topleveldir = options[:topleveldir] || package_toplevel_directory(package_file)
     # Extract checksum.xml from the package
     checksum_xml = nil
@@ -555,10 +555,10 @@ class Tpkg
       file = File.join('tpkg', "tpkg.#{format}")
 
       # use popen3 instead of popen because popen display stderr when there's an error such as
-      # tpkg.yml not being there, which is something we want to ignore since old tpkg doesn't 
+      # tpkg.yml not being there, which is something we want to ignore since old tpkg doesn't
       # have tpkg.yml file
       extract_tpkg_tar_command = cmd_to_extract_tpkg_tar(package_file, topleveldir)
-      stdin, stdout, stderr = Open3.popen3("#{extract_tpkg_tar_command} | #{find_tar} -xf - -O #{file}") 
+      stdin, stdout, stderr = Open3.popen3("#{extract_tpkg_tar_command} | #{find_tar} -xf - -O #{file}")
       filecontent = stdout.read
       if filecontent.nil? or filecontent.empty?
         next
@@ -975,33 +975,6 @@ class Tpkg
     gid.to_i
   end
   
-  def self.gethttp(uri)
-    if uri.scheme != 'http' && uri.scheme != 'https'
-      # It would be possible to add support for FTP and possibly
-      # other things if anyone cares
-      raise "Only http/https URIs are supported, got: '#{uri}'"
-    end
-    http = Net::HTTP.new(uri.host, uri.port)
-    if uri.scheme == 'https'
-      # Eliminate the OpenSSL "using default DH parameters" warning
-      if File.exist?(File.join(CONFIGDIR, 'tpkg', 'dhparams'))
-        dh = OpenSSL::PKey::DH.new(IO.read(File.join(CONFIGDIR, 'tpkg', 'dhparams')))
-        Net::HTTP.ssl_context_accessor(:tmp_dh_callback)
-        http.tmp_dh_callback = proc { dh }
-      end
-      http.use_ssl = true
-      if File.exist?(File.join(CONFIGDIR, 'tpkg', 'ca.pem'))
-        http.ca_file = File.join(CONFIGDIR, 'tpkg', 'ca.pem')
-        http.verify_mode = OpenSSL::SSL::VERIFY_PEER
-      elsif File.directory?(File.join(CONFIGDIR, 'tpkg', 'ca'))
-        http.ca_path = File.join(CONFIGDIR, 'tpkg', 'ca')
-        http.verify_mode = OpenSSL::SSL::VERIFY_PEER
-      end
-    end
-    http.start
-    http
-  end
-  
   # foo
   # foo=1.0
   # foo=1.0=1
@@ -1012,7 +985,7 @@ class Tpkg
     parts = request.split('=')
 
     # upgrade/remove/query options could take package filenames
-    # We're assuming that the filename ends in .tpkg and has a version number that starts 
+    # We're assuming that the filename ends in .tpkg and has a version number that starts
     # with a digit. For example: foo-1.0.tpkg, foo-bar-1.0-1.tpkg
     if request =~ /\.tpkg$/
       req = {:filename => request, :name => request.split(/-\d/)[0]}
@@ -1038,10 +1011,10 @@ class Tpkg
 
   # deploy_options is used for configuration the deployer. It is a map of option_names => option_values. Possible
   # options are: use-ssh-key, deploy-as, worker-count, abort-on-fail
-  # 
+  #
   # deploy_params is an array that holds the list of paramters that is used when invoking tpkg on to the remote
-  # servers where we want to deploy to. 
-  # 
+  # servers where we want to deploy to.
+  #
   # servers is an array, a filename or a callback that list the remote servers where we want to deploy to
   def self.deploy(deploy_params, deploy_options, servers)
     servers.uniq!
@@ -1105,7 +1078,7 @@ class Tpkg
     return File.basename(filename) !~ /^\./
   end
 
-  # helper method for predicting the permissions and ownership of a file that 
+  # helper method for predicting the permissions and ownership of a file that
   # will be installed by tpkg. This is done by looking at:
   #  1) its current perms & ownership
   #  2) the file_defaults settings of the metadata file
@@ -1138,7 +1111,7 @@ class Tpkg
       perms = file_metadata[:posix][:perms] if file_metadata[:posix][:perms]
     end
     return perms, uid, gid
-  end 
+  end
 
   # Given a package file, figure out if tpkg.tar was compressed
   # Return what type of compression. If tpkg.tar wasn't compressed, then return nil.
@@ -1147,7 +1120,7 @@ class Tpkg
     IO.popen("#{find_tar} #{@@taroptions} -tf #{package_file}") do |pipe|
       pipe.each do |file|
         if file =~ /tpkg.tar.gz$/
-          compression = "gzip" 
+          compression = "gzip"
         elsif file =~ /tpkg.tar.bz2$/
           compression = "bz2"
         end
@@ -1170,7 +1143,7 @@ class Tpkg
   end
  
   # Compresses the file using the compression type
-  # specified by the compress flag 
+  # specified by the compress flag
   # Returns the compressed file
   def self.compress_file(file, compress)
     if compress == true or compress == "gzip"
@@ -1183,7 +1156,7 @@ class Tpkg
       raise "Compression #{compress} is not supported"
     end
     if !$?.success? or !File.exists?(result)
-      raise "Failed to compress the package" 
+      raise "Failed to compress the package"
     end
     return result
   end
@@ -1203,10 +1176,11 @@ class Tpkg
   #
   
   DEFAULT_BASE = '/opt/tpkg'
+  DEFAULT_CONFIGDIR = '/etc'
   
   def initialize(options)
     # Options
-    @base = options[:base]
+    @base = options[:base] ? options[:base] : DEFAULT_BASE
     # An array of filenames or URLs which point to individual package files
     # or directories containing packages and extracted metadata.
     @sources = []
@@ -1238,11 +1212,14 @@ class Tpkg
       @sudo = options[:sudo]
     end
     
+    @configdir = DEFAULT_CONFIGDIR
+    
     @file_system_root = '/'  # Not sure if this needs to be more portable
     # This option is only intended for use by the test suite
     if options[:file_system_root]
       @file_system_root = options[:file_system_root]
       @base = File.join(@file_system_root, @base)
+      @configdir = File.join(@file_system_root, @configdir)
     end
     
     # Various external scripts that we run might need to adjust things for
@@ -1264,7 +1241,7 @@ class Tpkg
         if Tpkg::get_os =~ /Darwin/
           # Try to help our Mac OS X users, otherwise this could be
           # rather confusing.
-          warn "\nNote: /home is controlled by the automounter by default on Mac OS X.\n" + 
+          warn "\nNote: /home is controlled by the automounter by default on Mac OS X.\n" +
             "You'll either need to disable that in /etc/auto_master or configure\n" +
             "tpkg to use a different base via tpkg.conf.\n"
         end
@@ -1277,7 +1254,7 @@ class Tpkg
     @tmp_directory = File.join(@var_directory, 'tmp')
     @log_directory = File.join(@var_directory, 'logs')
     # It is important to create these dirs in correct order
-    dirs_to_create = [@installed_directory, @metadata_directory, @sources_directory, 
+    dirs_to_create = [@installed_directory, @metadata_directory, @sources_directory,
                       @tmp_directory, @log_directory]
     dirs_to_create.each do |dir|
       if !File.exist?(dir)
@@ -1305,6 +1282,33 @@ class Tpkg
   attr_reader :sudo
   attr_reader :file_system_root
   
+  def gethttp(uri)
+    if uri.scheme != 'http' && uri.scheme != 'https'
+      # It would be possible to add support for FTP and possibly
+      # other things if anyone cares
+      raise "Only http/https URIs are supported, got: '#{uri}'"
+    end
+    http = Net::HTTP.new(uri.host, uri.port)
+    if uri.scheme == 'https'
+      # Eliminate the OpenSSL "using default DH parameters" warning
+      if File.exist?(File.join(@configdir, 'tpkg', 'dhparams'))
+        dh = OpenSSL::PKey::DH.new(IO.read(File.join(@configdir, 'tpkg', 'dhparams')))
+        Net::HTTP.ssl_context_accessor(:tmp_dh_callback)
+        http.tmp_dh_callback = proc { dh }
+      end
+      http.use_ssl = true
+      if File.exist?(File.join(@configdir, 'tpkg', 'ca.pem'))
+        http.ca_file = File.join(@configdir, 'tpkg', 'ca.pem')
+        http.verify_mode = OpenSSL::SSL::VERIFY_PEER
+      elsif File.directory?(File.join(@configdir, 'tpkg', 'ca'))
+        http.ca_path = File.join(@configdir, 'tpkg', 'ca')
+        http.verify_mode = OpenSSL::SSL::VERIFY_PEER
+      end
+    end
+    http.start
+    http
+  end
+  
   def source_to_local_directory(source)
     source_as_directory = source.gsub(/[^a-zA-Z0-9]/, '')
     File.join(@sources_directory, source_as_directory)
@@ -1327,22 +1331,22 @@ class Tpkg
             warn "Warning: the source directory #{source} has no metadata.yml file. Try running tpkg -x #{source} first."
             next
           end
-
+          
           metadata_contents = File.read(File.join(source, 'metadata.yml'))
           Metadata::get_pkgs_metadata_from_yml_doc(metadata_contents, metadata, source)
         else
           uri = http = localdate = remotedate = localdir = localpath = nil
-
+          
           uri = URI.join(source, 'metadata.yml')
-          http = Tpkg::gethttp(uri)
-
+          http = gethttp(uri)
+          
           # Calculate the path to the local copy of the metadata for this URI
           localdir = source_to_local_directory(source)
           localpath = File.join(localdir, 'metadata.yml')
           if File.exist?(localpath)
             localdate = File.mtime(localpath)
           end
-
+          
           # get last modified time of the metadata file from the server
           response = http.head(uri.path)
           case response
@@ -1352,7 +1356,7 @@ class Tpkg
             puts "Error fetching metadata from #{uri}: #{response.body}"
             response.error!  # Throws an exception
           end
-
+          
           # Fetch the metadata if necessary
           metadata_contents = nil
           if !localdate || remotedate != localdate
@@ -1406,7 +1410,7 @@ class Tpkg
   # Populate our list of available packages for a given package name
   def load_available_packages(name=nil)
     prep_metadata
-
+    
     if name
       if !@available_packages[name]
         packages = []
@@ -1417,7 +1421,7 @@ class Tpkg
           end
         end
         @available_packages[name] = packages
-
+        
         if @@debug
           puts "Loaded #{@available_packages[name].size} available packages for #{name}"
         end
@@ -1436,7 +1440,7 @@ class Tpkg
       end
     end
   end
-
+  
   # Used by load_available_native_packages to stuff all the info about a
   # native package into a hash to match the structure we pass around
   # internally for tpkgs
@@ -1483,7 +1487,7 @@ class Tpkg
                 elsif line =~ /^\s*$/
                   pkg = pkg_for_native_package(name, version, package_version, yum[:source])
                   native_packages << pkg
-                  name = version = package_version = nil 
+                  name = version = package_version = nil
                 end
                 # In the end we ignore the architecture.  Anything that
                 # shows up in yum should be installable on this box, and
@@ -1783,7 +1787,7 @@ class Tpkg
 
     if File.directory?(@metadata_directory)
       Dir.foreach(@metadata_directory) do |entry|
-        next if entry == '.' || entry == '..' 
+        next if entry == '.' || entry == '..'
         next if package_files && !package_files.include?(entry)
         file_metadata = FileMetadata::instantiate_from_dir(File.join(@metadata_directory, entry))
         ret[file_metadata[:package_file]] = file_metadata
@@ -1802,8 +1806,8 @@ class Tpkg
     else
       pkgs = []
       if req
-        req = req.clone # we're using req as the key for our cache, so it's important 
-                        # that we clone it here. Otherwise, req can be changed later on from 
+        req = req.clone # we're using req as the key for our cache, so it's important
+                        # that we clone it here. Otherwise, req can be changed later on from
                         # the calling method and modify our cache inadvertently
         if req[:type] == :native
           load_available_native_packages(req[:name])
@@ -1904,7 +1908,7 @@ class Tpkg
   end
   def normalize_path(path,root=nil,base=nil)
     root ||= @file_system_root
-    base ||= @base 
+    base ||= @base
     if path[0,1] == File::SEPARATOR
       normalized_path = File.join(root, path)
     else
@@ -2257,7 +2261,7 @@ class Tpkg
   end
  
   def download(source, path, downloaddir = nil, use_cache = true)
-    http = Tpkg::gethttp(URI.parse(source))
+    http = gethttp(URI.parse(source))
     localdir = source_to_local_directory(source)
     localpath = File.join(localdir, File.basename(path))
     # Don't download again if file is already there from previous installation
@@ -2276,10 +2280,10 @@ class Tpkg
       # If downloaddir is specified, then download to that directory. Otherwise,
       # download to default source directory
       localdir = downloaddir || localdir
-      if !File.exist?(localdir) 
+      if !File.exist?(localdir)
         FileUtils.mkdir_p(localdir)
       end
-      localpath = File.join(localdir, File.basename(path)) 
+      localpath = File.join(localdir, File.basename(path))
     end
     uri = URI.join(source, path)
     tmpfile = Tempfile.new(File.basename(localpath), File.dirname(localpath))
@@ -2319,7 +2323,7 @@ class Tpkg
         installed_path = normalize_path(tpkg_path)
         init_scripts[installed_path] = tpkgfile
       end
-    end 
+    end
     init_scripts
   end
   
@@ -2353,24 +2357,24 @@ class Tpkg
               Tpkg::get_os =~ /Solaris/
           init_directory = File.join(@file_system_root, 'etc')
         end
-      
+        
         # in case user specify levels in yaml as string/integer instead of array
         if !levels.kind_of?(Array)
           levels = levels.to_s.split(//)  
         end
-    
+        
         levels.each do |level|
           links[File.join(init_directory, "rc#{level}.d", 'S' + start.to_s + File.basename(installed_path))] = installed_path
         end
       elsif Tpkg::get_os =~ /FreeBSD/
-        init_directory = File.join(@file_system_root, 'usr', 'local', 'etc', 'rc.d') 
+        init_directory = File.join(@file_system_root, 'usr', 'local', 'etc', 'rc.d')
         if tpkgfile[:init][:levels] && tpkgfile[:init][:levels].empty?
           # User doesn't want the init script linked in to auto-start
         else
           links[File.join(init_directory, File.basename(installed_path))] = installed_path
         end
       else
-        raise "No init script support for #{Tpkg::get_os}"
+        warn "No init script support for #{Tpkg::get_os}"
       end
     end
     links
@@ -2380,12 +2384,12 @@ class Tpkg
   # package and where they need to be installed on the system
   def crontab_destinations(metadata)
     destinations = {}
-
+    
     # Don't do anything unless we have to
     unless metadata[:files] && metadata[:files][:files]
       return destinations
     end
-
+    
     metadata[:files][:files].each do |tpkgfile|
       if tpkgfile[:crontab]
         tpkg_path = tpkgfile[:path]
@@ -2429,7 +2433,7 @@ class Tpkg
             destinations[installed_path][:link] = File.join(@file_system_root, 'etc', 'cron.d', File.basename(installed_path))
           end
         else
-          raise "No crontab support for #{Tpkg::get_os}"
+          warn "No crontab support for #{Tpkg::get_os}"
         end
       end
     end
@@ -2479,7 +2483,7 @@ class Tpkg
   def unpack(package_file, options={})
     ret_val = 0
 
-    # set env variable to let pre/post install know  whether this unpack 
+    # set env variable to let pre/post install know  whether this unpack
     # is part of an install or upgrade
     if options[:is_doing_upgrade]
        ENV['TPKG_ACTION'] = "upgrade"
@@ -2503,7 +2507,7 @@ class Tpkg
 
     metadata = Tpkg::metadata_from_package(package_file, {:topleveldir => topleveldir})
 
-    # Get list of files/directories that already exist in the system. Store their perm/ownership. 
+    # Get list of files/directories that already exist in the system. Store their perm/ownership.
     # That way, when we copy over the new files, we can set the new files to have the same perm/owernship.
     conflicting_files = {}
     fip = Tpkg::files_in_package(package_file)
@@ -2539,7 +2543,7 @@ class Tpkg
     end
 
     # Set default dir uid/gid to be same as for file.
-    default_dir_uid = default_uid 
+    default_dir_uid = default_uid
     default_dir_gid = default_gid
     default_dir_perms = 0755
 
@@ -2565,7 +2569,7 @@ class Tpkg
         if File.directory?(f)
           File.chown(default_dir_uid, default_dir_gid, f)
         else
-          File.chown(default_uid, default_gid, f) 
+          File.chown(default_uid, default_gid, f)
         end
       rescue Errno::EPERM
         raise if Process.euid == 0
@@ -2637,21 +2641,21 @@ class Tpkg
           (1..3).each do | i |
             begin
               Tpkg::decrypt(metadata[:name], working_path, options[:passphrase], *([tpkgfile[:encrypt][:algorithm]].compact))
-              break 
+              break
             rescue OpenSSL::CipherError
               @@passphrase = nil
               if i == 3
-                raise "Incorrect passphrase." 
+                raise "Incorrect passphrase."
               else
                 puts "Incorrect passphrase. Try again."
               end
             end
           end
          
-          if File.file?(working_path) 
+          if File.file?(working_path)
             digest = Digest::SHA256.hexdigest(File.read(working_path))
             # get checksum for the decrypted file. Will be used for creating file_metadata
-            checksums_of_decrypted_files[File.expand_path(tpkg_path)] = digest 
+            checksums_of_decrypted_files[File.expand_path(tpkg_path)] = digest
           end
         end
       end
@@ -2790,7 +2794,7 @@ class Tpkg
       # Linux, need to figure out if there's a reason for that or if this can
       # be made more generic.
       if !@sudo && (destination[destination.keys.first] =~ /\/var\/spool\/cron/)
-        install_crontab_bycmd(metadata, crontab, destination) 
+        install_crontab_bycmd(metadata, crontab, destination)
         next
       end
       
@@ -2896,7 +2900,7 @@ class Tpkg
     tmpfh.write(oldcron) unless oldcron.empty?
     tmpfh.puts "### TPKG START - #{@base} - #{File.basename(metadata[:filename].to_s)}"
     tmpfh.write File.readlines(crontab)
-    tmpfh.puts "### TPKG END - #{@base} - #{File.basename(metadata[:filename].to_s)}" 
+    tmpfh.puts "### TPKG END - #{@base} - #{File.basename(metadata[:filename].to_s)}"
     tmpfh.close
     `crontab #{tmpf}`
     FileUtils.rm(tmpf)
@@ -2907,7 +2911,7 @@ class Tpkg
       # Linux, need to figure out if there's a reason for that or if this can
       # be made more generic.
       if !@sudo && (destination[destination.keys.first] =~ /\/var\/spool\/cron/)
-        remove_crontab_bycmd(metadata, crontab, destination) 
+        remove_crontab_bycmd(metadata, crontab, destination)
         next
       end
       
@@ -3107,8 +3111,8 @@ class Tpkg
     if file_metadata
       file_metadata[:package_file] = File.basename(package_file)
       file_metadata[:files].each do |file|
-        # update file_metadata with user/group ownership and permission 
-        acl = files_info[file[:path]] 
+        # update file_metadata with user/group ownership and permission
+        acl = files_info[file[:path]]
         file.merge!(acl) unless acl.nil?
 
         # update file_metadata with the checksums of decrypted files
@@ -3220,7 +3224,7 @@ class Tpkg
       else # basic package specs ('foo' or 'foo=1.0')
         puts "parse_requests request looks like package spec" if @@debug
 
-        # Tpkg::parse_request is a class method and doesn't know where packages are installed. 
+        # Tpkg::parse_request is a class method and doesn't know where packages are installed.
         # So we have to tell it ourselves.
         req = Tpkg::parse_request(request, @installed_directory)
         newreqs << req
@@ -3238,14 +3242,14 @@ class Tpkg
 
   # After calling parse_request, we should call this method
   # to check whether or not we can meet the requirements/dependencies
-  # of the result packages 
+  # of the result packages
   def check_requests(packages)
     all_requests_satisfied = true   # whether or not all requests can be satisfied
     errors = [""]
     packages.each do |name, pkgs|
       if pkgs.empty?
         errors << ["Unable to find any packages which satisfy #{name}"]
-        all_requests_satisfied = false 
+        all_requests_satisfied = false
         next
       end
 
@@ -3276,7 +3280,7 @@ class Tpkg
       if !request_satisfied
         errors << ["Unable to find any packages which satisfy #{name}. Possible error(s):"]
         errors << possible_errors
-        all_requests_satisfied = false 
+        all_requests_satisfied = false
       end
     end  
 
@@ -3381,12 +3385,12 @@ class Tpkg
       puts "The package(s) you're trying to install conflict with the following package(s):"
       conflicting_pkgs = conflicting_pkgs.collect{|pkg|pkg[:metadata][:filename]}
       puts conflicting_pkgs.join("\n")
-      if options[:force_replace] 
+      if options[:force_replace]
         puts "Attemping to replace the conflicting packages."
         success = remove(conflicting_pkgs)
         return success
       else
-        puts "Try removing the conflicting package(s) first, or rerun tpkg with the --force-replace option." 
+        puts "Try removing the conflicting package(s) first, or rerun tpkg with the --force-replace option."
         return false
       end
     end
@@ -3450,7 +3454,7 @@ class Tpkg
     end
     true
   end
-
+  
   # See parse_requests for format of requests
   def install(requests, passphrase=nil, options={})
     ret_val = 0
@@ -3459,7 +3463,7 @@ class Tpkg
     lock
     parse_requests(requests, requirements, packages)
     check_requests(packages)
-
+    
     core_packages = []
     requirements.each do |req|
       core_packages << req[:name] if !core_packages.include?(req[:name])
@@ -3469,7 +3473,6 @@ class Tpkg
     puts "install requirements: #{requirements.inspect}" if @@debug
     puts "install packages: #{packages.inspect}" if @@debug
     puts "install core_packages: #{core_packages.inspect}" if @@debug
-    #solution_packages = best_solution(requirements.dup, packages.dup)
     solution_packages = best_solution(requirements, packages, core_packages)
     if !solution_packages
       raise "Unable to resolve dependencies.  Try running with --debug for more info"
@@ -3477,26 +3480,26 @@ class Tpkg
     
     success = handle_conflicting_pkgs(installed_packages, solution_packages, options)
     return false if !success
-
+    
     if !prompt_for_install(solution_packages, 'installed')
       unlock
       return false
     end
-
+    
     # Build an array of metadata of pkgs that are already installed
     # We will use this later on to figure out what new packages have been installed/removed
     # in order to report back to the server
     already_installed_pkgs = metadata_for_installed_packages.collect{|metadata| metadata.to_hash}
-
+    
     # Create array of packages (names) we have installed so far
     # We will use it later on to determine the order of how to install the packages
-    installed_so_far = installed_packages.collect{|pkg| pkg[:metadata][:name]} 
-
+    installed_so_far = installed_packages.collect{|pkg| pkg[:metadata][:name]}
+    
     while pkg = solution_packages.shift
       # get dependencies and make sure we install the packages in the correct order
       # based on the dependencies
       dependencies = nil
-      if pkg[:metadata][:dependencies] 
+      if pkg[:metadata][:dependencies]
         dependencies = pkg[:metadata][:dependencies].collect { |dep| dep[:name] }.compact
         # don't install this pkg right now if its dependencies haven't been installed
         if !dependencies.empty? && !dependencies.to_set.subset?(installed_so_far.to_set)
@@ -3504,7 +3507,7 @@ class Tpkg
           next
         end
       end
-
+      
       if pkg[:source] == :currently_installed ||
          pkg[:source] == :native_installed
         # Nothing to do for packages currently installed
@@ -3591,17 +3594,17 @@ class Tpkg
           end
         end
       end
-
-      # If we're down here, it means we have installed the package. So go ahead and 
+      
+      # If we're down here, it means we have installed the package. So go ahead and
       # update the list of packages we installed so far
       installed_so_far << pkg[:metadata][:name]
     end  # end while loop
-
+    
     # log changes
     currently_installed = metadata_for_installed_packages.collect{|metadata| metadata.to_hash}
     newly_installed = currently_installed - already_installed_pkgs
     log_changes({:newly_installed => newly_installed})
-
+    
     # send udpate back to reporting server
     unless @report_server.nil?
       options = {:newly_installed => newly_installed, :currently_installed => currently_installed}
@@ -3610,7 +3613,7 @@ class Tpkg
     unlock
     return ret_val
   end
-
+  
   # This method can also be used for doing downgrade
   def upgrade(requests=nil, passphrase=nil, options={})
     downgrade = options[:downgrade] || false
@@ -3634,14 +3637,14 @@ class Tpkg
       additional_requirements = []
       requirements.each do |req|
         core_packages << req[:name] if !core_packages.include?(req[:name])
-
+        
         # When doing downgrade, we don't want to include the package being
         # downgrade as the requirements. Otherwise, we won't be able to downgrade it
-        unless downgrade 
+        unless downgrade
           additional_requirements.concat(
             requirements_for_currently_installed_package(req[:name]))
         end
-
+        
         # Initialize the list of possible packages for this req
         if !packages[req[:name]]
           packages[req[:name]] = available_packages_that_meet_requirement(req)
@@ -3652,7 +3655,7 @@ class Tpkg
             pkg[:prefer] = false
           end
         end
-
+        
         # Look for pkgs that might depend on the pkg we're upgrading,
         # and add them to our list of requirements. We need to make sure that we can still
         # satisfy the dependency requirements if we were to do the upgrade.
@@ -3690,16 +3693,15 @@ class Tpkg
     puts "upgrade requirements: #{requirements.inspect}" if @@debug
     puts "upgrade packages: #{packages.inspect}" if @@debug
     puts "upgrade core_packages: #{core_packages.inspect}" if @@debug
-    #solution_packages = best_solution(requirements.dup, packages.dup)
     solution_packages = best_solution(requirements, packages, core_packages)
-  
+    
     if solution_packages.nil?
       raise "Unable to find solution for upgrading. Please verify that you specified the correct package(s) for upgrade.  Try running with --debug for more info"
     end
-
+    
     success = handle_conflicting_pkgs(installed_packages, solution_packages, options)
     return false if !success
-
+    
     if downgrade
       prompt_action = 'downgraded'
     else
@@ -3709,7 +3711,7 @@ class Tpkg
       unlock
       return false
     end
-
+    
     # Build an array of metadata of pkgs that are already installed
     # We will use this later on to figure out what new packages have been installed/removed
     # in order to report back to the server
@@ -3850,7 +3852,7 @@ class Tpkg
       end
     end
   
-    # log changes 
+    # log changes
     currently_installed = metadata_for_installed_packages.collect{|metadata| metadata.to_hash}
     newly_installed = currently_installed - already_installed_pkgs
     removed = already_installed_pkgs - currently_installed
@@ -3859,7 +3861,7 @@ class Tpkg
     # send update back to reporting server
     if !has_updates
       puts "No updates available"
-    elsif !@report_server.nil? 
+    elsif !@report_server.nil?
       options = {:newly_installed => newly_installed, :removed => removed,
                  :currently_installed => currently_installed}
       send_update_to_server(options)
@@ -3890,12 +3892,12 @@ class Tpkg
       unlock
       return false
     end
-
+    
     # Build an array of metadata of pkgs that are already installed
     # We will use this later on to figure out what new packages have been installed/removed
     # in order to report back to the server
     already_installed_pkgs = metadata_for_installed_packages.collect{|metadata| metadata.to_hash}
-
+    
     # If user want to remove all the dependent pkgs, then go ahead
     # and include them in our array of things to remove
     if options[:remove_all_dep]
@@ -3905,7 +3907,7 @@ class Tpkg
       # Get list of dependency prerequisites
       ptr = packages_to_remove | get_prerequisites(packages_to_remove)
       pkg_files_to_remove = ptr.map { |pkg| pkg[:metadata][:filename] }
-
+      
       # see if any other packages depends on the ones we're about to remove
       # If so, we can't remove that package + any of its prerequisites
       non_removable_pkg_files = []
@@ -3967,7 +3969,7 @@ class Tpkg
       end
       unless Tpkg::confirm
         unlock
-        return false 
+        return false
       end
     end
     
@@ -3985,19 +3987,19 @@ class Tpkg
     packages_to_remove.each do |pkg|
       pkgname = pkg[:metadata][:name]
       package_file = File.join(@installed_directory, pkg[:metadata][:filename])
-    
+      
       topleveldir = Tpkg::package_toplevel_directory(package_file)
       workdir = Tpkg::tempdir(topleveldir, @tmp_directory)
       extract_tpkg_tar_command = Tpkg::cmd_to_extract_tpkg_tar(package_file, topleveldir)
       system("#{extract_tpkg_tar_command} | #{@tar} #{@@taroptions} -C #{workdir} -xpf -")
-    
+      
       # Run preremove script
       if File.exist?(File.join(workdir, 'tpkg', 'preremove'))
         pwd = Dir.pwd
         # chdir into the working directory so that the user can specify a
         # relative path to their file/script.
         Dir.chdir(File.join(workdir, 'tpkg'))
-
+        
         # Warn the user about non-executable files, as system will just
         # silently fail and exit if that's the case.
         if !File.executable?(File.join(workdir, 'tpkg', 'preremove'))
@@ -4008,7 +4010,7 @@ class Tpkg
         else
           system(File.join(workdir, 'tpkg', 'preremove')) || raise("Error: preremove for #{File.basename(package_file)} failed with exit value #{$?.exitstatus}")
         end
-
+        
         # Switch back to our previous directory
         Dir.chdir(pwd)
       end
@@ -4022,14 +4024,14 @@ class Tpkg
           run_external(pkg[:metadata][:filename], :remove, external[:name], external[:data])
         end
       end if pkg[:metadata][:externals]
-
+      
       # determine which configuration files have been modified
       modified_conf_files = []
       file_metadata = file_metadata_for_installed_packages([pkg[:metadata][:filename]]).values[0]
       file_metadata[:files].each do |file|
         if file[:config]
           # get expected checksum. For files that were encrypted, we're interested in the
-          # checksum of the decrypted version 
+          # checksum of the decrypted version
           chksum_expected = file[:checksum][:digests].first[:value]
           file[:checksum][:digests].each do | digest |
             if digest[:decrypted] == true
@@ -4043,7 +4045,7 @@ class Tpkg
           end
         end
       end if file_metadata
-
+      
       # Remove files
       files_to_remove = conflicting_files(package_file, CHECK_REMOVE)
       # Reverse the order of the files, as directories will appear first
@@ -4073,14 +4075,14 @@ class Tpkg
           warn "Failed to remove file #{file}."
         end
       end
-    
+      
       # Run postremove script
       if File.exist?(File.join(workdir, 'tpkg', 'postremove'))
         pwd = Dir.pwd
         # chdir into the working directory so that the user can specify a
         # relative path to their file/script.
         Dir.chdir(File.join(workdir, 'tpkg'))
-
+        
         # Warn the user about non-executable files, as system will just
         # silently fail and exit if that's the case.
         if !File.executable?(File.join(workdir, 'tpkg', 'postremove'))
@@ -4093,36 +4095,36 @@ class Tpkg
         # desirable.  We could reinstall the package's files and raise an
         # exception, but this seems the best approach to me.
         system(File.join(workdir, 'tpkg', 'postremove')) || warn("Warning: postremove for #{File.basename(package_file)} failed with exit value #{$?.exitstatus}")
-        ret_val = POSTREMOVE_ERR if $?.exitstatus > 0
-
+        ret_val = POSTREMOVE_ERR if !$?.success?
+        
         # Switch back to our previous directory
         Dir.chdir(pwd)
       end
-    
+      
       File.delete(package_file)
-
+      
       # delete metadata dir of this package
       package_metadata_dir = File.join(@metadata_directory, File.basename(package_file, File.extname(package_file)))
       FileUtils.rm_rf(package_metadata_dir)
-
+      
       # remove native dependency stub packages if needed
       remove_native_stub_pkg(pkg)
-
+      
       # Cleanup
       FileUtils.rm_rf(workdir)
     end
-
-    # log changes    
+    
+    # log changes
     currently_installed = metadata_for_installed_packages.collect{|metadata| metadata.to_hash}
     removed = already_installed_pkgs - currently_installed
     log_changes({:removed => removed})
-
+    
     # send update back to reporting server
     unless @report_server.nil? || options[:upgrade]
       options = {:removed => removed, :currently_installed => currently_installed}
       send_update_to_server(options)
     end
-
+    
     unlock
     return ret_val
   end
@@ -4134,16 +4136,16 @@ class Tpkg
     requests.each do |request|
       req = Tpkg::parse_request(request)
       packages.concat(installed_packages_that_meet_requirement(req).collect { |pkg| pkg[:metadata][:filename] })
-    end   
-
+    end
+    
     # loop through each package, and verify checksum, owner, group and perm of each file that was installed
     packages.each do | package_file |
       puts "Verifying #{package_file}"
       package_full_name = File.basename(package_file, File.extname(package_file))
-
+      
       # Extract checksum.xml from the package
       checksum_xml = nil
-
+      
       # get file_metadata from the installed package
       file_metadata = FileMetadata::instantiate_from_dir(File.join(@metadata_directory, package_full_name))
       if !file_metadata
@@ -4152,15 +4154,15 @@ class Tpkg
         results[package_file] = errors
         return results
       end
-
-      # verify installed files match their checksum 
+      
+      # verify installed files match their checksum
       file_metadata[:files].each do |file|
         errors = []   
         gid_expected, uid_expected, perms_expected, chksum_expected = nil
         fp = file[:path]
-
+        
         # get expected checksum. For files that were encrypted, we're interested in the
-        # checksum of the decrypted version 
+        # checksum of the decrypted version
         if file[:checksum]
           chksum_expected = file[:checksum][:digests].first[:value]
           file[:checksum][:digests].each do | digest |
@@ -4169,7 +4171,7 @@ class Tpkg
             end
           end
         end
-
+        
         # get expected acl values
         if file[:uid]
           uid_expected = file[:uid].to_i
@@ -4179,30 +4181,30 @@ class Tpkg
         end
         if file[:perms]
           perms_expected = file[:perms].to_s
-        end 
-
+        end
+        
         fp  = normalize_path(fp)
-  
+        
         # can't handle symlink
         if File.symlink?(fp)
           next
         end
-   
+        
         # check if file exist
         if !File.exists?(fp)
           errors << "File is missing"
-        else 
-          # get actual values 
+        else
+          # get actual values
           chksum_actual = Digest::SHA256.hexdigest(File.read(fp)) if File.file?(fp)
           uid_actual = File.stat(fp).uid
           gid_actual = File.stat(fp).gid
           perms_actual = File.stat(fp).mode.to_s(8)
         end
-
+        
         if !chksum_expected.nil? && !chksum_actual.nil? && chksum_expected != chksum_actual
           errors << "Checksum doesn't match (Expected: #{chksum_expected}, Actual: #{chksum_actual}"
-        end 
-
+        end
+        
         if !uid_expected.nil? && !uid_actual.nil? && uid_expected != uid_actual
           errors << "uid doesn't match (Expected: #{uid_expected}, Actual: #{uid_actual}) "
         end
@@ -4220,7 +4222,7 @@ class Tpkg
     end
     return results
   end
- 
+  
   def execute_init(options, *moreoptions)
     ret_val = 0
     packages_to_execute_on = []
@@ -4232,7 +4234,7 @@ class Tpkg
       action = moreoptions[0]
       requested_packages = options
     end
-
+    
     # if user specified no packages, then assume all
     if requested_packages.nil?
       packages_to_execute_on = installed_packages_that_meet_requirement(nil)
@@ -4243,20 +4245,20 @@ class Tpkg
         packages_to_execute_on.concat(installed_packages_that_meet_requirement(req))
       end
     end
-
+    
     if packages_to_execute_on.empty?
       warn "Warning: Unable to find package(s) \"#{requested_packages.join(",")}\"."
-    else 
+    else
       packages_to_execute_on.each do |pkg|
         ret_val |= execute_init_for_package(pkg, action, requested_init_scripts)
-      end 
+      end
     end
     return ret_val
   end
- 
+  
   def execute_init_for_package(pkg, action, requested_init_scripts = nil)
     ret_val = 0
-
+    
     # Get init scripts metadata for the given package
     init_scripts_metadata = init_scripts(pkg[:metadata])
     # warn if there's no init script and then return
@@ -4264,7 +4266,7 @@ class Tpkg
       warn "Warning: There is no init script for #{pkg[:metadata][:name]}."
       return 1
     end
-
+    
     # convert the init scripts metadata  to an array of { path => value, start => value}
     # so that we can order them based on their start value. This is necessary because
     # we need to execute the init scripts in correct order.
@@ -4273,30 +4275,30 @@ class Tpkg
       init = {}
       init[:path] = installed_path
       init[:start] = init_info[:init][:start] || 0
-
+      
       # if user requests specific init scripts, then only include those
-      if requested_init_scripts.nil? or 
+      if requested_init_scripts.nil? or
          requested_init_scripts && requested_init_scripts.include?(File.basename(installed_path))
-        init_scripts << init 
+        init_scripts << init
       end
     end
-
+    
     if requested_init_scripts && init_scripts.empty?
       warn "Warning: There are no init scripts that satisfy your request: #{requested_init_scripts.inspect} for package #{pkg[:metadata][:name]}."
     end
     
-    # Reverse order if doing stop. 
+    # Reverse order if doing stop.
     if action == "stop"
       ordered_init_scripts = init_scripts.sort{ |a,b| b[:start] <=> a[:start] }
     else
       ordered_init_scripts = init_scripts.sort{ |a,b| a[:start] <=> b[:start] }
     end
-
+    
     ordered_init_scripts.each do |init_script|
       installed_path = init_script[:path]
       system("#{installed_path} #{action}")
-      ret_val = INITSCRIPT_ERR if $?.exitstatus > 0
-    end 
+      ret_val = INITSCRIPT_ERR if !$?.success?
+    end
     return ret_val
   end
   
@@ -4332,7 +4334,7 @@ class Tpkg
         File.open(@lock_pid_file) { |file| lockpid = file.gets.chomp }
       rescue Errno::ENOENT
       end
-
+      
       # check that the process is actually running
       # if not, clean up old lock and attemp to obtain lock again
       if Tpkg::process_running?(lockpid)
@@ -4343,7 +4345,7 @@ class Tpkg
       end
     end
   end
-
+  
   def unlock
     if @locks == 0
       warn "unlock called but not locked, that probably shouldn't happen"
@@ -4354,16 +4356,16 @@ class Tpkg
       FileUtils.rm_rf(@lock_directory)
     end
   end
-
+  
   # Build a dependency map of currently installed packages
-  # For example, if we have pkgB and pkgC which depends on pkgA, then 
+  # For example, if we have pkgB and pkgC which depends on pkgA, then
   # the dependency map would look like this:
   # "pkgA.tpkg" => [{pkgB metadata}, {pkgC metadata}]
   def get_dependency_mapping
     dependency_mapping = {}
     installed_packages.each do | pkg |
       metadata = pkg[:metadata]
-
+      
       # Get list of pkgs that this pkg depends on
       next if metadata[:dependencies].nil?
       depended_on = []
@@ -4371,16 +4373,16 @@ class Tpkg
         next if req[:type] == :native
         depended_on |= installed_packages_that_meet_requirement(req)
       end
-
+      
       # populate the depencency map
       depended_on.each do | req_pkg |
-        dependency_mapping[req_pkg[:metadata][:filename]] ||= [] 
+        dependency_mapping[req_pkg[:metadata][:filename]] ||= []
         dependency_mapping[req_pkg[:metadata][:filename]] << pkg
       end
     end
     return dependency_mapping
   end
-
+  
   # Given a list of packages, return a list of dependents packages
   def get_dependents(pkgs)
     dependents = []
@@ -4391,10 +4393,10 @@ class Tpkg
       next if pkgs.nil?
       dependents |= pkgs
       to_check |= pkgs.map { |pkg| pkg[:metadata][:filename] }
-    end 
+    end
     return dependents
   end
-
+  
   # Given a list of packages, return a list of all their prerequisite dependencies
   # Example: If pkgA depends on pkgB, and pkgB depends on pkgC, then calling this
   # method on pkgA will returns pkgB and pkgC
@@ -4412,7 +4414,7 @@ class Tpkg
     end
     return pre_reqs
   end
-
+  
   # print out history packages installation/remove
   def installation_history
     if !File.exists?(File.join(@log_directory,'changes.log'))
@@ -4420,15 +4422,15 @@ class Tpkg
       return GENERIC_ERR
     end
     IO.foreach(File.join(@log_directory,'changes.log')) do |line|
-      puts line 
+      puts line
     end
   end
-
+  
   # Download packages that meet the requests specified by the user.
   # Packages are downloaded into the current directory or into the directory
   # specified in options[:out]
   def download_pkgs(requests, options={})
-    if options[:out] 
+    if options[:out]
       if !File.exists?(options[:out])
         FileUtils.mkdir_p(options[:out])
       elsif !File.directory?(options[:out])
@@ -4437,32 +4439,32 @@ class Tpkg
       end
     end
     output_dir = options[:out] || Dir.pwd
-
+    
     requirements = []
     packages = {}
     original_dir = Dir.pwd
-
+    
     workdir = Tpkg::tempdir("tpkg_download")
     Dir.chdir(workdir)
     parse_requests(requests, requirements, packages)
     packages = packages.values.flatten
     if packages.size < 1
       puts "Unable to find any packages that satisfy your request.  Try running with --debug for more info"
-      Dir.chdir(original_dir) 
+      Dir.chdir(original_dir)
       return GENERIC_ERR
     end
-
+    
     # Confirm with user what packages will be downloaded
     packages.delete_if{|pkg|pkg[:source] !~ /^http/}
     puts "The following packages will be downloaded:"
     packages.each do |pkg|
       puts "#{pkg[:metadata][:filename]} (source: #{pkg[:source]})"
     end
-    if @@prompt && !Tpkg::confirm 
-      Dir.chdir(original_dir) 
+    if @@prompt && !Tpkg::confirm
+      Dir.chdir(original_dir)
       return 0
     end
-
+    
     err_code = 0
     puts "Downloading to #{output_dir}"
     packages.each do |pkg|
@@ -4476,21 +4478,21 @@ class Tpkg
         err_code = GENERIC_ERR
       end
     end
-
+    
     # clean up working directory
     FileUtils.rm_rf(workdir)
     
-    Dir.chdir(original_dir) 
+    Dir.chdir(original_dir)
     return err_code
   end
-
+  
   # TODO: figure out what other methods above can be turned into protected methods
   protected
   # log changes of pkgs that were installed/removed
   def log_changes(options={})
     msg = ""
     user = Etc.getlogin || Etc.getpwuid(Process.uid).name
-    newly_installed = removed = [] 
+    newly_installed = removed = []
     newly_installed = options[:newly_installed] if options[:newly_installed]
     removed = options[:removed] if options[:removed]
     removed.each do |pkg|
@@ -4505,7 +4507,7 @@ class Tpkg
       File.open(File.join(@log_directory,'changes.log'), 'a') {|f| f.write(msg) }
     end
   end
-
+  
   def send_update_to_server(options={})
     request = {"client"=>Facter['fqdn'].value}
     request[:user] = Etc.getlogin || Etc.getpwuid(Process.uid).name
@@ -4526,12 +4528,12 @@ class Tpkg
       already_installed = currently_installed
     end
     request[:already_installed] = URI.escape(YAML.dump(already_installed))
-
+    
     if options[:removed]
       removed = options[:removed]
       request[:removed] = URI.escape(YAML.dump(removed))
     end
-
+    
     begin
       response = nil
       # Need to set timeout otherwise tpkg can hang for a long time when having
@@ -4539,12 +4541,12 @@ class Tpkg
       # I can't seem get net-ssh timeout to work so we'll just handle the timeout ourselves
       timeout(CONNECTION_TIMEOUT) do
         update_uri =  URI.parse("#{@report_server}")
-        http = Tpkg::gethttp(update_uri)
+        http = gethttp(update_uri)
         post = Net::HTTP::Post.new(update_uri.path)
         post.set_form_data(request)
         response = http.request(post)
       end
-
+      
       case response
       when Net::HTTPSuccess
        puts "Successfully send update to reporter server"
@@ -4556,24 +4558,24 @@ class Tpkg
       end
     rescue Timeout::Error
       puts "Timed out when trying to send update to reporter server"
-    rescue 
+    rescue
       puts "Failed to send update to reporter server"
     end
   end
- 
-  # create and install native stub package if needed 
-  # this stub package helps prevent user from removing native packages that 
-  # our tpkg packages depend on 
+  
+  # create and install native stub package if needed
+  # this stub package helps prevent user from removing native packages that
+  # our tpkg packages depend on
   def stub_native_pkg(pkg)
     # gather all of the native dependencies
     native_deps = pkg[:metadata].get_native_deps
-
+    
     return if native_deps.nil? or native_deps.empty?
     
     if Tpkg::get_os =~ /RedHat|CentOS|Fedora/
       rpm = create_rpm("stub_for_#{pkg[:metadata][:name]}", native_deps)
       return if rpm.nil?
-  
+      
       # install the rpm
       cmd = "rpm -i #{rpm}"
       puts cmd if @@debug
@@ -4585,16 +4587,16 @@ class Tpkg
       # TODO: support other OSes
     end
   end
-
+  
   # remove the native dependency stub packages if there's any
   def remove_native_stub_pkg(pkg)
     # Don't have to do anything if this package has no native dependencies
     native_deps = pkg[:metadata].get_native_deps
     return if native_deps.nil? or native_deps.empty?
-
+    
     # the convention is that stub package is named as "stub_for_pkgname"
     stub_pkg_name = "stub_for_#{pkg[:metadata][:name]}"
-
+    
     if Tpkg::get_os =~ /RedHat|CentOS|Fedora/
       cmd = "yum -y remove #{stub_pkg_name}"
       puts cmd if @@debug
@@ -4606,16 +4608,16 @@ class Tpkg
       # TODO: support other OSes
     end
   end
-
+  
   def create_rpm(name, deps=[])
     # setup directories for rpmbuild
     topdir = Tpkg::tempdir('rpmbuild')
     %w[BUILD RPMS SOURCES SPECS SRPMS].each do |dir|
       FileUtils.mkdir_p(File.join(topdir, dir))
     end
-
+    
     dep_list = deps.collect{|dep|dep[:name]}.join(",")
-
+    
     # create rpm spec file
     spec = <<-EOS.gsub(/^\s+/, "")
     Name: #{name}
@@ -4635,14 +4637,14 @@ class Tpkg
     File.open(spec_file, 'w') do |file|
       file.puts(spec)
     end
-
+    
     # run rpmbuild
     system("rpmbuild -bb --define '_topdir #{topdir}' #{spec_file}")
     if !$?.success?
       warn "Warning: Failed to create native stub package for #{name}"
       return nil
     end
-
+    
     # copy result over to tmpfile
     result = File.join(topdir, 'RPMS', 'noarch', "#{name}-1-1.noarch.rpm")
     rpm = nil
@@ -4651,10 +4653,10 @@ class Tpkg
       FileUtils.cp(result, tmpfile.path)
       rpm = tmpfile.path
     end
-
+    
     # cleanup
     FileUtils.rm_rf(topdir)
-
+    
     return rpm
   end
 end

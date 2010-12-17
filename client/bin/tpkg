@@ -107,29 +107,35 @@ opts.on('--verify', '-V', '=NAME', 'Verify packages') do |opt|
   @action = :verify
   @action_value = opt
 end
-opts.on('--start', '=NAME', 'Start the init script for the specified package', Array) do |opt|
+opts.on('--start', '=NAME', 'Start the init script for specified package', Array) do |opt|
   @rerun_with_sudo = true
   @action = :execute_init
   @init_options[:packages] = opt
   @init_options[:cmd] = 'start'
 end
-opts.on('--stop', '=NAME', 'Stop the init script for the specified package', Array) do |opt|
+opts.on('--stop', '=NAME', 'Stop the init script for specified package', Array) do |opt|
   @rerun_with_sudo = true
   @action = :execute_init
   @init_options[:packages] = opt
   @init_options[:cmd] = 'stop'
 end
-opts.on('--restart', '=NAME', 'Restart the init script for the specified package', Array) do |opt|
+opts.on('--restart', '=NAME', 'Restart the init script for specified package', Array) do |opt|
   @rerun_with_sudo = true
   @action = :execute_init
   @init_options[:packages] = opt
   @init_options[:cmd] = 'restart'
 end
-opts.on('--reload', '=NAME', 'Reload the init script for the specified package', Array) do |opt|
+opts.on('--reload', '=NAME', 'Reload the init script for specified package', Array) do |opt|
   @rerun_with_sudo = true
   @action = :execute_init
   @init_options[:packages] = opt
   @init_options[:cmd] = 'reload'
+end
+opts.on('--status', '=NAME', 'Get status from init script for specified package', Array) do |opt|
+  @rerun_with_sudo = true
+  @action = :execute_init
+  @init_options[:packages] = opt
+  @init_options[:cmd] = 'status'
 end
 opts.on('--start-all', 'Start the init scripts for all packages') do |opt|
   @rerun_with_sudo = true
@@ -151,7 +157,7 @@ opts.on('--reload-all', 'Reload the init script for all packages') do |opt|
   @action = :execute_init
   @init_options[:cmd] = 'reload'
 end
-opts.on('--exec-init', '=NAME', 'Execute init scripts for the specified packages', Array) do |opt|
+opts.on('--exec-init', '=NAME', 'Execute init scripts for specified packages', Array) do |opt|
   @rerun_with_sudo = true
   @init_options[:packages] = opt
   @action = :execute_init
@@ -160,7 +166,7 @@ opts.on('--init-script', '=NAME', 'What init scripts to execute', Array) do |opt
   @rerun_with_sudo = true
   @init_options[:scripts] = opt
 end
-opts.on('--init-cmd', '=CMD', 'Invoke the specified init script command') do |opt|
+opts.on('--init-cmd', '=CMD', 'Invoke specified init script command') do |opt|
   @rerun_with_sudo = true
   @init_options[:cmd] = opt
 end
@@ -305,7 +311,7 @@ def instantiate_tpkg(options = {})
   sources = options["sources"] || []
   report_server = nil
   
-  [File.join(Tpkg::CONFIGDIR, 'tpkg.conf'), File.join(ENV['HOME'], ".tpkg.conf")].each do |configfile|
+  [File.join(Tpkg::DEFAULT_CONFIGDIR, 'tpkg.conf'), File.join(ENV['HOME'], ".tpkg.conf")].each do |configfile|
     if File.exist?(configfile)
       IO.foreach(configfile) do |line|
         line.chomp!

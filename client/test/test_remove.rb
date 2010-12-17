@@ -1,5 +1,3 @@
-
-
 #
 # Test tpkg's ability to remove packages
 #

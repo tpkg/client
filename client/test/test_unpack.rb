@@ -1,5 +1,3 @@
-
-
 #
 # Test tpkg's ability to unpack packages
 #
@@ -489,7 +487,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
     testbase = File.join(testroot, 'home', 'tpkg')
     FileUtils.mkdir_p(testbase)
     tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'))
-      
+    
     begin
       link = nil
       init_script = nil
