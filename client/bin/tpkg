@@ -311,7 +311,7 @@ def instantiate_tpkg(options = {})
   sources = options["sources"] || []
   report_server = nil
   
-  [File.join(Tpkg::CONFIGDIR, 'tpkg.conf'), File.join(ENV['HOME'], ".tpkg.conf")].each do |configfile|
+  [File.join(Tpkg::DEFAULT_CONFIGDIR, 'tpkg.conf'), File.join(ENV['HOME'], ".tpkg.conf")].each do |configfile|
     if File.exist?(configfile)
       IO.foreach(configfile) do |line|
         line.chomp!

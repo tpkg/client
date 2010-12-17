@@ -57,13 +57,13 @@ def copy_tpkg_files(destdir, options={})
     mkdir_p(libdir)
     
     # Substitute TPKGVER into tpkg.rb
-    # Substitute proper path into CONFIGDIR in tpkg.rb if appropriate
+    # Substitute proper path into DEFAULT_CONFIGDIR in tpkg.rb if appropriate
     File.open(File.join(libdir, 'tpkg.rb'), 'w') do |newfile|
       IO.foreach(File.join('lib', 'tpkg.rb')) do |line|
         if line =~ /^\s*VERSION/
           line.sub!(/=.*/, "= '#{TPKGVER}'")
         end
-        if options[:etcdir] && line =~ /^\s*CONFIGDIR/
+        if options[:etcdir] && line =~ /^\s*DEFAULT_CONFIGDIR/
           line.sub!(/=.*/, "= '#{options[:etcdir]}'")
         end
         newfile.write(line)
