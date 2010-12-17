@@ -57,7 +57,6 @@ require 'kwalify'        # for validating yaml
 class Tpkg
   
   VERSION = 'trunk'
-  CONFIGDIR = '/etc'
 
   GENERIC_ERR = 1  
   POSTINSTALL_ERR = 2
@@ -298,8 +297,9 @@ class Tpkg
         schema_dir = File.join(File.dirname(File.dirname(__FILE__)), "schema")
       # This is the directory where we put our dtd/schema for validating
       # the metadata file
-      elsif File.exist?(File.join(CONFIGDIR, 'tpkg', 'schema'))
-        schema_dir = File.join(CONFIGDIR, 'tpkg', 'schema')
+      # FIXME: This method should become an instance method and use @configdir
+      elsif File.exist?(File.join(DEFAULT_CONFIGDIR, 'tpkg', 'schema'))
+        schema_dir = File.join(DEFAULT_CONFIGDIR, 'tpkg', 'schema')
       else
         warn "Warning: unable to find schema for tpkg.yml"
       end
@@ -975,33 +975,6 @@ class Tpkg
     gid.to_i
   end
   
-  def self.gethttp(uri)
-    if uri.scheme != 'http' && uri.scheme != 'https'
-      # It would be possible to add support for FTP and possibly
-      # other things if anyone cares
-      raise "Only http/https URIs are supported, got: '#{uri}'"
-    end
-    http = Net::HTTP.new(uri.host, uri.port)
-    if uri.scheme == 'https'
-      # Eliminate the OpenSSL "using default DH parameters" warning
-      if File.exist?(File.join(CONFIGDIR, 'tpkg', 'dhparams'))
-        dh = OpenSSL::PKey::DH.new(IO.read(File.join(CONFIGDIR, 'tpkg', 'dhparams')))
-        Net::HTTP.ssl_context_accessor(:tmp_dh_callback)
-        http.tmp_dh_callback = proc { dh }
-      end
-      http.use_ssl = true
-      if File.exist?(File.join(CONFIGDIR, 'tpkg', 'ca.pem'))
-        http.ca_file = File.join(CONFIGDIR, 'tpkg', 'ca.pem')
-        http.verify_mode = OpenSSL::SSL::VERIFY_PEER
-      elsif File.directory?(File.join(CONFIGDIR, 'tpkg', 'ca'))
-        http.ca_path = File.join(CONFIGDIR, 'tpkg', 'ca')
-        http.verify_mode = OpenSSL::SSL::VERIFY_PEER
-      end
-    end
-    http.start
-    http
-  end
-  
   # foo
   # foo=1.0
   # foo=1.0=1
@@ -1203,10 +1176,11 @@ class Tpkg
   #
   
   DEFAULT_BASE = '/opt/tpkg'
+  DEFAULT_CONFIGDIR = '/etc'
   
   def initialize(options)
     # Options
-    @base = options[:base]
+    @base = options[:base] ? options[:base] : DEFAULT_BASE
     # An array of filenames or URLs which point to individual package files
     # or directories containing packages and extracted metadata.
     @sources = []
@@ -1238,11 +1212,14 @@ class Tpkg
       @sudo = options[:sudo]
     end
     
+    @configdir = DEFAULT_CONFIGDIR
+    
     @file_system_root = '/'  # Not sure if this needs to be more portable
     # This option is only intended for use by the test suite
     if options[:file_system_root]
       @file_system_root = options[:file_system_root]
       @base = File.join(@file_system_root, @base)
+      @configdir = File.join(@file_system_root, @configdir)
     end
     
     # Various external scripts that we run might need to adjust things for
@@ -1305,6 +1282,33 @@ class Tpkg
   attr_reader :sudo
   attr_reader :file_system_root
   
+  def gethttp(uri)
+    if uri.scheme != 'http' && uri.scheme != 'https'
+      # It would be possible to add support for FTP and possibly
+      # other things if anyone cares
+      raise "Only http/https URIs are supported, got: '#{uri}'"
+    end
+    http = Net::HTTP.new(uri.host, uri.port)
+    if uri.scheme == 'https'
+      # Eliminate the OpenSSL "using default DH parameters" warning
+      if File.exist?(File.join(@configdir, 'tpkg', 'dhparams'))
+        dh = OpenSSL::PKey::DH.new(IO.read(File.join(@configdir, 'tpkg', 'dhparams')))
+        Net::HTTP.ssl_context_accessor(:tmp_dh_callback)
+        http.tmp_dh_callback = proc { dh }
+      end
+      http.use_ssl = true
+      if File.exist?(File.join(@configdir, 'tpkg', 'ca.pem'))
+        http.ca_file = File.join(@configdir, 'tpkg', 'ca.pem')
+        http.verify_mode = OpenSSL::SSL::VERIFY_PEER
+      elsif File.directory?(File.join(@configdir, 'tpkg', 'ca'))
+        http.ca_path = File.join(@configdir, 'tpkg', 'ca')
+        http.verify_mode = OpenSSL::SSL::VERIFY_PEER
+      end
+    end
+    http.start
+    http
+  end
+  
   def source_to_local_directory(source)
     source_as_directory = source.gsub(/[^a-zA-Z0-9]/, '')
     File.join(@sources_directory, source_as_directory)
@@ -1334,7 +1338,7 @@ class Tpkg
           uri = http = localdate = remotedate = localdir = localpath = nil
           
           uri = URI.join(source, 'metadata.yml')
-          http = Tpkg::gethttp(uri)
+          http = gethttp(uri)
           
           # Calculate the path to the local copy of the metadata for this URI
           localdir = source_to_local_directory(source)
@@ -2257,7 +2261,7 @@ class Tpkg
   end
  
   def download(source, path, downloaddir = nil, use_cache = true)
-    http = Tpkg::gethttp(URI.parse(source))
+    http = gethttp(URI.parse(source))
     localdir = source_to_local_directory(source)
     localpath = File.join(localdir, File.basename(path))
     # Don't download again if file is already there from previous installation
@@ -4537,7 +4541,7 @@ class Tpkg
       # I can't seem get net-ssh timeout to work so we'll just handle the timeout ourselves
       timeout(CONNECTION_TIMEOUT) do
         update_uri =  URI.parse("#{@report_server}")
-        http = Tpkg::gethttp(update_uri)
+        http = gethttp(update_uri)
         post = Net::HTTP::Post.new(update_uri.path)
         post.set_form_data(request)
         response = http.request(post)

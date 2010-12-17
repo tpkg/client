@@ -16,6 +16,8 @@ class TpkgMiscTests < Test::Unit::TestCase
     @tempoutdir = Tempdir.new("tempoutdir")
     # Make up our regular test package
     @pkgfile = make_package(:output_directory => @tempoutdir)
+    
+    @testroot = Tempdir.new("testroot")
   end
   
   def test_package_toplevel_directory
@@ -62,8 +64,12 @@ class TpkgMiscTests < Test::Unit::TestCase
     t1 = Thread.new { http_server.start }
     t2 = Thread.new { https_server.start }
     
-    assert_kind_of(Net::HTTP, Tpkg::gethttp(URI.parse('http://localhost:3500/pkgs')))
-    assert_kind_of(Net::HTTP, Tpkg::gethttp(URI.parse('https://localhost:3501/pkgs')))
+    # This is necessary to ensure that any SSL configuration in /etc/tpkg
+    # doesn't throw us off
+    tpkg = Tpkg.new(:file_system_root => @testroot)
+    
+    assert_kind_of(Net::HTTP, tpkg.gethttp(URI.parse('http://localhost:3500/pkgs')))
+    assert_kind_of(Net::HTTP, tpkg.gethttp(URI.parse('https://localhost:3501/pkgs')))
     
     http_server.shutdown
     t1.kill
