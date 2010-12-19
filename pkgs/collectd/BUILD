@@ -22,6 +22,13 @@ then
 		rpm --quiet -q $rpm || sudo yum install $rpm
 	done
 fi
+if echo $OS | egrep 'Debian|Ubuntu'
+then
+	for deb in librrd-dev libdbi0-dev
+	do
+		dpkg -l $deb || sudo apt-get install $deb
+	done
+fi
 
 rm -rf $PKG-$VER
 tar jxvf $PKG-$VER.tar.bz2
