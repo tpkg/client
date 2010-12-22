@@ -455,6 +455,7 @@ end
 # install and depend on the library along with other tpkgs.
 # In order to reduce confusion this package does not contain any of the
 # executables that go in the normal packages.
+desc 'Build tpkg of tpkg library'
 task :tpkgpkg do
   #
   # Create package file structure in build root
