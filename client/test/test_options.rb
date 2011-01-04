@@ -53,6 +53,11 @@ class TpkgOptionTests < Test::Unit::TestCase
     assert(output.any? {|line| line.include?('Report server:')})
   end
   
+  def test_use_ssh_key
+    # Test --use-ssh-key with argument
+    # Test --use-ssh-key without argument
+  end
+  
   def teardown
   end
 end
