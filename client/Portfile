@@ -7,7 +7,8 @@ PortGroup           ruby 1.0
 name                tpkg
 version             2.1.1
 categories          sysutils
-maintainers         aput.net:jheiss openmaintainer 
+maintainers         aput.net:jheiss openmaintainer
+supported_archs     noarch
 
 description         Tpkg is an application packaging and deployment tool.
 
