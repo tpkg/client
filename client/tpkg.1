@@ -269,8 +269,9 @@ Force the execution of a given task.
 .BR --out | \-o
 Output directory for the -m and --download option.
 .TP
-.B --use-ssh-key
-Eliminate the prompt for an SSH password when deploying.
+.BI --use-ssh-key " [KEY]"
+Eliminate the prompt for an SSH password when deploying.  Specifying a
+specific key file is optional.
 .TP
 .BI --deploy-as " USERNAME"
 The user to use with SSH when deploying.  Defaults to the current user.
