@@ -382,8 +382,14 @@ if @deploy
   @deploy_options["max-worker"] = @worker_count
   @deploy_options["abort-on-fail"] = false
 
-  # check to see if ssh-key is accessible
-  if @deploy_options["use-ssh-key"]
+  # Check to see if ssh-key is accessible
+  # Net::SSH doesn't warn the user about problems with the key file
+  # (i.e. if it doesn't exist or isn't readable), resulting in the user
+  # just getting a generic "Bad username/password combination" error
+  # message because authentication fails.  As such we do some of our own
+  # checking and warning here so that the user gets a more specific
+  # error message.
+  if @deploy_options["use-ssh-key"] && @deploy_options["ssh-key"]
     ssh_key = @deploy_options["ssh-key"]
     if !File.readable?(ssh_key) && Process.euid == 0
       raise "Unable to read ssh key from #{ssh_key}"
