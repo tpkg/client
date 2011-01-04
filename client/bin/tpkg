@@ -391,7 +391,7 @@ if @deploy
   # error message.
   if @deploy_options["use-ssh-key"] && @deploy_options["ssh-key"]
     ssh_key = @deploy_options["ssh-key"]
-    if !File.readable?(ssh_key) && Process.euid == 0
+    if !File.readable?(ssh_key) && (Process.euid == 0 || !@sudo)
       raise "Unable to read ssh key from #{ssh_key}"
     elsif !File.readable?(ssh_key)
       warn "Warning: Unable to read ssh key from #{ssh_key}. Attempting to rerun tpkg with sudo."

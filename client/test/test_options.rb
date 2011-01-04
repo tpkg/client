@@ -1,10 +1,9 @@
-
-
 #
 # Test tpkg command line options
 #
 
 require File.dirname(__FILE__) + '/tpkgtest'
+require 'open3'
 
 class TpkgOptionTests < Test::Unit::TestCase
   include TpkgTests
@@ -55,7 +54,42 @@ class TpkgOptionTests < Test::Unit::TestCase
   
   def test_use_ssh_key
     # Test --use-ssh-key with argument
+    error = nil
+    # The File.join(blah) is roughly equivalent to '../bin/tpkg'
+    parentdir = File.dirname(File.dirname(__FILE__))
+    Open3.popen3("ruby -I #{File.join(parentdir, 'lib')} #{File.join(parentdir, 'bin', 'tpkg')} -s shell.sourceforge.net --use-ssh-key no_such_file --no-sudo --version") do |stdin, stdout, stderr|
+      stdin.close
+      error = stderr.readlines
+    end
+    # Make sure the expected lines are there
+    assert(error.any? {|line| line.include?('Unable to read ssh key from no_such_file')})
+    
     # Test --use-ssh-key without argument
+    output = nil
+    error = nil
+    # The File.join(blah) is roughly equivalent to '../bin/tpkg'
+    parentdir = File.dirname(File.dirname(__FILE__))
+    Open3.popen3("ruby -I #{File.join(parentdir, 'lib')} #{File.join(parentdir, 'bin', 'tpkg')} -s shell.sourceforge.net --use-ssh-key --version") do |stdin, stdout, stderr|
+      stdin.close
+      output = stdout.readlines
+      error = stderr.readlines
+    end
+    # Make sure that tpkg didn't prompt for a password
+    assert(!output.any? {|line| line.include?('SSH Password (leave blank if using ssh key):')})
+    
+    # Just to make sure our previous test is valid, check that we are prompted
+    # for a password if we don't specify --use-ssh-key
+    output = nil
+    error = nil
+    # The File.join(blah) is roughly equivalent to '../bin/tpkg'
+    parentdir = File.dirname(File.dirname(__FILE__))
+    Open3.popen3("ruby -I #{File.join(parentdir, 'lib')} #{File.join(parentdir, 'bin', 'tpkg')} -s shell.sourceforge.net --version") do |stdin, stdout, stderr|
+      stdin.close
+      output = stdout.readlines
+      error = stderr.readlines
+    end
+    # Make sure that tpkg did prompt for a password this time
+    assert(output.any? {|line| line.include?('SSH Password (leave blank if using ssh key):')})
   end
   
   def teardown
