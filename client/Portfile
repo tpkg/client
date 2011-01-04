@@ -5,10 +5,9 @@ PortSystem          1.0
 PortGroup           ruby 1.0
 
 name                tpkg
-version             2.1.0
+version             2.1.1
 categories          sysutils
-maintainers         aput.net:jheiss openmaintainer
-supported_archs     noarch
+maintainers         aput.net:jheiss openmaintainer 
 
 description         Tpkg is an application packaging and deployment tool.
 
@@ -24,9 +23,9 @@ platforms           darwin
 
 master_sites        sourceforge
 
-checksums           md5     8047f5d5422502b6a6d6bdde1c5ddbc8 \
-                    sha1    8d02cf04ea783d2c4165c6d01c0d93add2c99a9d \
-                    rmd160  d130259359545a21601ecdec706fc5c2781bc9f0
+checksums           md5     2f5ede7a1eecde00b0c98800d6f69492 \
+                    sha1    ccea11df6308cf6dba8c1a7e90c3bef3b9430fef \
+                    rmd160  d4420012ce9de0012affd273815b2f212d21b0ed
 
 depends_build       port:rb-rake
 depends_run         port:facter
