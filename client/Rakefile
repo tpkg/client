@@ -87,14 +87,18 @@ def copy_tpkg_files(destdir, options={})
   
   if options[:mandir]
     mandir = File.join(destdir, options[:mandir])
-    man1dir = File.join(mandir, 'man1')
-    mkdir_p(man1dir)
-    cp('tpkg.1', man1dir, :preserve => true)
-    chmod(0444, File.join(man1dir, 'tpkg.1'))
-    cp('gem2tpkg.1', man1dir, :preserve => true)
-    chmod(0444, File.join(man1dir, 'gem2tpkg.1'))
-    cp('cpan2tpkg.1', man1dir, :preserve => true)
-    chmod(0444, File.join(man1dir, 'cpan2tpkg.1'))
+    Dir.chdir('man')
+    Dir.glob('man*').each do |mansubdir|
+      mansectiondir = File.join(mandir, mansubdir)
+      mkdir_p(mansectiondir)
+      Dir.chdir(mansubdir)
+      Dir.glob('*').each do |manpage|
+        cp(manpage, mansectiondir, :preserve => true)
+        chmod(0444, File.join(mansectiondir, manpage))
+      end
+      Dir.chdir('..')
+    end
+    Dir.chdir('..')
   end
   
   if options[:etcdir]
