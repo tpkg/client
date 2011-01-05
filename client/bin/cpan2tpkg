@@ -20,7 +20,7 @@ use Storable qw(dclone);
 sub usage
 {
 	die <<EOF;
-Usage: cpan2tpkg
+Usage: cpan2tpkg [options] module
     [--version version]
        Version of module to install
     [--package-version version]
