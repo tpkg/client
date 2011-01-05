@@ -1,0 +1,125 @@
+.TH gem2tpkg 1 "January 2011"
+
+.SH NAME
+
+.B gem2tpkg
+\- Create tpkg packages from Ruby gems
+
+.SH SYNOPSIS
+
+.B gem2tpkg
+.RB [ --version | \-v
+.IR VERSION ]
+.RB [ --package-version | --pv
+.IR PKGVER ]
+.RB [ --extra-deps
+.IR EXTRADEPS ]
+.RB [ --native-deps
+.IR NATIVEDEPS ]
+.RB [ --install-options
+.IR INSTALLOPTS ]
+.RB [ --build-options
+.IR BUILDOPTS ]
+.RB [ --gem-cmd
+.IR GEMCMD ]
+.RB [ --rubygems-path
+.IR PATH ]
+.RB [ --extra-name
+.IR EXTRANAME ]
+.RB [ --version ]
+.RB [ --help | \-h ]
+
+.SH DESCRIPTION
+
+gem2tpkg is a utility for creating tpkg packages from Ruby gems. If the gem
+being packaged requires other gems those will also be packaged and appropriate
+dependencies inserted into the various tpkgs.
+
+.SH OPTIONS
+.TP
+.BI --version|-v " VERSION"
+Specifies the version of the gem to package.  By default the latest version of
+the gem will be packaged.
+.TP
+.BI --package-version|--pv " PKGVER"
+The package version to set in the generated tpkg.  By default 
+.I 1
+will be used.  See the tpkg documentation for more information about package
+versions.
+.TP
+.BI --extra-deps " NATIVEDEPS"
+Specify any extra dependencies that should be added to the generated tpkg.
+The dependencies are specified as a comma-separated list with the syntax of
+firstdepname,minver,maxver,seconddepname,minver,maxver,etc.  Minimum and
+maximum versions can be left blank if not required.  The following are all
+valid examples:
+.PP
+.RS
+--extra-deps mysql
+.RS 0
+--extra-deps mysql,,
+.RS 0
+--extra-deps mysql,5.1.33,5.1.35
+.RS 0
+--extra-deps mysql,5.1.33,5.1.35,nginx,0.6,0.6.9999
+.RS 0
+--extra-deps mysql,,,nginx,,
+.RE 1
+.TP
+.BI --native-deps " PACKAGES"
+Specify any native dependencies that should be added to the generated tpkg.
+Syntax is the same as --extra-deps.
+.TP
+.BI --install-options " INSTALLOPTS"
+Extra options to the
+.I gem install
+command that gem2tpkg will run.  Most commonly used to control where gem gets
+the gem from, via the --source option.  I.e.
+.PP
+.RS
+--install-options "--source http://gems.example.com"
+.RE
+.TP
+.BI --build-options " BUILDOPTS"
+Extra options to the gem build process.  If you were running
+.I gem install
+manually these would be options placed after a -- on the gem command line.
+I.e. these are not options to the gem command, but rather options to the build
+process of the gem being installed.  Most commonly used to help the gem build
+process find libraries.  I.e.
+.PP
+.RS
+--build-options "--with-sqlite3-dir=/opt/tpkg"
+.RE
+.TP
+.BI --gem-cmd " GEMCMD"
+The path to the gem command to be used.  The configuration of that instance of
+gem determines the paths that will be used in the generated package.
+.TP
+.BI --rubygems-path " PATH"
+Path to the rubygems library.  Useful if the copy of ruby being used to run
+gem2tpkg doesn't have rubygems in its library path.
+.TP
+.BI --extra-name " EXTRANAME"
+Extra string to add to package name.  Used to distinguish packages of the same
+gem built using different gem commands, and thus different directory
+structures.  If not specified
+.B gem2tpkg
+will attempt to do the right thing automatically based on whether or not it is
+using the default gem command.
+.TP
+.B --version
+Show the
+.B gem2tpkg
+version and exit.
+.TP
+.BR --help | \-h
+Display the
+.B gem2tpkg
+usage message and exit.
+
+.SH AUTHOR
+
+.B gem2tpkg
+is designed and maintained by Jason Heiss.
+

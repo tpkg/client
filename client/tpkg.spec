@@ -21,6 +21,7 @@ tpkg client
 /usr/lib/ruby/site_ruby/1.8/tpkg.rb
 /usr/lib/tpkg/externals
 /usr/share/man/man1/tpkg.1
+/usr/share/man/man1/gem2tpkg.1
 /etc/profile.d/tpkg_profile.sh
 %config /etc/tpkg.conf
 /etc/tpkg

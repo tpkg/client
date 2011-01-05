@@ -91,6 +91,8 @@ def copy_tpkg_files(destdir, options={})
     mkdir_p(man1dir)
     cp('tpkg.1', man1dir, :preserve => true)
     chmod(0444, File.join(man1dir, 'tpkg.1'))
+    cp('gem2tpkg.1', man1dir, :preserve => true)
+    chmod(0444, File.join(man1dir, 'gem2tpkg.1'))
   end
   
   if options[:etcdir]
