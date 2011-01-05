@@ -4,7 +4,6 @@
 ##############################################################################
 
 # Ensure we can find tpkg.rb
-#$:.unshift File.dirname(__FILE__)
 $:.unshift File.join(File.dirname(__FILE__), "..", "lib")
 
 require 'optparse'
