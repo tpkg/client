@@ -1,0 +1,82 @@
+.TH cpan2tpkg 1 "January 2011"
+
+.SH NAME
+
+.B cpan2tpkg
+\- Create tpkg packages from Perl CPAN modules
+
+.SH SYNOPSIS
+
+.B cpan2tpkg
+.RB [ --version | \-v
+.IR VERSION ]
+.RB [ --package-version | --pv
+.IR PKGVER ]
+.RB [ --extra-deps
+.IR EXTRADEPS ]
+.RB [ --native-deps
+.IR NATIVEDEPS ]
+.RB [ --force ]
+.RB [ --help | \-h ]
+MODULE
+
+.SH DESCRIPTION
+
+cpan2tpkg is a utility for creating tpkg packages from Perl CPAN modules. If
+the CPAN module being packaged requires other modules those will also be
+packaged and appropriate dependencies inserted into the various tpkgs.
+
+.SH OPTIONS
+.TP
+.BI --version|-v " VERSION"
+Specifies the version of the module to package.  By default the latest version
+of the module will be packaged.
+.TP
+.BI --package-version|--pv " PKGVER"
+The package version to set in the generated tpkg.  By default 
+.I 1
+will be used.  See the tpkg documentation for more information about package
+versions.
+.TP
+.BI --extra-deps " NATIVEDEPS"
+Specify any extra dependencies that should be added to the generated tpkg.
+The dependencies are specified as a comma-separated list with the syntax of
+firstdepname,minver,maxver,seconddepname,minver,maxver,etc.  Minimum and
+maximum versions can be left blank if not required.  The following are all
+valid examples:
+.PP
+.RS
+--extra-deps mysql
+.RS 0
+--extra-deps mysql,,
+.RS 0
+--extra-deps mysql,5.1.33,5.1.35
+.RS 0
+--extra-deps mysql,5.1.33,5.1.35,nginx,0.6,0.6.9999
+.RS 0
+--extra-deps mysql,,,nginx,,
+.RE 1
+.TP
+.BI --native-deps " PACKAGES"
+Specify any native dependencies that should be added to the generated tpkg.
+Syntax is the same as --extra-deps.
+.TP
+.B --force
+Force the install and packaging even if tests fail.  CPAN will normally refuse
+to install modules if their tests fail.  This allows you to package those
+modules anyway.
+.TP
+.BR --help | \-h
+Display the
+.B cpan2tpkg
+usage message and exit.
+
+.SH BUGS
+
+--version is not implemented at this time.
+
+.SH AUTHORS
+
+.B cpan2tpkg
+is designed and maintained by Jason Heiss.
+
