@@ -165,7 +165,9 @@ class Deployer
     params = deploy_params.join(" ")
     cmd = nil
     if ENV['TPKG_HOME']
-      cmd = "env TPKG_HOME=#{ENV['TPKG_HOME']} tpkg #{params} -n"
+      # Preserve TPKG_HOME when deploying to remote systems so that users can
+      # perform operations against different tpkg base directories.
+      cmd = "tpkg #{params} --base #{ENV['TPKG_HOME']} -n"
     else
       cmd = "tpkg #{params} -n"
     end

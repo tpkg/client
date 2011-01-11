@@ -36,8 +36,11 @@ require 'tpkg'
 def rerun_with_sudo_if_necessary
   if Process.euid != 0 && @sudo
     warn "Executing with sudo"
+    # Depending on how sudo is configured it might remove TPKG_HOME from the
+    # environment.  As such we set the base as a command line option to ensure
+    # it survives the sudo process.
     if ENV['TPKG_HOME']
-      exec('sudo', 'env', "TPKG_HOME=#{ENV['TPKG_HOME']}", $0, *ARGV)
+      exec('sudo', $0, '--base', ENV['TPKG_HOME'], *ARGV)
     else
       exec('sudo', $0, *ARGV)
     end
@@ -229,8 +232,11 @@ end
 opts.on('--qconf', "Display tpkg's configuration settings") do |opt|
   @action = :query_conf
 end
+opts.on('--base', '=BASE', 'Base directory for tpkg operations') do |opt|
+  @tpkg_options[:base] = opt
+end
 opts.on('--source', '=NAME', 'Sources where packages are located', Array) do |opt|
-  @tpkg_options["sources"] = opt
+  @tpkg_options[:sources] = opt
 end
 opts.on('--download', '=PACKAGES', 'Download one or more packages', Array) do |opt|
   @action = :download
@@ -274,6 +280,9 @@ opts.on('--compress', '=[TYPE]', 'Compress files when making packages') do |opt|
     @compress = opt
   end
 end
+opts.on('--test-root TESTDIR', 'For use by the test suite only.') do |opt|
+  @tpkg_options[:file_system_root] = opt
+end
 opts.on('--debug', 'Print lots of messages about what tpkg is doing') do |opt|
   @debug = opt
   Tpkg::set_debug(@debug)
@@ -306,11 +315,32 @@ end
 #
 
 def instantiate_tpkg(options = {})
-  base = Tpkg::DEFAULT_BASE
-  sources = options["sources"] || []
+  base = options[:base]
+  sources = options[:sources] || []
   report_server = nil
   
-  [File.join(Tpkg::DEFAULT_CONFIGDIR, 'tpkg.conf'), File.join(ENV['HOME'], ".tpkg.conf")].each do |configfile|
+  # base can come from four possible places.  They take precedence in this
+  # order:
+  # - command line option
+  # - TPKG_HOME environment variable
+  # - config file
+  # - Tpkg::DEFAULT_BASE
+  
+  if ENV['TPKG_HOME']
+    if !base
+      base = ENV['TPKG_HOME']
+      # Warn the user, as this could potentially be confusing
+      # if they don't realize there's an environment variable set.
+      warn "Using base '#{base}' base from $TPKG_HOME"
+    else
+      warn "Ignoring TPKG_HOME" if @debug
+    end
+  end
+  
+  # FIXME: Move config file parsing to tpkg.rb
+  # http://sourceforge.net/apps/trac/tpkg/ticket/28
+  fsroot = options[:file_system_root] ? options[:file_system_root] : ''
+  [File.join(fsroot, Tpkg::DEFAULT_CONFIGDIR, 'tpkg.conf'), File.join(fsroot, ENV['HOME'], ".tpkg.conf")].each do |configfile|
     if File.exist?(configfile)
       IO.foreach(configfile) do |line|
         line.chomp!
@@ -319,11 +349,15 @@ def instantiate_tpkg(options = {})
         line.strip!  # Remove leading/trailing whitespace
         key, value = line.split(/\s*=\s*/, 2)
         if key == 'base'
-          # Warn the user, as this could potentially be confusing
-          # if they don't realize there's a config file lying
-          # around
-          base = value
-          warn "Using base #{base} from #{configfile}"
+          if !base
+            # Warn the user, as this could potentially be confusing
+            # if they don't realize there's a config file lying
+            # around
+            base = value
+            warn "Using base #{base} from #{configfile}"
+          else
+            warn "Ignoring 'base' option in #{@configfile}" if @debug
+          end
         elsif key == 'source'
           sources << value
           puts "Loaded source #{value} from #{configfile}" if (@debug)
@@ -335,11 +369,8 @@ def instantiate_tpkg(options = {})
     end
   end
   
-  if ENV['TPKG_HOME']
-    base = ENV['TPKG_HOME']
-    # Warn the user, as this could potentially be confusing
-    # if they don't realize there's an environment variable set.
-    warn "Using base '#{base}' base from $TPKG_HOME"
+  if !base
+    base = Tpkg::DEFAULT_BASE
   end
   
   if !@sudo
@@ -358,7 +389,15 @@ def instantiate_tpkg(options = {})
     end
   end
   
-  tpkg = Tpkg.new(:base => base, :sources => sources, :report_server => report_server, :lockforce => @lockforce, :force => @force, :sudo => @sudo)
+  # FIXME: This is ugly.  We would set the appropriate things in options and
+  # call Tpkg.new(options)
+  tpkg = Tpkg.new(:file_system_root => options[:file_system_root],
+                  :base => base,
+                  :sources => sources,
+                  :report_server => report_server,
+                  :lockforce => @lockforce,
+                  :force => @force,
+                  :sudo => @sudo)
 end
 
 passphrase_callback = lambda do | package |
