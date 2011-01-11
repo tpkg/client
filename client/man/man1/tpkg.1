@@ -73,6 +73,11 @@
 .IR INTEGER ]
 .RB [ --qX
 .IR NAME ]
+.RB [ --history ]
+.RB [ --qenv ]
+.RB [ --qconf ]
+.RB [ --base
+.IR BASE ]
 .RB [ --source
 .IR SOURCE ]
 .RB [ --no-prompt | \-n ]
@@ -235,11 +240,21 @@ when used with the servers option.
 .BI --qX " NAME"
 Display the tpkg.xml for the specified package.
 .TP
+.BI --history
+Display package installation history
+.TP
 .BI --qenv
 Display machine's information such as OS and architecture.
 .TP
 .BI --qconf
 Display tpkg's configuration settings.
+.TP
+.BI --base " BASE"
+Base directory for tpkg operations.  Command line option overrides the
+TPKG_HOME environment variable and config files.
+.TP
+.BI --source " SOURCE"
+Specify additional sources where packages are located.
 .TP
 .BR --no-prompt | \-n
 Turn off confirmation prompts.
