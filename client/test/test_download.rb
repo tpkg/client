@@ -2,7 +2,7 @@
 # Test tpkg's ability to download packages
 #
 
-require File.dirname(__FILE__) + '/tpkgtest'
+require "./#{File.dirname(__FILE__)}/tpkgtest"
 require 'webrick'
 
 class TpkgDownloadTests < Test::Unit::TestCase

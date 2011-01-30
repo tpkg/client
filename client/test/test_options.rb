@@ -2,7 +2,7 @@
 # Test tpkg command line options
 #
 
-require File.dirname(__FILE__) + '/tpkgtest'
+require "./#{File.dirname(__FILE__)}/tpkgtest"
 require 'open3'
 
 class TpkgOptionTests < Test::Unit::TestCase

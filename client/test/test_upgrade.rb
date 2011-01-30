@@ -2,7 +2,7 @@
 # Test tpkg's ability to upgrade packages#
 #
 
-require File.dirname(__FILE__) + '/tpkgtest'
+require "./#{File.dirname(__FILE__)}/tpkgtest"
 
 class TpkgUpgradeTests < Test::Unit::TestCase
   include TpkgTests

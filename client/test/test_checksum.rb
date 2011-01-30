@@ -1,4 +1,4 @@
-require File.dirname(__FILE__) + '/tpkgtest'
+require "./#{File.dirname(__FILE__)}/tpkgtest"
 
 #
 # Test tpkg's ability to handle package checksums

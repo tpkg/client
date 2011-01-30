@@ -4,7 +4,7 @@
 # Test tpkg's basic tar functionality
 #
 
-require File.dirname(__FILE__) + '/tpkgtest'
+require "./#{File.dirname(__FILE__)}/tpkgtest"
 
 class TpkgTarTests < Test::Unit::TestCase
   include TpkgTests

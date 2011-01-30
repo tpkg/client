@@ -4,7 +4,7 @@
 # Test tpkg's ability to execute init scripts
 #
 
-require File.dirname(__FILE__) + '/tpkgtest'
+require "./#{File.dirname(__FILE__)}/tpkgtest"
 
 class TpkgInitScriptsTests < Test::Unit::TestCase
   include TpkgTests

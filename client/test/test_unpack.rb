@@ -2,7 +2,7 @@
 # Test tpkg's ability to unpack packages
 #
 
-require File.dirname(__FILE__) + '/tpkgtest'
+require "./#{File.dirname(__FILE__)}/tpkgtest"
 
 # Give ourself access to some Tpkg variables
 class Tpkg

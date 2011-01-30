@@ -1,4 +1,4 @@
-require File.dirname(__FILE__) + '/tpkgtest'
+require "./#{File.dirname(__FILE__)}/tpkgtest"
 
 class TpkgFileMetadataTests < Test::Unit::TestCase
   include TpkgTests

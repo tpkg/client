@@ -2,7 +2,7 @@
 # Test tpkg's ability to handle package metadata
 #
 
-require File.dirname(__FILE__) + '/tpkgtest'
+require "./#{File.dirname(__FILE__)}/tpkgtest"
 require 'webrick'
 
 # Give ourself access to some Tpkg variables
