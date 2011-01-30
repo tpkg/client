@@ -452,15 +452,28 @@ class Tpkg
     end
     toplevel
   end
-
+  
+  # Takes the path to the 'tpkg' directory of an unpacked package and returns
+  # an array of the top level directories that exist for package files within
+  # that directory.  Currently that is one or both of 'reloc' for relocatable
+  # files and 'root' for non-relocatable files.
+  def self.get_package_toplevels(tpkgdir)
+    toplevels = []
+    ['reloc', 'root'].each do |toplevel|
+      if Dir.exist?(File.join(tpkgdir, toplevel))
+        toplevels << File.join(tpkgdir, toplevel)
+      end
+    end
+    toplevels
+  end
+  
   def self.get_filemetadata_from_directory(tpkgdir)
     filemetadata = {}
     root_dir = File.join(tpkgdir, "root")
     reloc_dir = File.join(tpkgdir, "reloc")
     files = []
 
-    Find.find(root_dir, reloc_dir) do |f|
-      next if !File.exist?(f)
+    Find.find(*get_package_toplevels(tpkgdir)) do |f|
       relocatable = false
 
       # Append file separator at the end for directory
@@ -2559,12 +2572,7 @@ class Tpkg
 
     root_dir = File.join(workdir, 'tpkg', 'root')
     reloc_dir = File.join(workdir, 'tpkg', 'reloc')
-    Find.find(root_dir, reloc_dir) do |f|
-      # If the package doesn't contain either of the top level
-      # directories we need to skip them, find will pass them to us
-      # even if they don't exist.
-      next if !File.exist?(f)
-
+    Find.find(*get_package_toplevels(tpkgdir)) do |f|
       begin
         if File.directory?(f)
           File.chown(default_dir_uid, default_dir_gid, f)
@@ -2669,11 +2677,7 @@ class Tpkg
 
     # We should get the perms, gid, uid stuff here since all the files
     # have been set up correctly
-    Find.find(root_dir, reloc_dir) do |f|
-      # If the package doesn't contain either of the top level
-      # directory we need to skip them, find will pass them to us
-      # even if they don't exist.
-      next if !File.exist?(f)
+    Find.find(*get_package_toplevels(tpkgdir)) do |f|
       next if File.symlink?(f)
 
       # check if it's from root dir or reloc dir
