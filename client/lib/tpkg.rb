@@ -460,7 +460,7 @@ class Tpkg
   def self.get_package_toplevels(tpkgdir)
     toplevels = []
     ['reloc', 'root'].each do |toplevel|
-      if Dir.exist?(File.join(tpkgdir, toplevel))
+      if File.directory?(File.join(tpkgdir, toplevel))
         toplevels << File.join(tpkgdir, toplevel)
       end
     end
