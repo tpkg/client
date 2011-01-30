@@ -2572,7 +2572,7 @@ class Tpkg
 
     root_dir = File.join(workdir, 'tpkg', 'root')
     reloc_dir = File.join(workdir, 'tpkg', 'reloc')
-    Find.find(*get_package_toplevels(tpkgdir)) do |f|
+    Find.find(*Tpkg::get_package_toplevels(workdir)) do |f|
       begin
         if File.directory?(f)
           File.chown(default_dir_uid, default_dir_gid, f)
@@ -2677,7 +2677,7 @@ class Tpkg
 
     # We should get the perms, gid, uid stuff here since all the files
     # have been set up correctly
-    Find.find(*get_package_toplevels(tpkgdir)) do |f|
+    Find.find(*Tpkg::get_package_toplevels(workdir)) do |f|
       next if File.symlink?(f)
 
       # check if it's from root dir or reloc dir
