@@ -10,7 +10,7 @@ class TpkgOptionTests < Test::Unit::TestCase
   
   def setup
     Tpkg::set_prompt(false)
-    @testroot = Tempdir.new("testroot")
+    @testroot = Dir.mktmpdir('testroot')
   end
   
   def test_help
@@ -96,15 +96,16 @@ class TpkgOptionTests < Test::Unit::TestCase
   def test_base
     # Test the --base option
     output = nil
-    clibase = Tempdir.new("tpkgbase")
-    # The File.join(blah) is roughly equivalent to '../bin/tpkg'
-    parentdir = File.dirname(File.dirname(__FILE__))
-    IO.popen("ruby -I #{File.join(parentdir, 'lib')} #{File.join(parentdir, 'bin', 'tpkg')} --base #{clibase} --qconf") do |pipe|
-      output = pipe.readlines
+    Dir.mktmpdir('clibase') do |clibase|
+      # The File.join(blah) is roughly equivalent to '../bin/tpkg'
+      parentdir = File.dirname(File.dirname(__FILE__))
+      IO.popen("ruby -I #{File.join(parentdir, 'lib')} #{File.join(parentdir, 'bin', 'tpkg')} --base #{clibase} --qconf") do |pipe|
+        output = pipe.readlines
+      end
+      # Make sure the expected line is there
+      baseline = output.find {|line| line.include?('Base: ')}
+      assert_equal("Base: #{clibase}\n", baseline)
     end
-    # Make sure the expected line is there
-    baseline = output.find {|line| line.include?('Base: ')}
-    assert_equal("Base: #{clibase}\n", baseline)
   end
     
   def test_base_precedence
@@ -189,6 +190,7 @@ class TpkgOptionTests < Test::Unit::TestCase
   end
   
   def teardown
+    FileUtils.rm_rf(@testroot)
   end
 end
 
