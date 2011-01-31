@@ -18,18 +18,19 @@ class TpkgMetadataTests < Test::Unit::TestCase
   def setup
     Tpkg::set_prompt(false)
     
-    @tempoutdir = Tempdir.new("tempoutdir")  # temp dir that will automatically get deleted at end of test run
-                                             # can be used for storing packages
+    # temp dir that will automatically get deleted at end of test run, can be
+    # used for storing packages
+    @tempoutdir = Dir.mktmpdir('tempoutdir')
     
     # Make up our regular test package
     @pkgfile = make_package
     
     # Copy the package into a directory to test directory-related operations
-    @pkgdir = Tempdir.new("pkgdir")
+    @pkgdir = Dir.mktmpdir('pkgdir')
     FileUtils.cp(@pkgfile, @pkgdir)
     
     # Make a test repository
-    @testbase = Tempdir.new("testbase")
+    @testbase = Dir.mktmpdir('testbase')
   end
   
   def test_metadata_from_package
@@ -126,54 +127,57 @@ class TpkgMetadataTests < Test::Unit::TestCase
     # dirty route.
     t = Thread.new { s.start }
     
-    testbase = Tempdir.new("testbase")
     source = 'http://localhost:3500/'
-    tpkg = Tpkg.new(:base => testbase, :sources => [source])
-
-    assert_nothing_raised { tpkg.prep_metadata }
-    assert_equal(1, tpkg.metadata['testpkg'].length)
-    # The two XML documents ought to be identical, but the one that gets
-    # extracted, packed into metadata.xml and then unpacked into
-    # @metadata is missing the XML headers (XML version and DTD).
-    # Someday we should fix that, in the meantime check that they look
-    # similar by checking the name element.
-    assert_equal(Tpkg::metadata_from_package(@pkgfile)[:name], tpkg.metadata['testpkg'].first[:name])
-    assert_equal(1, tpkg.metadata['testpkg2'].length)
-    assert_equal(Tpkg::metadata_from_package(pkgfile2)[:name], tpkg.metadata['testpkg2'].first[:name])
-    pkgs = tpkg.metadata.collect {|m| m[1]}.flatten
-    assert_equal(2, pkgs.length)
-    FileUtils.rm_rf(testbase)
     
+    Dir.mktmpdir('testbase') do |testbase|
+      tpkg = Tpkg.new(:base => testbase, :sources => [source])
+      
+      assert_nothing_raised { tpkg.prep_metadata }
+      assert_equal(1, tpkg.metadata['testpkg'].length)
+      # The two XML documents ought to be identical, but the one that gets
+      # extracted, packed into metadata.xml and then unpacked into
+      # @metadata is missing the XML headers (XML version and DTD).
+      # Someday we should fix that, in the meantime check that they look
+      # similar by checking the name element.
+      assert_equal(Tpkg::metadata_from_package(@pkgfile)[:name], tpkg.metadata['testpkg'].first[:name])
+      assert_equal(1, tpkg.metadata['testpkg2'].length)
+      assert_equal(Tpkg::metadata_from_package(pkgfile2)[:name], tpkg.metadata['testpkg2'].first[:name])
+      pkgs = tpkg.metadata.collect {|m| m[1]}.flatten
+      assert_equal(2, pkgs.length)
+    end
+      
     # Test when the package directory isn't at the root of the web
     # server hierarchy
     Dir.mkdir(File.join(@pkgdir, 'testdir'))
     # We don't generate metadata.xml anymore
 #    FileUtils.mv(File.join(@pkgdir, 'metadata.xml'), File.join(@pkgdir, 'testdir', 'metadata.xml'))
     FileUtils.mv(File.join(@pkgdir, 'metadata.yml'), File.join(@pkgdir, 'testdir', 'metadata.yml'))
-    # With a trailing / on the URL
-    testbase = Tempdir.new("testbase")
-    tpkg = Tpkg.new(:base => testbase, :sources => [source + 'testdir/'])
-    assert_nothing_raised { tpkg.prep_metadata }
-    assert_equal(1, tpkg.metadata['testpkg'].length)
-    assert_equal(1, tpkg.metadata['testpkg2'].length)
-    pkgs = tpkg.metadata.collect {|m| m[1]}.flatten
-    nonnativepkgs = pkgs.select do |pkg|
-      pkg[:source] != :native_installed && pkg[:source] != :native_available
+    
+    Dir.mktmpdir('testbase') do |testbase|
+      # With a trailing / on the URL
+      tpkg = Tpkg.new(:base => testbase, :sources => [source + 'testdir/'])
+      assert_nothing_raised { tpkg.prep_metadata }
+      assert_equal(1, tpkg.metadata['testpkg'].length)
+      assert_equal(1, tpkg.metadata['testpkg2'].length)
+      pkgs = tpkg.metadata.collect {|m| m[1]}.flatten
+      nonnativepkgs = pkgs.select do |pkg|
+        pkg[:source] != :native_installed && pkg[:source] != :native_available
+      end
+      assert_equal(2, nonnativepkgs.length)
     end
-    assert_equal(2, nonnativepkgs.length)
-    FileUtils.rm_rf(testbase)
-    # Without a trailing / on the URL
-    testbase = Tempdir.new("testbase")
-    tpkg = Tpkg.new(:base => testbase, :sources => [source + 'testdir'])
-    assert_nothing_raised { tpkg.prep_metadata }
-    assert_equal(1, tpkg.metadata['testpkg'].length)
-    assert_equal(1, tpkg.metadata['testpkg2'].length)
-    pkgs = tpkg.metadata.collect {|m| m[1]}.flatten
-    nonnativepkgs = pkgs.select do |pkg|
-      pkg[:source] != :native_installed && pkg[:source] != :native_available
+    
+    Dir.mktmpdir('testbase') do |testbase|
+      # Without a trailing / on the URL
+      tpkg = Tpkg.new(:base => testbase, :sources => [source + 'testdir'])
+      assert_nothing_raised { tpkg.prep_metadata }
+      assert_equal(1, tpkg.metadata['testpkg'].length)
+      assert_equal(1, tpkg.metadata['testpkg2'].length)
+      pkgs = tpkg.metadata.collect {|m| m[1]}.flatten
+      nonnativepkgs = pkgs.select do |pkg|
+        pkg[:source] != :native_installed && pkg[:source] != :native_available
+      end
+      assert_equal(2, nonnativepkgs.length)
     end
-    assert_equal(2, nonnativepkgs.length)
-    FileUtils.rm_rf(testbase)
     
     s.shutdown
     t.kill
@@ -194,31 +198,30 @@ class TpkgMetadataTests < Test::Unit::TestCase
     # dirty route.
     t = Thread.new { s.start }
     
-    testbase = Tempdir.new("testbase")
-    source = 'http://localhost:3500/'
-    tpkg = Tpkg.new(:base => testbase, :sources => [source])
-
-    assert_nothing_raised { tpkg.load_available_packages('testpkg') }
-    assert_equal(1, tpkg.available_packages['testpkg'].length)
-    expected = Tpkg::metadata_from_package(@pkgfile)
-    actual = tpkg.available_packages['testpkg'].first[:metadata]
-    assert_equal(expected.to_hash, actual.to_hash)
-    pkgs = tpkg.available_packages.collect {|m| m[1]}.flatten
-    assert_equal(1, pkgs.length)
-
-    assert_nothing_raised { tpkg.load_available_packages('testpkg2') }
-    assert_equal(1, tpkg.available_packages['testpkg2'].length)
-    expected = Tpkg::metadata_from_package(pkgfile2)
-    actual = tpkg.available_packages['testpkg2'].first[:metadata]
-    assert_equal(expected.to_hash, actual.to_hash)
-    pkgs = tpkg.available_packages.collect {|m| m[1]}.flatten
-    assert_equal(2, pkgs.length)
-
-    # Test with a package that isn't available
-    assert_nothing_raised { tpkg.load_available_packages('otherpkg') }
-    assert_equal(0, tpkg.available_packages['otherpkg'].length)
-    
-    FileUtils.rm_rf(testbase)
+    Dir.mktmpdir('testbase') do |testbase|
+      source = 'http://localhost:3500/'
+      tpkg = Tpkg.new(:base => testbase, :sources => [source])
+      
+      assert_nothing_raised { tpkg.load_available_packages('testpkg') }
+      assert_equal(1, tpkg.available_packages['testpkg'].length)
+      expected = Tpkg::metadata_from_package(@pkgfile)
+      actual = tpkg.available_packages['testpkg'].first[:metadata]
+      assert_equal(expected.to_hash, actual.to_hash)
+      pkgs = tpkg.available_packages.collect {|m| m[1]}.flatten
+      assert_equal(1, pkgs.length)
+      
+      assert_nothing_raised { tpkg.load_available_packages('testpkg2') }
+      assert_equal(1, tpkg.available_packages['testpkg2'].length)
+      expected = Tpkg::metadata_from_package(pkgfile2)
+      actual = tpkg.available_packages['testpkg2'].first[:metadata]
+      assert_equal(expected.to_hash, actual.to_hash)
+      pkgs = tpkg.available_packages.collect {|m| m[1]}.flatten
+      assert_equal(2, pkgs.length)
+      
+      # Test with a package that isn't available
+      assert_nothing_raised { tpkg.load_available_packages('otherpkg') }
+      assert_equal(0, tpkg.available_packages['otherpkg'].length)
+    end
     
     s.shutdown
     t.kill
@@ -263,24 +266,24 @@ class TpkgMetadataTests < Test::Unit::TestCase
     # Hat, Solaris, Mac OS X and FreeBSD.  And the dpkg stuff could
     # probably use some expansion.
     if Tpkg.get_os =~ /Debian|Ubuntu/
-      testbase = Tempdir.new("testbase")
-      tpkg = Tpkg.new(:base => testbase)
-      system('sudo apt-get install curl')
-      tpkg.load_available_native_packages('curl')
-      curl_installed = tpkg.available_native_packages['curl'].select{|pkg| pkg[:source] == :native_installed}
-      curl_available = tpkg.available_native_packages['curl'].select{|pkg| pkg[:source] == :native_available}
-      assert_equal(1, curl_installed.length)
-      FileUtils.rm_rf(testbase)
+      Dir.mktmpdir('testbase') do |testbase|
+        tpkg = Tpkg.new(:base => testbase)
+        system('sudo apt-get install curl')
+        tpkg.load_available_native_packages('curl')
+        curl_installed = tpkg.available_native_packages['curl'].select{|pkg| pkg[:source] == :native_installed}
+        curl_available = tpkg.available_native_packages['curl'].select{|pkg| pkg[:source] == :native_available}
+        assert_equal(1, curl_installed.length)
+      end
       
-      testbase = Tempdir.new("testbase")
-      tpkg = Tpkg.new(:base => testbase)
-      system('sudo dpkg -r curl')
-      tpkg.load_available_native_packages('curl')
-      curl_installed = tpkg.available_native_packages['curl'].select{|pkg| pkg[:source] == :native_installed}
-      curl_available = tpkg.available_native_packages['curl'].select{|pkg| pkg[:source] == :native_available}
-      assert_equal(0, curl_installed.length)
-      assert(curl_available.length >= 1)
-      FileUtils.rm_rf(testbase)
+      Dir.mktmpdir('testbase') do |testbase|
+        tpkg = Tpkg.new(:base => testbase)
+        system('sudo dpkg -r curl')
+        tpkg.load_available_native_packages('curl')
+        curl_installed = tpkg.available_native_packages['curl'].select{|pkg| pkg[:source] == :native_installed}
+        curl_available = tpkg.available_native_packages['curl'].select{|pkg| pkg[:source] == :native_available}
+        assert_equal(0, curl_installed.length)
+        assert(curl_available.length >= 1)
+      end
       
       # Make sure we leave the user with curl installed in case they had
       # it installed before we started.  (We probably should be fancier
@@ -294,24 +297,24 @@ class TpkgMetadataTests < Test::Unit::TestCase
   end
 
   def test_init_links
-    srcdir = Tempdir.new("srcdir")
-    FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
-    FileUtils.mkdir_p(File.join(srcdir, 'reloc'))
-    File.open(File.join(srcdir, 'reloc', 'myinit'), 'w') do |file|
-      file.puts('init script')
+    pkg = nil
+    pkg2 = nil
+    Dir.mktmpdir('srcdir') do |srcdir|
+      FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+      FileUtils.mkdir_p(File.join(srcdir, 'reloc'))
+      File.open(File.join(srcdir, 'reloc', 'myinit'), 'w') do |file|
+        file.puts('init script')
+      end
+      pkg  = make_package(:change => { 'name' => 'a' }, :source_directory => srcdir, :files => { 'myinit' => { 'init' => {} } }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      pkg2 = make_package(:change => { 'name' => 'b' }, :source_directory => srcdir, :files => { 'myinit' => { 'init' => { 'levels' => '' } } }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
     end
-    pkg  = make_package(:change => { 'name' => 'a' }, :source_directory => srcdir, :files => { 'myinit' => { 'init' => {} } }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
-    pkg2 = make_package(:change => { 'name' => 'b' }, :source_directory => srcdir, :files => { 'myinit' => { 'init' => { 'levels' => '' } } }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
-    FileUtils.rm_rf(srcdir)
-    testroot = Tempdir.new("testroot")
-    testbase = File.join(testroot, 'home', 'tpkg')
-    FileUtils.mkdir_p(testbase)
-    tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [pkg])
-    metadata  = Tpkg::metadata_from_package(pkg)
-    metadata2 = Tpkg::metadata_from_package(pkg2)
-    begin
+    Dir.mktmpdir('testroot') do |testroot|
+      testbase = File.join(testroot, 'home', 'tpkg')
+      FileUtils.mkdir_p(testbase)
+      tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [pkg])
+      metadata  = Tpkg::metadata_from_package(pkg)
+      metadata2 = Tpkg::metadata_from_package(pkg2)
       links = tpkg.init_links(metadata)
-      assert(links.length >= 1)
       links.each do |link, init_script|
         # Not quite sure how to verify that link is valid without
         # reproducing all of the code of init_links here
@@ -319,46 +322,41 @@ class TpkgMetadataTests < Test::Unit::TestCase
       end
       # Test a package with an empty set of runlevels specified
       assert(tpkg.init_links(metadata2).empty?)
-    rescue RuntimeError
-      warn "No init script support on this platform, init_links will not be tested"
     end
     FileUtils.rm_f(pkg)
-    FileUtils.rm_rf(testroot)
+    FileUtils.rm_f(pkg2)
   end
   
   def test_crontab_destinations
-    srcdir = Tempdir.new("srcdir")
-    FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
-    FileUtils.mkdir_p(File.join(srcdir, 'reloc'))
-    File.open(File.join(srcdir, 'reloc', 'mycrontab'), 'w') do |file|
-      file.puts('crontab')
+    pkg = nil
+    Dir.mktmpdir('srcdir') do |srcdir|
+      FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+      FileUtils.mkdir_p(File.join(srcdir, 'reloc'))
+      File.open(File.join(srcdir, 'reloc', 'mycrontab'), 'w') do |file|
+        file.puts('crontab')
+      end
+      pkg = make_package(:change => { 'name' => 'a' }, :source_directory => srcdir, :files => { 'mycrontab' => { 'crontab' => {'user' => 'root'} } }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
     end
-    pkg = make_package(:change => { 'name' => 'a' }, :source_directory => srcdir, :files => { 'mycrontab' => { 'crontab' => {'user' => 'root'} } }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
-    FileUtils.rm_rf(srcdir)
-    testroot = Tempdir.new("testroot")
-    testbase = File.join(testroot, 'home', 'tpkg')
-    FileUtils.mkdir_p(testbase)
-    tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [pkg])
-    metadata = Tpkg::metadata_from_package(pkg)
-    begin
+    Dir.mktmpdir('testroot') do |testroot|
+      testbase = File.join(testroot, 'home', 'tpkg')
+      FileUtils.mkdir_p(testbase)
+      tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [pkg])
+      metadata = Tpkg::metadata_from_package(pkg)
       destinations = tpkg.crontab_destinations(metadata)
-      assert(destinations.length >= 1)
       destinations.each do |crontab, destination|
         # Not quite sure how to verify that the file or link is valid
         # without reproducing all of the code of crontab_destinations
         # here.
         assert(destination.has_key?(:file) || destination.has_key?(:link))
       end
-    rescue RuntimeError
-      warn "No crontab support on this platform, crontab_destinations will not be tested"
     end
     FileUtils.rm_f(pkg)
-    FileUtils.rm_rf(testroot)
   end
   
   def teardown
     FileUtils.rm_f(@pkgfile)
     FileUtils.rm_rf(@pkgdir)
     FileUtils.rm_rf(@testbase)
+    FileUtils.rm_rf(@tempoutdir)
   end
 end
