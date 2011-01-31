@@ -14,7 +14,7 @@ class TpkgInstallTests < Test::Unit::TestCase
     
     # Make up our regular test package
     @pkgfile = make_package(:remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
-    @testroot = Tempdir.new("testroot")
+    @testroot = Dir.mktmpdir('testroot')
   end
   
   def test_install
@@ -43,31 +43,31 @@ class TpkgInstallTests < Test::Unit::TestCase
 
     @pkgfiles = []
     ['a', 'b', 'c'].each do |pkgname|
-      srcdir = Tempdir.new("srcdir")
-      FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
-      FileUtils.mkdir(File.join(srcdir, 'reloc'))
-      File.open(File.join(srcdir, 'reloc', pkgname), 'w') do |file|
-        file.puts pkgname
+      Dir.mktmpdir('srcdir') do |srcdir|
+        FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+        FileUtils.mkdir(File.join(srcdir, 'reloc'))
+        File.open(File.join(srcdir, 'reloc', pkgname), 'w') do |file|
+          file.puts pkgname
+        end
+        
+        # make a depends on c and c depends on b
+        deps = {}
+        if pkgname == 'a'
+          deps['c'] = {}
+        elsif pkgname == 'c'
+          deps['b'] = {}
+        end
+        
+        # make a postinstall script that sleeps for 1 second. That way we
+        # have enough time between each installation to determine the order of how they 
+        # were installed
+        File.open(File.join(srcdir, 'postinstall'), 'w') do | file |
+          file.puts "#!/bin/bash\nsleep 1"
+        end
+        File.chmod(0755, File.join(srcdir, 'postinstall'))
+        
+        @pkgfiles << make_package(:change => {'name' => pkgname}, :source_directory => srcdir, :dependencies => deps, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
       end
-
-      # make a depends on c and c depends on b
-      deps = {}
-      if pkgname == 'a'
-        deps['c'] = {}
-      elsif pkgname == 'c'
-        deps['b'] = {}
-      end
-
-      # make a postinstall script that sleeps for 1 second. That way we
-      # have enough time between each installation to determine the order of how they 
-      # were installed
-      File.open(File.join(srcdir, 'postinstall'), 'w') do | file |
-        file.puts "#!/bin/bash\nsleep 1"
-      end
-      File.chmod(0755, File.join(srcdir, 'postinstall'))
-
-      @pkgfiles << make_package(:change => {'name' => pkgname}, :source_directory => srcdir, :dependencies => deps, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
-      FileUtils.rm_rf(srcdir)
     end
 
     @tpkg = Tpkg.new(:file_system_root => @testroot, :base => File.join('home', 'tpkg'), :sources => @pkgfiles)
@@ -84,26 +84,30 @@ class TpkgInstallTests < Test::Unit::TestCase
   # Verify that we can install multiple versions of the same package
   def test_install_multiple_versions
     pkgfiles = []
-    testroot = Tempdir.new("testroot")
     ['1', '2'].each do |pkgver|
       pkgfiles << make_package(:change => {'version' => pkgver, 'name' => 'versiontest'}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
     end
-    tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => pkgfiles)
-    assert_nothing_raised { tpkg.install(['versiontest=1'], PASSPHRASE) }
-    assert_nothing_raised { tpkg.install(['versiontest=2'], PASSPHRASE) }
-    metadata = tpkg.metadata_for_installed_packages
-    # verify that both of them are installed
-    assert_equal(metadata.size, 2)
-
+    
+    Dir.mktmpdir('testroot') do |testroot|
+      tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => pkgfiles)
+      assert_nothing_raised { tpkg.install(['versiontest=1'], PASSPHRASE) }
+      assert_nothing_raised { tpkg.install(['versiontest=2'], PASSPHRASE) }
+      metadata = tpkg.metadata_for_installed_packages
+      # verify that both of them are installed
+      assert_equal(metadata.size, 2)
+    end
+    
     # verify we can install in reverse order
-    testroot = Tempdir.new("testroot2")
-    tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => pkgfiles)
-    assert_nothing_raised { tpkg.install(['versiontest=2'], PASSPHRASE) }
-    assert_nothing_raised { tpkg.install(['versiontest=1'], PASSPHRASE) }
-    metadata = tpkg.metadata_for_installed_packages
-    # verify that both of them are installed
-    assert_equal(metadata.size, 2)
-
+    Dir.mktmpdir('testroot') do |testroot|
+      tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => pkgfiles)
+      assert_nothing_raised { tpkg.install(['versiontest=2'], PASSPHRASE) }
+      assert_nothing_raised { tpkg.install(['versiontest=1'], PASSPHRASE) }
+      metadata = tpkg.metadata_for_installed_packages
+      # verify that both of them are installed
+      assert_equal(metadata.size, 2)
+    end
+    
+    pkgfiles.each { |pkgfile| FileUtils.rm_f(pkgfile) }
   end
   
   def teardown
