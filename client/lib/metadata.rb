@@ -560,7 +560,20 @@ class Metadata
       external = {}
       external[:name] = extxml.elements['name'].text
       if extxml.elements['data']
-        external[:data] = extxml.elements['data'].children.to_s
+        # The data element requires special handling.  We want to capture its
+        # raw contents, which may be XML.  The "text" method we use for other
+        # fields only returns text outside of child XML elements.  That fine
+        # for other fields which we don't expect to contain any child
+        # elements.  But here there may well be child elements and we need to
+        # capture the raw data.
+        # I.e. if we have:
+        # <data>
+        #   <one>Some text</one>
+        #   <two>Other text</two>
+        # </data>
+        # We want to capture:
+        # "\n  <one>Some text</one>\n  <two>Other text</two>\n"
+        external[:data] = extxml.elements['data'].children.join('')
       elsif extxml.elements['datafile']
         # We don't have access to the package contents here, so we just save
         # the name of the file and leave it up to others to read the file
