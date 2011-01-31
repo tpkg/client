@@ -82,6 +82,22 @@ class TpkgMetadataTests < Test::Unit::TestCase
     FileUtils.rm_f(pkgfile)
     
     # FIXME: files
+    
+    extname = 'testext'
+    extdata = "This is a test of parsing an external\nwith multiple lines\nof data"
+    pkgfile = make_package(:change => { 'name' => 'externalpkg' }, :externals => { extname => { 'data' => extdata } })
+    metadata = Tpkg::metadata_from_package(pkgfile)
+    assert_equal(extname, metadata[:externals].first[:name])
+    assert_equal(extdata, metadata[:externals].first[:data])
+    FileUtils.rm_f(pkgfile)
+    
+    extname = 'testext'
+    extdata = "<element>Test external</element>\n<other>with XML data</other>"
+    pkgfile = make_package(:change => { 'name' => 'externalpkg' }, :externals => { extname => { 'data' => extdata } })
+    metadata = Tpkg::metadata_from_package(pkgfile)
+    assert_equal(extname, metadata[:externals].first[:name])
+    assert_equal(extdata, metadata[:externals].first[:data])
+    FileUtils.rm_f(pkgfile)
   end
   
   def test_metadata_from_directory
