@@ -7,8 +7,8 @@ $:.unshift(File.join(File.dirname(File.dirname(__FILE__)), 'lib'))
 require 'test/unit'
 require 'fileutils'
 require 'tpkg'
-require File.dirname(__FILE__) + '/tempdir'
 require 'tempfile'
+require 'tmpdir'
 require 'facter'
 
 Tpkg::set_debug(true) if ENV['debug']
@@ -26,6 +26,52 @@ module Kernel
     $stdout = STDOUT
   end
  
+end
+
+# Ruby 1.8.7 and newer have a Dir.mktmpdir
+# "Backport" it for earlier versions.  This is copied straight out of the
+# 1.8.7 tmpdir.rb
+unless Dir.respond_to?(:mktmpdir)
+  module Dir
+    def Dir.mktmpdir(prefix_suffix=nil, tmpdir=nil)
+      case prefix_suffix
+      when nil
+        prefix = "d"
+        suffix = ""
+      when String
+        prefix = prefix_suffix
+        suffix = ""
+      when Array
+        prefix = prefix_suffix[0]
+        suffix = prefix_suffix[1]
+      else
+        raise ArgumentError, "unexpected prefix_suffix: #{prefix_suffix.inspect}"
+      end
+      tmpdir ||= Dir.tmpdir
+      t = Time.now.strftime("%Y%m%d")
+      n = nil
+      begin
+        path = "#{tmpdir}/#{prefix}#{t}-#{$$}-#{rand(0x100000000).to_s(36)}"
+        path << "-#{n}" if n
+        path << suffix
+        Dir.mkdir(path, 0700)
+      rescue Errno::EEXIST
+        n ||= 0
+        n += 1
+        retry
+      end
+      
+      if block_given?
+        begin
+          yield path
+        ensure
+          FileUtils.remove_entry_secure path
+        end
+      else
+        path
+      end
+    end
+  end
 end
 
 module TpkgTests
@@ -224,14 +270,13 @@ module TpkgTests
       passphrase = options[:passphrase]
     end
     
-    pkgdir = Tempdir.new('make_package')
-    
-    # Copy package contents into working directory
-    system("#{Tpkg::find_tar} -C #{source_directory} --exclude .svn -cf - . | #{Tpkg::find_tar} -C #{pkgdir} -xpf -")
-    
-    create_metadata_file(File.join(pkgdir, 'tpkg.xml'), options)
-    pkgfile = Tpkg.make_package(pkgdir, passphrase, options)
-    FileUtils.rm_rf(pkgdir)
+    pkgfile = nil
+    Dir.mktmpdir('pkgdir') do |pkgdir|
+      # Copy package contents into working directory
+      system("#{Tpkg::find_tar} -C #{source_directory} --exclude .svn -cf - . | #{Tpkg::find_tar} -C #{pkgdir} -xpf -")
+      create_metadata_file(File.join(pkgdir, 'tpkg.xml'), options)
+      pkgfile = Tpkg.make_package(pkgdir, passphrase, options)
+    end
     
     # move the pkgfile to designated directory (if user specifies it)
     if output_directory
