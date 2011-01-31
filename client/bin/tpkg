@@ -483,7 +483,7 @@ when :verify
   # Verify an installed pkg
   else
     tpkg = instantiate_tpkg(@tpkg_options)
-    results = tpkg.verify_file_metadata(@action_value)
+    results = tpkg.verify_file_metadata([@action_value])
     if results.length == 0
       puts "No package found"
     end
