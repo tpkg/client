@@ -638,8 +638,9 @@ class Tpkg
     File.rename(metadata_tmpfile.path, File.join(dest, 'metadata.yml'))
   end
   
-  # Haven't found a Ruby method for creating temporary directories,
-  # so create a temporary file and replace it with a directory.
+  # Ruby 1.8.7 and later have Dir.mktmpdir, but we support ruby 1.8.5 for
+  # RHEL/CentOS 5.  So this is a basic substitute.
+  # FIXME: consider "backport" for Dir.mktmpdir like we use in the test suite
   def self.tempdir(basename, tmpdir=Dir::tmpdir)
     tmpfile = Tempfile.new(basename, tmpdir)
     tmpdir = tmpfile.path
