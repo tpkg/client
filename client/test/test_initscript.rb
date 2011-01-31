@@ -12,7 +12,7 @@ class TpkgInitScriptsTests < Test::Unit::TestCase
   def setup
     Tpkg::set_prompt(false)
     
-    # temp dir that will automatically get deleted at end of test run can be
+    # temp dir that will automatically get deleted at end of test run, can be
     # used for storing packages
     @tempoutdir = Dir.mktmpdir('tempoutdir')
     # Make up a package with both relocatable and non-relocatable
