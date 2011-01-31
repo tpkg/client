@@ -15,7 +15,7 @@ class TpkgDownloadTests < Test::Unit::TestCase
     @pkgfile = make_package
     
     # Copy the package into a directory to test directory-related operations
-    @pkgdir = Tempdir.new("pkgdir")
+    @pkgdir = Dir.mktmpdir('pkgdir')
     FileUtils.cp(@pkgfile, @pkgdir)
   end
   
@@ -28,27 +28,27 @@ class TpkgDownloadTests < Test::Unit::TestCase
     # dirty route.
     t = Thread.new { s.start }
     
-    testbase = Tempdir.new("testbase")
-    source = 'http://localhost:3500/'
-    tpkg = Tpkg.new(:base => testbase, :sources => [source])
-    # Download and verify
-    assert_nothing_raised { tpkg.download(source, File.basename(@pkgfile)) }
-    localpath = File.join(tpkg.source_to_local_directory(source), File.basename(@pkgfile))
-    assert(File.exist?(localpath))
-    assert_equal(0644, File.stat(localpath).mode & 07777)
-    assert(Tpkg::verify_package_checksum(localpath))
-    
-    # Mess with the package so that it doesn't verify, then confirm that
-    # calling download again re-downloads it
-    File.open(localpath, 'w') do |file|
-      file.puts "Bogus package now"
+    Dir.mktmpdir('testbase') do |testbase|
+      source = 'http://localhost:3500/'
+      tpkg = Tpkg.new(:base => testbase, :sources => [source])
+      # Download and verify
+      assert_nothing_raised { tpkg.download(source, File.basename(@pkgfile)) }
+      localpath = File.join(tpkg.source_to_local_directory(source), File.basename(@pkgfile))
+      assert(File.exist?(localpath))
+      assert_equal(0644, File.stat(localpath).mode & 07777)
+      assert(Tpkg::verify_package_checksum(localpath))
+      
+      # Mess with the package so that it doesn't verify, then confirm that
+      # calling download again re-downloads it
+      File.open(localpath, 'w') do |file|
+        file.puts "Bogus package now"
+      end
+      assert_raise(RuntimeError, NoMethodError) { Tpkg::verify_package_checksum(localpath) }
+      assert_nothing_raised { tpkg.download(source, File.basename(@pkgfile)) }
+      assert(File.exist?(localpath))
+      assert(Tpkg::verify_package_checksum(localpath))
     end
-    assert_raise(RuntimeError, NoMethodError) { Tpkg::verify_package_checksum(localpath) }
-    assert_nothing_raised { tpkg.download(source, File.basename(@pkgfile)) }
-    assert(File.exist?(localpath))
-    assert(Tpkg::verify_package_checksum(localpath))
     
-    FileUtils.rm_rf(testbase)
     s.shutdown
     t.kill
   end
@@ -68,22 +68,22 @@ class TpkgDownloadTests < Test::Unit::TestCase
     # dirty route.
     t = Thread.new { s.start }
 
-    testbase = Tempdir.new("testbase")
-    destdir = Tempdir.new("destdir")
-    source = 'http://localhost:3500/'
-    tpkg = Tpkg.new(:base => testbase, :sources => [source])
-
-    # Try to request a download of a non-existing package
-    result = tpkg.download_pkgs('non-existing', {:out => destdir})
-    assert_equal(Tpkg::GENERIC_ERR, result)
-
-    # Try to request a download of existing packages
-    result = tpkg.download_pkgs(['pkga', 'pkgb'], {:out => destdir})
-    assert_equal(0, result)
-    assert_equal(2, Dir.glob(File.join(destdir, '*')).size)  # we have downloaded 2 packages
-
-    FileUtils.rm_rf(testbase)
-    FileUtils.rm_rf(destdir)
+    Dir.mktmpdir('testbase') do |testbase|
+      Dir.mktmpdir('destdir') do |destdir|
+        source = 'http://localhost:3500/'
+        tpkg = Tpkg.new(:base => testbase, :sources => [source])
+        
+        # Try to request a download of a non-existing package
+        result = tpkg.download_pkgs(['non-existing'], {:out => destdir})
+        assert_equal(Tpkg::GENERIC_ERR, result)
+        
+        # Try to request a download of existing packages
+        result = tpkg.download_pkgs(['pkga', 'pkgb'], {:out => destdir})
+        assert_equal(0, result)
+        assert_equal(2, Dir.glob(File.join(destdir, '*')).size)  # we have downloaded 2 packages
+      end
+    end
+    
     s.shutdown
     t.kill
   end
