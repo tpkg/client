@@ -43,15 +43,15 @@ class TpkgTarTests < Test::Unit::TestCase
   def test_clear_cached_tar
     tar = Tpkg::find_tar
     Tpkg::clear_cached_tar
-    pathdir = Tempdir.new("pathdir")
-    mytar = File.join(pathdir, 'tar')
-    File.symlink(tar, mytar)
-    oldpath = ENV['PATH']
-    ENV['PATH'] = "#{pathdir}:#{oldpath}"
-    assert_equal(mytar, Tpkg::find_tar)
-    Tpkg::clear_cached_tar
-    ENV['PATH'] = oldpath
-    FileUtils.rm_rf(pathdir)
+    Dir.mktmpdir('pathdir') do |pathdir|
+      mytar = File.join(pathdir, 'tar')
+      File.symlink(tar, mytar)
+      oldpath = ENV['PATH']
+      ENV['PATH'] = "#{pathdir}:#{oldpath}"
+      assert_equal(mytar, Tpkg::find_tar)
+      Tpkg::clear_cached_tar
+      ENV['PATH'] = oldpath
+    end
   end
 end
 
