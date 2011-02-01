@@ -1317,6 +1317,8 @@ class Tpkg
       elsif File.directory?(File.join(@configdir, 'tpkg', 'ca'))
         http.ca_path = File.join(@configdir, 'tpkg', 'ca')
         http.verify_mode = OpenSSL::SSL::VERIFY_PEER
+      else
+        http.verify_mode = OpenSSL::SSL::VERIFY_NONE
       end
     end
     http.start
