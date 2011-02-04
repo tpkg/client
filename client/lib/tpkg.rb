@@ -3085,6 +3085,15 @@ class Tpkg
               # datafile again in the future.
               external.delete(:datafile)
             elsif external[:datascript]
+              # Warn the user about non-executable files, popen will visibly
+              # complain but in the midst of a complex install of multiple
+              # packages it won't be clear to the user in what context the
+              # program was executed nor which package has the problem.  Our
+              # warning specifies that it was a datascript and includes the
+              # package name.
+              if !File.executable?(external[:datascript])
+                warn "Warning: datascript for package #{File.basename(metadata[:filename])} is not executable, execution will likely fail"
+              end
               # Run the script
               IO.popen(external[:datascript]) do |pipe|
                 external[:data] = pipe.read
