@@ -923,7 +923,10 @@ class TpkgUnpackTests < Test::Unit::TestCase
         FileUtils.mv(File.join(workdir, 'tpkg', 'datascript'), File.join(workdir, 'datascript'))
         # Same deal as last test, revert to unmodified copy
         metadata[:externals] = original_externals
-        assert_raise(RuntimeError) { tpkg.run_externals_for_install(metadata, workdir) }
+        # RuntimeError in ruby 1.8 as popen doesn't fail, so the failure is
+        # caught by our exit status check
+        # Errno::ENOENT in ruby 1.9, raised by popen
+        assert_raise(RuntimeError, Errno::ENOENT) { tpkg.run_externals_for_install(metadata, workdir) }
         assert_equal(pwd, Dir.pwd)
         # Put datascript back
         FileUtils.mv(File.join(workdir, 'datascript'), File.join(workdir, 'tpkg', 'datascript'))
@@ -931,7 +934,10 @@ class TpkgUnpackTests < Test::Unit::TestCase
         # Check non-executable datascript permissions case too
         File.chmod(0644, File.join(workdir, 'tpkg', 'datascript'))
         metadata[:externals] = original_externals
-        assert_raise(RuntimeError) { tpkg.run_externals_for_install(metadata, workdir) }
+        # RuntimeError in ruby 1.8 as popen doesn't fail, so the failure is
+        # caught by our exit status check
+        # Errno::EACCES in ruby 1.9, raised by popen
+        assert_raise(RuntimeError, Errno::EACCES) { tpkg.run_externals_for_install(metadata, workdir) }
         assert_equal(pwd, Dir.pwd)
         # Restore permissions
         File.chmod(0755, File.join(workdir, 'tpkg', 'datascript'))
