@@ -4,6 +4,9 @@
 
 require "./#{File.dirname(__FILE__)}/tpkgtest"
 require 'open3'
+require 'rbconfig'
+
+RUBY = File.join(*RbConfig::CONFIG.values_at("bindir", "ruby_install_name")) + RbConfig::CONFIG["EXEEXT"]
 
 class TpkgOptionTests < Test::Unit::TestCase
   include TpkgTests
@@ -17,7 +20,7 @@ class TpkgOptionTests < Test::Unit::TestCase
     output = nil
     # The File.join(blah) is roughly equivalent to '../bin/tpkg'
     parentdir = File.dirname(File.dirname(__FILE__))
-    IO.popen("ruby -I #{File.join(parentdir, 'lib')} #{File.join(parentdir, 'bin', 'tpkg')} --help") do |pipe|
+    IO.popen("#{RUBY} -I #{File.join(parentdir, 'lib')} #{File.join(parentdir, 'bin', 'tpkg')} --help") do |pipe|
       output = pipe.readlines
     end
     # Make sure at least something resembling help output is there
@@ -32,7 +35,7 @@ class TpkgOptionTests < Test::Unit::TestCase
     output = nil
     # The File.join(blah) is roughly equivalent to '../bin/tpkg'
     parentdir = File.dirname(File.dirname(__FILE__))
-    IO.popen("ruby -I #{File.join(parentdir, 'lib')} #{File.join(parentdir, 'bin', 'tpkg')} --qenv") do |pipe|
+    IO.popen("#{RUBY} -I #{File.join(parentdir, 'lib')} #{File.join(parentdir, 'bin', 'tpkg')} --qenv") do |pipe|
       output = pipe.readlines
     end
     # Make sure the expected lines are there
@@ -44,7 +47,7 @@ class TpkgOptionTests < Test::Unit::TestCase
     output = nil
     # The File.join(blah) is roughly equivalent to '../bin/tpkg'
     parentdir = File.dirname(File.dirname(__FILE__))
-    IO.popen("ruby -I #{File.join(parentdir, 'lib')} #{File.join(parentdir, 'bin', 'tpkg')} --qconf") do |pipe|
+    IO.popen("#{RUBY} -I #{File.join(parentdir, 'lib')} #{File.join(parentdir, 'bin', 'tpkg')} --qconf") do |pipe|
       output = pipe.readlines
     end
     # Make sure the expected lines are there
@@ -58,7 +61,7 @@ class TpkgOptionTests < Test::Unit::TestCase
     error = nil
     # The File.join(blah) is roughly equivalent to '../bin/tpkg'
     parentdir = File.dirname(File.dirname(__FILE__))
-    Open3.popen3("ruby -I #{File.join(parentdir, 'lib')} #{File.join(parentdir, 'bin', 'tpkg')} -s shell.sourceforge.net --use-ssh-key no_such_file --no-sudo --version") do |stdin, stdout, stderr|
+    Open3.popen3("#{RUBY} -I #{File.join(parentdir, 'lib')} #{File.join(parentdir, 'bin', 'tpkg')} -s shell.sourceforge.net --use-ssh-key no_such_file --no-sudo --version") do |stdin, stdout, stderr|
       stdin.close
       error = stderr.readlines
     end
@@ -70,7 +73,7 @@ class TpkgOptionTests < Test::Unit::TestCase
     error = nil
     # The File.join(blah) is roughly equivalent to '../bin/tpkg'
     parentdir = File.dirname(File.dirname(__FILE__))
-    Open3.popen3("ruby -I #{File.join(parentdir, 'lib')} #{File.join(parentdir, 'bin', 'tpkg')} -s shell.sourceforge.net --use-ssh-key --version") do |stdin, stdout, stderr|
+    Open3.popen3("#{RUBY} -I #{File.join(parentdir, 'lib')} #{File.join(parentdir, 'bin', 'tpkg')} -s shell.sourceforge.net --use-ssh-key --version") do |stdin, stdout, stderr|
       stdin.close
       output = stdout.readlines
       error = stderr.readlines
@@ -84,7 +87,7 @@ class TpkgOptionTests < Test::Unit::TestCase
     error = nil
     # The File.join(blah) is roughly equivalent to '../bin/tpkg'
     parentdir = File.dirname(File.dirname(__FILE__))
-    Open3.popen3("ruby -I #{File.join(parentdir, 'lib')} #{File.join(parentdir, 'bin', 'tpkg')} -s shell.sourceforge.net --version") do |stdin, stdout, stderr|
+    Open3.popen3("#{RUBY} -I #{File.join(parentdir, 'lib')} #{File.join(parentdir, 'bin', 'tpkg')} -s shell.sourceforge.net --version") do |stdin, stdout, stderr|
       stdin.close
       output = stdout.readlines
       error = stderr.readlines
@@ -99,7 +102,7 @@ class TpkgOptionTests < Test::Unit::TestCase
     Dir.mktmpdir('clibase') do |clibase|
       # The File.join(blah) is roughly equivalent to '../bin/tpkg'
       parentdir = File.dirname(File.dirname(__FILE__))
-      IO.popen("ruby -I #{File.join(parentdir, 'lib')} #{File.join(parentdir, 'bin', 'tpkg')} --base #{clibase} --qconf") do |pipe|
+      IO.popen("#{RUBY} -I #{File.join(parentdir, 'lib')} #{File.join(parentdir, 'bin', 'tpkg')} --base #{clibase} --qconf") do |pipe|
         output = pipe.readlines
       end
       # Make sure the expected line is there
@@ -123,7 +126,7 @@ class TpkgOptionTests < Test::Unit::TestCase
     # The File.join(blah) is roughly equivalent to '../bin/tpkg'
     parentdir = File.dirname(File.dirname(__FILE__))
     # --base, TPKG_HOME and config file all set
-    IO.popen("env TPKG_HOME=/envbase ruby -I #{File.join(parentdir, 'lib')} #{File.join(parentdir, 'bin', 'tpkg')} --base /clibase --test-root #{@testroot} --qconf") do |pipe|
+    IO.popen("env TPKG_HOME=/envbase #{RUBY} -I #{File.join(parentdir, 'lib')} #{File.join(parentdir, 'bin', 'tpkg')} --base /clibase --test-root #{@testroot} --qconf") do |pipe|
       output = pipe.readlines
     end
     # Make sure the expected line is there
@@ -133,7 +136,7 @@ class TpkgOptionTests < Test::Unit::TestCase
     # The File.join(blah) is roughly equivalent to '../bin/tpkg'
     parentdir = File.dirname(File.dirname(__FILE__))
     # TPKG_HOME and config file all set
-    IO.popen("env TPKG_HOME=/envbase ruby -I #{File.join(parentdir, 'lib')} #{File.join(parentdir, 'bin', 'tpkg')} --test-root #{@testroot} --qconf") do |pipe|
+    IO.popen("env TPKG_HOME=/envbase #{RUBY} -I #{File.join(parentdir, 'lib')} #{File.join(parentdir, 'bin', 'tpkg')} --test-root #{@testroot} --qconf") do |pipe|
       output = pipe.readlines
     end
     # Make sure the expected line is there
@@ -143,7 +146,7 @@ class TpkgOptionTests < Test::Unit::TestCase
     # The File.join(blah) is roughly equivalent to '../bin/tpkg'
     parentdir = File.dirname(File.dirname(__FILE__))
     # Only config file set
-    IO.popen("ruby -I #{File.join(parentdir, 'lib')} #{File.join(parentdir, 'bin', 'tpkg')} --test-root #{@testroot} --qconf") do |pipe|
+    IO.popen("#{RUBY} -I #{File.join(parentdir, 'lib')} #{File.join(parentdir, 'bin', 'tpkg')} --test-root #{@testroot} --qconf") do |pipe|
       output = pipe.readlines
     end
     # Make sure the expected line is there
@@ -154,7 +157,7 @@ class TpkgOptionTests < Test::Unit::TestCase
     parentdir = File.dirname(File.dirname(__FILE__))
     # Nothing is set
     File.delete(File.join(@testroot, Tpkg::DEFAULT_CONFIGDIR, 'tpkg.conf'))
-    IO.popen("ruby -I #{File.join(parentdir, 'lib')} #{File.join(parentdir, 'bin', 'tpkg')} --test-root #{@testroot} --qconf") do |pipe|
+    IO.popen("#{RUBY} -I #{File.join(parentdir, 'lib')} #{File.join(parentdir, 'bin', 'tpkg')} --test-root #{@testroot} --qconf") do |pipe|
       output = pipe.readlines
     end
     # Make sure the expected line is there
@@ -169,7 +172,7 @@ class TpkgOptionTests < Test::Unit::TestCase
     # With --test-root the base directory will be /<testroot>/opt/tpkg
     # The File.join(blah) is roughly equivalent to '../bin/tpkg'
     parentdir = File.dirname(File.dirname(__FILE__))
-    IO.popen("ruby -I #{File.join(parentdir, 'lib')} #{File.join(parentdir, 'bin', 'tpkg')} --test-root #{@testroot} --qconf") do |pipe|
+    IO.popen("#{RUBY} -I #{File.join(parentdir, 'lib')} #{File.join(parentdir, 'bin', 'tpkg')} --test-root #{@testroot} --qconf") do |pipe|
       output = pipe.readlines
     end
     # Make sure the expected line is there
@@ -180,7 +183,7 @@ class TpkgOptionTests < Test::Unit::TestCase
     # on what config files are on the system)
     # The File.join(blah) is roughly equivalent to '../bin/tpkg'
     parentdir = File.dirname(File.dirname(__FILE__))
-    IO.popen("ruby -I #{File.join(parentdir, 'lib')} #{File.join(parentdir, 'bin', 'tpkg')} --qconf") do |pipe|
+    IO.popen("#{RUBY} -I #{File.join(parentdir, 'lib')} #{File.join(parentdir, 'bin', 'tpkg')} --qconf") do |pipe|
       output = pipe.readlines
     end
     # This is a rather lame test, but we don't have any way to know how tpkg
