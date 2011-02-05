@@ -629,9 +629,9 @@ class Tpkg
     metadata = metadata_from_directory(directory)
     # And write that out to metadata.yml
     metadata_tmpfile = Tempfile.new('metadata.yml', dest)
-    metadata.each do | metadata |
-      YAML::dump(metadata.to_hash.recursively{|h| h.stringify_keys }, metadata_tmpfile)  
-      #YAML::dump(metadata.to_hash, metadata_tmpfile)  
+    metadata.each do | m |
+      YAML::dump(m.to_hash.recursively{|h| h.stringify_keys }, metadata_tmpfile)
+      #YAML::dump(m.to_hash, metadata_tmpfile)  
     end
     metadata_tmpfile.close
     File.chmod(0644, metadata_tmpfile.path)
