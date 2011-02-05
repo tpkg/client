@@ -97,11 +97,11 @@ class Deployer
             # back and forth if needed. it WILL NOT WORK without this, and it has to
             # be done before any call to exec.
             
-            channel.request_pty do |ch, success|
+            channel.request_pty do |ch_pty, success|
               raise "Could not obtain pty (i.e. an interactive ssh session)" if !success
             end
             
-            channel.exec(cmd) do |ch, success|
+            channel.exec(cmd) do |ch_exec, success|
               puts "Executing #{cmd} on #{server}"
               # 'success' isn't related to bash exit codes or anything, but more
               # about ssh internals (i think... not bash related anyways).
@@ -113,7 +113,7 @@ class Deployer
               # in (see below) returns data. This is what we've been doing all this
               # for; now we can check to see if it's a password prompt, and
               # interactively return data if so (see request_pty above).
-              channel.on_data do |ch, data|
+              channel.on_data do |ch_data, data|
                 if data =~ /Password:/
                   password = get_sudo_pw unless !password.nil? && password != ""
                   channel.send_data "#{password}\n"
@@ -126,11 +126,11 @@ class Deployer
                 end
               end
               
-              channel.on_extended_data do |ch, type, data|
+              channel.on_extended_data do |ch_onextdata, type, data|
                 print "SSH command returned on stderr: #{data}"
               end
               
-              channel.on_request "exit-status" do |ch, data|
+              channel.on_request "exit-status" do |ch_onreq, data|
                 exit_status = data.read_long
               end
             end
