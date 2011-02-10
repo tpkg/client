@@ -428,7 +428,37 @@ YAML
   end
   
   def test_instantiate_from_dir
-    # FIXME
+    Dir.mktmpdir('pkgdir') do |pkgdir|
+      yaml = <<YAML
+name: pkgone
+version: 1
+maintainer: test@example.com
+description: Package one
+YAML
+      File.open(File.join(pkgdir, 'tpkg.yml'), 'w') do |file|
+        file.write yaml
+      end
+      metadata = Metadata.instantiate_from_dir(pkgdir)
+      assert(metadata.kind_of?(Metadata))
+      assert_equal('pkgone', metadata[:name])
+    end
+    
+    Dir.mktmpdir('pkgdir') do |pkgdir|
+      xml = <<XML
+<tpkg>
+  <name>pkgone</name>
+  <version>1</version>
+  <maintainer>test@example.com</maintainer>
+  <description>Package one</description>
+</tpkg>
+XML
+      File.open(File.join(pkgdir, 'tpkg.xml'), 'w') do |file|
+        file.write xml
+      end
+      metadata = Metadata.instantiate_from_dir(pkgdir)
+      assert(metadata.kind_of?(Metadata))
+      assert_equal('pkgone', metadata[:name])
+    end
   end
   
   def test_to_hash
