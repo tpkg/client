@@ -1,3 +1,9 @@
+##############################################################################
+# tpkg package management system
+# Copyright 2009, 2010, 2011 AT&T Interactive
+# License: MIT (http://www.opensource.org/licenses/mit-license.php)
+##############################################################################
+
 # This class stores numbers with multiple decimal points, a format
 # commonly used for version numbers.  For example '2.5.1'.
 

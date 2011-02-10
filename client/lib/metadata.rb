@@ -1,5 +1,8 @@
-require 'yaml'
-require 'rexml/document'
+##############################################################################
+# tpkg package management system
+# Copyright 2009, 2010, 2011 AT&T Interactive
+# License: MIT (http://www.opensource.org/licenses/mit-license.php)
+##############################################################################
 
 # We store this gem in our thirdparty directory. So we need to add it
 # it to the search path
@@ -7,7 +10,16 @@ require 'rexml/document'
 $:.unshift(File.join(File.dirname(__FILE__), 'thirdparty/kwalify-0.7.1/lib'))
 #  And this one for when we're in the svn directory structure
 $:.unshift(File.join(File.dirname(File.dirname(__FILE__)), 'thirdparty/kwalify-0.7.1/lib'))
-require 'kwalify' # for validating yaml
+
+# Exclude standard libraries and gems from the warnings induced by
+# running ruby with the -w flag.  Several of these have warnings and
+# there's nothing we can do to fix that.
+require 'tpkg/silently'
+Silently.silently do
+  require 'yaml'           # YAML
+  require 'rexml/document' # REXML::Document
+  require 'kwalify'        # Kwalify, for validating yaml
+end
 
 # This class is taken from the ActiveSupport gem. 
 # With yaml, keys are stored as string. But when we convert xml to hash, we store the key as

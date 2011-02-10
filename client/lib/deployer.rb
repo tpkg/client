@@ -1,3 +1,9 @@
+##############################################################################
+# tpkg package management system
+# Copyright 2009, 2010, 2011 AT&T Interactive
+# License: MIT (http://www.opensource.org/licenses/mit-license.php)
+##############################################################################
+
 # We store these gems in our thirdparty directory. So we need to add it
 # it to the search path
 #  This one is for when everything is installed
@@ -7,15 +13,21 @@ $:.unshift(File.join(File.dirname(File.dirname(__FILE__)), 'thirdparty/net-ssh-2
 
 $debug = true
 
-require 'thread_pool'
-begin
-  # Try loading net-ssh w/o gems first so that we don't introduce a
-  # dependency on gems if it is not needed.
-  require 'net/ssh'
-rescue LoadError
-  require 'rubygems'
-  require 'net/ssh'
+# Exclude standard libraries and gems from the warnings induced by
+# running ruby with the -w flag.  If any of these had warnings there's
+# nothing we could do to fix that.
+require 'tpkg/silently'
+Silently.silently do
+  begin
+    # Try loading net-ssh w/o gems first so that we don't introduce a
+    # dependency on gems if it is not needed.
+    require 'net/ssh'
+  rescue LoadError
+    require 'rubygems'
+    require 'net/ssh'
+  end
 end
+require 'thread_pool'
 
 class Deployer
   

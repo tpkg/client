@@ -1,8 +1,20 @@
-require 'thread'
-begin
-  require 'fastthread'
-rescue LoadError
-#  $stderr.puts "Using the ruby-core thread implementation"
+##############################################################################
+# tpkg package management system
+# Copyright 2009, 2010, 2011 AT&T Interactive
+# License: MIT (http://www.opensource.org/licenses/mit-license.php)
+##############################################################################
+
+# Exclude standard libraries and gems from the warnings induced by
+# running ruby with the -w flag.  If any of these had warnings there's
+# nothing we could do to fix that.
+require 'tpkg/silently'
+Silently.silently do
+  require 'thread'
+  begin
+    require 'fastthread'
+  rescue LoadError
+  #  $stderr.puts "Using the ruby-core thread implementation"
+  end
 end
 
 class ThreadPool

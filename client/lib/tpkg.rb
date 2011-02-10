@@ -1,11 +1,15 @@
 ##############################################################################
-# tpkg package management system library
-# Copyright 2009, 2010 AT&T Interactive
+# tpkg package management system
+# Copyright 2009, 2010, 2011 AT&T Interactive
 # License: MIT (http://www.opensource.org/licenses/mit-license.php)
 ##############################################################################
 
 STDOUT.sync = STDERR.sync = true # All outputs/prompts to the kernel ASAP
 
+# FIXME: Now that we have a proper directory structure to the
+# development directory we should be able to make a lib/tpkg/ directory,
+# move all the non-tpkg.rb library files into it, change the require
+# lines to 'tpkg/versiontype.rb' and similar, then do away with this.
 # When we build the tpkg packages we put this file in
 # /usr/lib/ruby/site_ruby/1.8/ or similar and then the rest of the ruby
 # files (versiontype.rb, deployer.rb, etc) into
@@ -21,29 +25,36 @@ if File.directory?(tpkglibdir)
   $:.unshift(tpkglibdir)
 end
 
-begin
-  # Try loading facter w/o gems first so that we don't introduce a
-  # dependency on gems if it is not needed.
-  require 'facter'         # Facter
-rescue LoadError
-  require 'rubygems'
-  require 'facter'
+# Exclude standard libraries and gems from the warnings induced by
+# running ruby with the -w flag.  Several of these have warnings under
+# ruby 1.9 and there's nothing we can do to fix that.
+require 'tpkg/silently'
+Silently.silently do
+  begin
+    # Try loading facter w/o gems first so that we don't introduce a
+    # dependency on gems if it is not needed.
+    require 'facter'       # Facter
+  rescue LoadError
+    require 'rubygems'
+    require 'facter'
+  end
+  require 'digest/sha2'    # Digest::SHA256#hexdigest, etc.
+  require 'uri'            # URI
+  require 'net/http'       # Net::HTTP
+  require 'net/https'      # Net::HTTP#use_ssl, etc.
+  require 'time'           # Time#httpdate
+  require 'rexml/document' # REXML::Document
+  require 'fileutils'      # FileUtils.cp, rm, etc.
+  require 'tempfile'       # Tempfile
+  require 'find'           # Find
+  require 'etc'            # Etc.getpwnam, getgrnam
+  require 'openssl'        # OpenSSL
+  require 'open3'          # Open3
+  require 'set'            # Enumerable#to_set
+  require 'yaml'           # YAML
 end
-require 'digest/sha2'    # Digest::SHA256#hexdigest, etc.
-require 'uri'            # URI
-require 'net/http'       # Net::HTTP
-require 'net/https'      # Net::HTTP#use_ssl, etc.
-require 'time'           # Time#httpdate
-require 'rexml/document' # REXML::Document
-require 'fileutils'      # FileUtils.cp, rm, etc.
-require 'tempfile'       # Tempfile
-require 'find'           # Find
-require 'etc'            # Etc.getpwnam, getgrnam
-require 'openssl'        # OpenSSL
-require 'open3'          # Open3
-require 'versiontype'    # Version
+require 'versiontype'      # Version
 require 'deployer'
-require 'set'
 require 'metadata'
 
 class Tpkg
