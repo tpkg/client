@@ -43,6 +43,10 @@ class TpkgMiscTests < Test::Unit::TestCase
       srcb = 'http://www.example.com/pkgs'
       srcb_as_ld = tpkg.source_to_local_directory(srcb)
       
+      assert_match(/^http/, File.basename(srca_as_ld))
+      assert_match(/^http/, File.basename(srcb_as_ld))
+      assert_no_match(/[^a-zA-Z0-9]/, File.basename(srca_as_ld))
+      assert_no_match(/[^a-zA-Z0-9]/, File.basename(srcb_as_ld))
       assert_not_equal(srca_as_ld, srcb_as_ld)
     end
   end
