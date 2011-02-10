@@ -39,7 +39,11 @@ class TpkgMetadataTests < Test::Unit::TestCase
     assert_equal('1.0', metadata[:version], 'metadata_from_package version')
     assert_equal(File.basename(@pkgfile), metadata[:filename], 'metadata_from_package filename attribute')
   end
-
+  
+  # FIXME: Seems a bit odd that this never directly calls
+  # metadata_xml_to_hash. Some of this should be moved to
+  # test_metadata_from_package and then this converted to test
+  # metadata_xml_to_hash directly.
   def test_metadata_xml_to_hash
     pkgfile = make_package(:output_directory => @tempoutdir, :dependencies => {'testpkg2' => {'minimum_version' => '1.0', 'maximum_version' => '3.0', 'minimum_package_version' => '1.5', 'maximum_package_version' => '2.5'}, 'testpkg3' => {}})
     metadata = nil
@@ -367,6 +371,92 @@ class TpkgMetadataTests < Test::Unit::TestCase
       end
     end
     FileUtils.rm_f(pkg)
+  end
+  
+  def test_get_pkgs_metadata_from_yml_doc
+    metadatayaml = <<YAML
+---
+name: pkgone
+version: 1
+maintainer: test@example.com
+description: Package one
+---
+name: pkgone
+version: 2
+maintainer: newuser@example.com
+description: Updated package
+---
+name: pkgtwo
+version: 1
+maintainer: otheruser@example.com
+description: Package two
+YAML
+    
+    metadata = Metadata.get_pkgs_metadata_from_yml_doc(metadatayaml)
+    # Right overall data structure?
+    assert(metadata.kind_of?(Hash))
+    # Both pkgone entries in the same hash key?
+    assert_equal(2, metadata['pkgone'].length)
+    # YAML parsed into right object?
+    firstpkgone = metadata['pkgone'].shift
+    assert(firstpkgone.kind_of?(Metadata))
+    # Parsing looks reasonable?
+    assert_equal('pkgone', firstpkgone[:name])
+    # Just one pkgtwo entry in that hash key?
+    assert_equal(1, metadata['pkgtwo'].length)
+    # Object type and parsing looks reasonable?
+    pkgtwo = metadata['pkgtwo'].shift
+    assert(pkgtwo.kind_of?(Metadata))
+    assert_equal('pkgtwo', pkgtwo[:name])
+    
+    # Test the side-effect use case
+    metadata = {}
+    boguskey = 'Some bogus junk'
+    bogusvalue = ['a', 'b']
+    bogusvalue2 = ['1', '2']
+    metadata[boguskey] = bogusvalue.dup
+    metadata['pkgtwo'] = bogusvalue2.dup
+    Metadata.get_pkgs_metadata_from_yml_doc(metadatayaml, metadata)
+    # Make sure our boguskey hash entry was unchanged
+    assert_equal(bogusvalue, metadata[boguskey])
+    # Ensure the bogus entries we added to the pkgtwo entry were unchanged
+    assert_equal(bogusvalue2, metadata['pkgtwo'].shift(2))
+    # Metadata for pkgtwo was appended to our array?
+    pkgtwo = metadata['pkgtwo'].shift
+    assert(pkgtwo.kind_of?(Metadata))
+    assert_equal('pkgtwo', pkgtwo[:name])
+  end
+  
+  def test_instantiate_from_dir
+    # FIXME
+  end
+  
+  def test_to_hash
+    # FIXME
+  end
+  
+  def test_write
+    # FIXME
+  end
+  
+  def test_add_tpkg_version
+    # FIXME
+  end
+  
+  def test_generate_package_filename
+    # FIXME
+  end
+  
+  def test_validate
+    # FIXME
+  end
+  
+  def test_verify_yaml
+    # FIXME
+  end
+  
+  def test_verify_required_fields
+    # FIXME
   end
   
   def teardown
