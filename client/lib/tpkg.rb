@@ -21,13 +21,6 @@ if File.directory?(tpkglibdir)
   $:.unshift(tpkglibdir)
 end
 
-# We store this gem in our thirdparty directory. So we need to add it
-# it to the search path
-#  This one is for when everything is installed
-$:.unshift(File.join(File.dirname(__FILE__), 'thirdparty/kwalify-0.7.1/lib'))
-#  And this one for when we're in the svn directory structure
-$:.unshift(File.join(File.dirname(File.dirname(__FILE__)), 'thirdparty/kwalify-0.7.1/lib'))
-
 begin
   # Try loading facter w/o gems first so that we don't introduce a
   # dependency on gems if it is not needed.
@@ -52,7 +45,6 @@ require 'versiontype'    # Version
 require 'deployer'
 require 'set'
 require 'metadata'
-require 'kwalify'        # for validating yaml
 
 class Tpkg
   
