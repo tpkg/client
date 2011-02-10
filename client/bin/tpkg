@@ -1,6 +1,8 @@
 #!/usr/bin/ruby -w
 ##############################################################################
-# tpkg package management and deployment tool
+# tpkg package management system
+# Copyright 2009, 2010, 2011 AT&T Interactive
+# License: MIT (http://www.opensource.org/licenses/mit-license.php)
 ##############################################################################
 
 # Ensure we can find tpkg.rb
