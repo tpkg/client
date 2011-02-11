@@ -6,25 +6,6 @@
 
 STDOUT.sync = STDERR.sync = true # All outputs/prompts to the kernel ASAP
 
-# FIXME: Now that we have a proper directory structure to the
-# development directory we should be able to make a lib/tpkg/ directory,
-# move all the non-tpkg.rb library files into it, change the require
-# lines to 'tpkg/versiontype.rb' and similar, then do away with this.
-# When we build the tpkg packages we put this file in
-# /usr/lib/ruby/site_ruby/1.8/ or similar and then the rest of the ruby
-# files (versiontype.rb, deployer.rb, etc) into
-# /usr/lib/ruby/site_ruby/1.8/tpkg/
-# We need to tell Ruby to search that tpkg subdirectory.
-# The alternative is to specify the subdirectory in the require
-# (require 'tpkg/versiontype' for example), but tpkg is also the name
-# of the executable script so we can't create a subdirectory here named
-# tpkg.  If we put the subdir in the require lines then users couldn't
-# run tpkg directly from an svn working copy.
-tpkglibdir = File.join(File.dirname(__FILE__), 'tpkg')
-if File.directory?(tpkglibdir)
-  $:.unshift(tpkglibdir)
-end
-
 # Exclude standard libraries and gems from the warnings induced by
 # running ruby with the -w flag.  Several of these have warnings under
 # ruby 1.9 and there's nothing we can do to fix that.
@@ -53,9 +34,9 @@ Silently.silently do
   require 'set'            # Enumerable#to_set
   require 'yaml'           # YAML
 end
-require 'versiontype'      # Version
-require 'deployer'
-require 'metadata'
+require 'tpkg/versiontype' # Version
+require 'tpkg/deployer'
+require 'tpkg/metadata'
 
 class Tpkg
   

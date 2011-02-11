@@ -27,7 +27,7 @@ Silently.silently do
     require 'net/ssh'
   end
 end
-require 'thread_pool'
+require 'tpkg/thread_pool'
 
 class Deployer
   
