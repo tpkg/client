@@ -1,7 +1,7 @@
 ###
-### $Rev: 92 $
-### $Release: 0.7.1 $
-### copyright(c) 2005-2008 kuwata-lab all rights reserved.
+### $Rev$
+### $Release: 0.7.2 $
+### copyright(c) 2005-2010 kuwata-lab all rights reserved.
 ###
 
 require 'strscan'
@@ -60,7 +60,7 @@ class Kwalify::BaseParser
 
 
   def peep(n=1)
-    return @scanner.peek(n)
+    return @scanner.peep(n)
   end
 
 

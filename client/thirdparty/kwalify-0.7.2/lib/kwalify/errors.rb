@@ -1,7 +1,7 @@
 ###
-### $Rev: 99 $
-### $Release: 0.7.1 $
-### copyright(c) 2005-2008 kuwata-lab all rights reserved.
+### $Rev$
+### $Release: 0.7.2 $
+### copyright(c) 2005-2010 kuwata-lab all rights reserved.
 ###
 
 require 'kwalify/messages'
@@ -26,12 +26,11 @@ module Kwalify
       @rule  = rule
       @value = value
       @error_symbol = error_symbol
-      @filename = @linenum = nil
     end
     attr_accessor :error_symbol, :rule, :path, :value
     attr_accessor :filename, :linenum, :column
 
-    def to_path
+    def path
       return @path == '' ? "/" : @path
     end
 
@@ -42,7 +41,7 @@ module Kwalify
       s = ''
       s << @filename << ":" if @filename
       s << "#{@linenum}:#{@column} " if @linenum
-      s << "[#{to_path()}] " if @path
+      s << "[#{path()}] " if @path
       s << _to_s()
       return s
     end

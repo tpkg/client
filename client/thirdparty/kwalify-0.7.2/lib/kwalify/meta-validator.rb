@@ -1,7 +1,7 @@
 ###
-### $Rev: 95 $
-### $Release: 0.7.1 $
-### copyright(c) 2005-2008 kuwata-lab all rights reserved.
+### $Rev$
+### $Release: 0.7.2 $
+### copyright(c) 2005-2010 kuwata-lab all rights reserved.
 ###
 
 require 'kwalify/errors'
@@ -28,7 +28,6 @@ module Kwalify
 
     filename = File.join(File.dirname(__FILE__), 'kwalify.schema.yaml')
     META_SCHEMA = File.read(filename)
-    @instance = nil
 
     def self.instance()
       unless @instance

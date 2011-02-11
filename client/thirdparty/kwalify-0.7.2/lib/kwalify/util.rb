@@ -1,7 +1,7 @@
 ###
-### $Rev: 88 $
-### $Release: 0.7.1 $
-### copyright(c) 2005-2008 kuwata-lab all rights reserved.
+### $Rev$
+### $Release: 0.7.2 $
+### copyright(c) 2005-2010 kuwata-lab all rights reserved.
 ###
 
 module Kwalify
@@ -17,7 +17,8 @@ module Kwalify
     ##   untabified_str = YamlHelper.untabify(tabbed_str)
     ##
     def untabify(str, width=8)
-      list = str.split(/\t/)
+      return str if str.nil?
+      list = str.split(/\t/, -1)   # if 2nd arg is negative then split() doesn't remove tailing empty strings
       last = list.pop
       sb = ''
       list.each do |s|
@@ -37,7 +38,7 @@ module Kwalify
     ##   Kwalify::Util.traverse_schema(schema) do |rulehash|
     ##     ## add module prefix to class name
     ##     if rulehash['class']
-    ##       rulehash['class'] = "MyModule::' + rulehash['class']
+    ##       rulehash['class'] = 'MyModule::' + rulehash['class']
     ##     end
     ##   end
     def traverse_schema(schema, &block)  #:yield: rulehash

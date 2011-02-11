@@ -1,7 +1,7 @@
 ###
-### $Rev: 95 $
-### $Release: 0.7.1 $
-### copyright(c) 2005-2008 kuwata-lab all rights reserved.
+### $Rev$
+### $Release: 0.7.2 $
+### copyright(c) 2005-2010 kuwata-lab all rights reserved.
 ###
 
 require 'yaml'
@@ -323,7 +323,7 @@ module Kwalify
         end
       elsif ydoc.nil?
         #* key=:validation_empty  msg="%s#%d: empty.\n"
-        puts kwalify.msg(:validation_empty) % [filename, i]
+        puts Kwalify.msg(:validation_empty) % [filename, i]
       else
         #* key=:validation_valid  msg="%s#%d: valid."
         puts Kwalify.msg(:validation_valid) % [filename, i] unless @options[:quiet]
