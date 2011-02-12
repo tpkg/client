@@ -50,6 +50,9 @@ class Tpkg
   CONNECTION_TIMEOUT = 10
 
   DEFAULT_OWNERSHIP_UID = 0
+  DEFAULT_OWNERSHIP_GID = 0
+  DEFAULT_FILE_PERMS = nil
+  DEFAULT_DIR_PERMS = 0755
 
   attr_reader :installed_directory
  
@@ -1090,7 +1093,7 @@ class Tpkg
       perms = stat.mode
       # This is what we set the ownership to by default
       uid = DEFAULT_OWNERSHIP_UID
-      gid = DEFAULT_OWNERSHIP_UID
+      gid = DEFAULT_OWNERSHIP_GID
     end
 
     # get default permission and ownership
@@ -2529,8 +2532,8 @@ class Tpkg
     
     # Handle any default permissions and ownership
     default_uid = DEFAULT_OWNERSHIP_UID
-    default_gid = DEFAULT_OWNERSHIP_UID
-    default_perms = nil
+    default_gid = DEFAULT_OWNERSHIP_GID
+    default_perms = DEFAULT_FILE_PERMS
 
     if (metadata[:files][:file_defaults][:posix][:owner] rescue nil)
       default_uid = Tpkg::lookup_uid(metadata[:files][:file_defaults][:posix][:owner])
@@ -2545,7 +2548,7 @@ class Tpkg
     # Set default dir uid/gid to be same as for file.
     default_dir_uid = default_uid
     default_dir_gid = default_gid
-    default_dir_perms = 0755
+    default_dir_perms = DEFAULT_DIR_PERMS
 
     if (metadata[:files][:dir_defaults][:posix][:owner] rescue nil)
       default_dir_uid = Tpkg::lookup_uid(metadata[:files][:dir_defaults][:posix][:owner])
