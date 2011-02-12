@@ -2564,10 +2564,10 @@ class Tpkg
     reloc_dir = File.join(workdir, 'tpkg', 'reloc')
     Find.find(*Tpkg::get_package_toplevels(File.join(workdir, 'tpkg'))) do |f|
       begin
-        if File.directory?(f)
-          File.chown(default_dir_uid, default_dir_gid, f)
-        else
+        if File.file?(f) && !File.symlink?(f)
           File.chown(default_uid, default_gid, f)
+        elsif File.directory?(f) && !File.symlink?(f)
+          File.chown(default_dir_uid, default_dir_gid, f)
         end
       rescue Errno::EPERM
         raise if Process.euid == 0
