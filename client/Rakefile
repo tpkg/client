@@ -81,7 +81,7 @@ def copy_tpkg_files(destdir, options={})
     
     if options[:copythirdparty]
       # All the nice consistent usage of FileUtils and then this...
-      system("find thirdparty -name .svn -prune -o -print | cpio -pdum #{tpkglibdir}")
+      system("find lib/tpkg/thirdparty -name .svn -prune -o -print | cpio -pdum #{tpkglibdir}")
     end
   end
   

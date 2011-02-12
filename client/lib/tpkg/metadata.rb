@@ -6,10 +6,7 @@
 
 # We store this gem in our thirdparty directory. So we need to add it
 # it to the search path
-#  This one is for when everything is installed
 $:.unshift(File.join(File.dirname(__FILE__), 'thirdparty/kwalify-0.7.2/lib'))
-#  And this one for when we're in the svn directory structure
-$:.unshift(File.join(File.dirname(File.dirname(__FILE__)), 'thirdparty/kwalify-0.7.2/lib'))
 
 # Exclude standard libraries and gems from the warnings induced by
 # running ruby with the -w flag.  Several of these have warnings and

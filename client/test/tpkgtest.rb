@@ -2,7 +2,6 @@
 # Module of code shared by all of the tpkg test cases
 #
 
-$:.unshift(File.join(File.dirname(File.dirname(__FILE__)), 'thirdparty'))
 $:.unshift(File.join(File.dirname(File.dirname(__FILE__)), 'lib'))
 require 'test/unit'
 require 'fileutils'

@@ -1,11 +1,9 @@
-
-
 #
 # Test the Version class
 #
 
 require "./#{File.dirname(__FILE__)}/tpkgtest"
-require 'versiontype'
+require 'tpkg/versiontype'
 
 class VersionTests < Test::Unit::TestCase
   
