@@ -145,9 +145,41 @@ class TpkgUnpackTests < Test::Unit::TestCase
     end
     FileUtils.rm_f(pkg)
     
+    # Test that applying default permissions works in the face of symlinks in
+    # the package
+    pkg = nil
+    Dir.mktmpdir('srcdir') do |srcdir|
+      FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+      FileUtils.mkdir_p(File.join(srcdir, 'reloc'))
+      # Broken link to ensure that nothing attempts to traverse the link and
+      # fails as a result
+      File.symlink('/path/to/nowhere', File.join(srcdir, 'reloc', 'brokenlink'))
+      FileUtils.mkdir_p(File.join(srcdir, 'reloc', 'dir'))
+      File.symlink(File.join(srcdir, 'reloc', 'dir'), File.join(srcdir, 'reloc', 'dirlink'))
+      File.open(File.join(srcdir, 'reloc', 'file'), 'w') do |file|
+        file.puts 'Hello'
+      end
+      File.chmod(0777, File.join(srcdir, 'reloc', 'file'))
+      File.symlink(File.join(srcdir, 'reloc', 'file'), File.join(srcdir, 'reloc', 'filelink'))
+      pkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'unpacklinks' }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    end
+    Dir.mktmpdir('testroot') do |testroot|
+      testbase = File.join(testroot, 'home', 'tpkg')
+      FileUtils.mkdir_p(testbase)
+      tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [pkg])
+      assert_nothing_raised { tpkg.unpack(pkg) }
+      assert_equal(0777, File.stat(File.join(testbase, 'file')).mode & 07777)
+      assert_equal(Tpkg.DEFAULT_DIR_PERMS, File.stat(File.join(testbase, 'dir')).mode & 07777)
+    end
+    FileUtils.rm_f(pkg)
+    
+    # FIXME: Test that symlinks are not followed when applying permissions to
+    # specific files
+    
     # Test that preinstall/postinstall are run at the right points
     #   Make up a package with scripts that create files so we can check timestamps
-    # Also, test PS-476 tpkg should chdir to package unpack directory before calling pre/post/install/remove scripts
+    # Also, test that tpkg will chdir to package unpack directory before
+    # calling pre/post/install/remove scripts
     scriptfiles = {}
     pkgfile = nil
     Dir.mktmpdir('srcdir') do |srcdir|
