@@ -169,7 +169,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
       tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [pkg])
       assert_nothing_raised { tpkg.unpack(pkg) }
       assert_equal(0777, File.stat(File.join(testbase, 'file')).mode & 07777)
-      assert_equal(Tpkg.DEFAULT_DIR_PERMS, File.stat(File.join(testbase, 'dir')).mode & 07777)
+      assert_equal(Tpkg::DEFAULT_DIR_PERMS, File.stat(File.join(testbase, 'dir')).mode & 07777)
     end
     FileUtils.rm_f(pkg)
     
