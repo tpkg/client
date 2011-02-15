@@ -2541,6 +2541,10 @@ class Tpkg
     if (metadata[:files][:file_defaults][:posix][:group] rescue nil)
       default_gid = Tpkg::lookup_gid(metadata[:files][:file_defaults][:posix][:group])
     end
+    # FIXME: Default file permissions aren't likely to be generally useful
+    # since different classes of files often require different permissions.
+    # I.e. executables should be 0555, links 0777, everything else 0444.
+    # Something more like a umask would probably be more generally useful.
     if (metadata[:files][:file_defaults][:posix][:perms] rescue nil)
       default_perms = metadata[:files][:file_defaults][:posix][:perms]
     end
@@ -2560,28 +2564,39 @@ class Tpkg
       default_dir_perms = metadata[:files][:dir_defaults][:posix][:perms]
     end
     
-    # FIXME: attempt lchown/lchmod on symlinks
     root_dir = File.join(workdir, 'tpkg', 'root')
     reloc_dir = File.join(workdir, 'tpkg', 'reloc')
     Find.find(*Tpkg::get_package_toplevels(File.join(workdir, 'tpkg'))) do |f|
       begin
-        if File.file?(f) && !File.symlink?(f)
+        if File.symlink?(f)
+          begin
+            File.lchown(default_uid, default_gid, f)
+          rescue NotImplementedError
+          end
+        elsif File.file?(f)
           File.chown(default_uid, default_gid, f)
-        elsif File.directory?(f) && !File.symlink?(f)
+        elsif File.directory?(f)
           File.chown(default_dir_uid, default_dir_gid, f)
         end
       rescue Errno::EPERM
         raise if Process.euid == 0
       end
-      if File.file?(f) && !File.symlink?(f)
+      if File.symlink?(f)
+        if default_perms
+          begin
+            File.lchmod(default_perms, f)
+          rescue NotImplementedError
+          end
+        end
+      elsif File.file?(f)
         if default_perms
           File.chmod(default_perms, f)
         end
-      elsif File.directory?(f) && !File.symlink?(f)
+      elsif File.directory?(f)
         File.chmod(default_dir_perms, f)
       end
     end
-
+    
     # Reset the permission/ownership of the conflicting files as how they were before.
     # This needs to be done after the default permission/ownership is applied, but before
     # the handling of ownership/permissions on specific files
@@ -2619,7 +2634,10 @@ class Tpkg
             if !File.symlink?(working_path)
               File.chown(uid, gid, working_path)
             else
-              # FIXME: attempt lchown
+              begin
+                File.lchown(uid, gid, working_path)
+              rescue NotImplementedError
+              end
             end
           rescue Errno::EPERM
             raise if Process.euid == 0
@@ -2630,7 +2648,10 @@ class Tpkg
           if !File.symlink?(working_path)
             File.chmod(perms, working_path)
           else
-            # FIXME: attempt lchmod
+            begin
+              File.lchmod(perms, working_path)
+            rescue NotImplementedError
+            end
           end
         end
       end
