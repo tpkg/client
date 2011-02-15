@@ -10,6 +10,13 @@
   <description>Description</description>
   <bugreporting>Bugreporting info</bugreporting>
   <files>
+    <file_defaults>
+      <posix>
+        <owner>root</owner>
+        <group>root</group>
+        <perms>0444</perms>      
+      </posix>
+    </file_defaults>
     <dir_defaults>
       <posix>
         <owner>root</owner>
