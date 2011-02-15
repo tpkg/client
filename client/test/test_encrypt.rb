@@ -8,7 +8,7 @@
 # the method to decrypt it or vice-versa.
 #
 
-require File.dirname(__FILE__) + '/tpkgtest'
+require "./#{File.dirname(__FILE__)}/tpkgtest"
 
 class TpkgEncryptTests < Test::Unit::TestCase
   include TpkgTests
@@ -36,25 +36,25 @@ class TpkgEncryptTests < Test::Unit::TestCase
     File.open(tmpfile.path, 'w') do |file|
       file.write(plaintext)
     end
-    callback = lambda { PASSPHRASE }
+    callback = lambda { |pkgname| PASSPHRASE }
     Tpkg::encrypt('tpkgtest', tmpfile.path, callback, cipher)
     decrypted = `openssl enc -d -#{cipher} -pass pass:#{PASSPHRASE} -in #{tmpfile.path}`
     assert_equal(plaintext, decrypted)
 
     # Test encrypting on a directory
-    testdir = Tempdir.new("testdir")
-    File.open(File.join(testdir, 'file1'), 'w') do |file|
-      file.write(plaintext)
+    Dir.mktmpdir('testdir') do |testdir|
+      File.open(File.join(testdir, 'file1'), 'w') do |file|
+        file.write(plaintext)
+      end
+      File.open(File.join(testdir, 'file2'), 'w') do |file|
+        file.write(plaintext)
+      end
+      Tpkg::encrypt('tpkgtest', testdir, PASSPHRASE, cipher)
+      decrypted = `openssl enc -d -#{cipher} -pass pass:#{PASSPHRASE} -in #{File.join(testdir, 'file1')}`
+      assert_equal(plaintext, decrypted)
+      decrypted = `openssl enc -d -#{cipher} -pass pass:#{PASSPHRASE} -in #{File.join(testdir, 'file2')}`
+      assert_equal(plaintext, decrypted)
     end
-    File.open(File.join(testdir, 'file2'), 'w') do |file|
-      file.write(plaintext)
-    end
-    Tpkg::encrypt('tpkgtest', testdir, PASSPHRASE, cipher)
-    decrypted = `openssl enc -d -#{cipher} -pass pass:#{PASSPHRASE} -in #{File.join(testdir, 'file1')}`
-    assert_equal(plaintext, decrypted)
-    decrypted = `openssl enc -d -#{cipher} -pass pass:#{PASSPHRASE} -in #{File.join(testdir, 'file2')}`
-    assert_equal(plaintext, decrypted)
-    FileUtils.rm_r(testdir) 
   end
   
   def test_decrypt
@@ -82,22 +82,22 @@ class TpkgEncryptTests < Test::Unit::TestCase
       'w') do |pipe|
       pipe.write(plaintext)
     end
-    callback = lambda { PASSPHRASE }
+    callback = lambda { |pkgname| PASSPHRASE }
     Tpkg::decrypt('tpkgtest', tmpfile.path, callback, cipher)
     decrypted = IO.read(tmpfile.path)
     assert_equal(plaintext, decrypted)
 
     # Test decrypting on a directory
-    testdir = Tempdir.new("testdir")
-    IO.popen(
-      "openssl enc -#{cipher} -salt -pass pass:#{PASSPHRASE} -out #{File.join(testdir, 'file1')}",
-      'w') do |pipe|
-      pipe.write(plaintext)
+    Dir.mktmpdir('testdir') do |testdir|
+      IO.popen(
+        "openssl enc -#{cipher} -salt -pass pass:#{PASSPHRASE} -out #{File.join(testdir, 'file1')}",
+        'w') do |pipe|
+        pipe.write(plaintext)
+      end
+      Tpkg::decrypt('tpkgtest', testdir, PASSPHRASE, cipher)
+      decrypted = IO.read(File.join(testdir, 'file1'))
+      assert_equal(plaintext, decrypted)
     end
-    Tpkg::decrypt('tpkgtest', testdir, PASSPHRASE, cipher)
-    decrypted = IO.read(File.join(testdir, 'file1'))
-    assert_equal(plaintext, decrypted)
-    FileUtils.rm_r(testdir)
   end
   
   def test_verify_precrypt_file

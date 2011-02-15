@@ -4,7 +4,7 @@
 # Test tpkg's ability to lock/unlock the package repository
 #
 
-require File.dirname(__FILE__) + '/tpkgtest'
+require "./#{File.dirname(__FILE__)}/tpkgtest"
 
 class TpkgLockTests < Test::Unit::TestCase
   include TpkgTests
@@ -16,7 +16,7 @@ class TpkgLockTests < Test::Unit::TestCase
     @pkgfile = make_package(:remove => ['operatingsystem', 'architecture','posix_acl', 'windows_acl'])
     
     # Make a test repository
-    @testbase = Tempdir.new("testbase")
+    @testbase = Dir.mktmpdir('testbase')
   end
 
   def test_lock
@@ -25,20 +25,20 @@ class TpkgLockTests < Test::Unit::TestCase
     assert_nothing_raised('lock') { tpkg.lock }
     
     # Verify that an operation requiring a lock works with this instance
-    assert_nothing_raised('install') { tpkg.install(@pkgfile, PASSPHRASE) }
+    assert_nothing_raised('install') { tpkg.install([@pkgfile], PASSPHRASE) }
     
     # Make a seperate instance of Tpkg using the same repo
     tpkg2 = Tpkg.new(:base => @testbase)
     # Verify that attempting a lock with this instance fails
     assert_raise(RuntimeError, 'lock in other instance') { tpkg2.lock }
     # Verify that an operation requiring a lock fails with this instance
-    assert_raise(RuntimeError, 'install in other instance') { tpkg2.install(@pkgfile, PASSPHRASE) }
+    assert_raise(RuntimeError, 'install in other instance') { tpkg2.install([@pkgfile], PASSPHRASE) }
     # Verify that attempting to unlock this instance fails
     # Decided to have it just warn rather than throw an exception
     #assert_raise(RuntimeError, 'unlock in other instance') { tpkg2.unlock }
     
     # Re-verify that things work with the original instance
-    assert_nothing_raised('remove') { tpkg.remove('testpkg') }
+    assert_nothing_raised('remove') { tpkg.remove(['testpkg']) }
     
     # Unlock the repo
     assert_nothing_raised('unlock') { tpkg.unlock }

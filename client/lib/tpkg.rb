@@ -1,58 +1,42 @@
 ##############################################################################
-# tpkg package management system library
-# Copyright 2009, 2010 AT&T Interactive
+# tpkg package management system
+# Copyright 2009, 2010, 2011 AT&T Interactive
 # License: MIT (http://www.opensource.org/licenses/mit-license.php)
 ##############################################################################
 
 STDOUT.sync = STDERR.sync = true # All outputs/prompts to the kernel ASAP
 
-# When we build the tpkg packages we put this file in
-# /usr/lib/ruby/site_ruby/1.8/ or similar and then the rest of the ruby
-# files (versiontype.rb, deployer.rb, etc) into
-# /usr/lib/ruby/site_ruby/1.8/tpkg/
-# We need to tell Ruby to search that tpkg subdirectory.
-# The alternative is to specify the subdirectory in the require
-# (require 'tpkg/versiontype' for example), but tpkg is also the name
-# of the executable script so we can't create a subdirectory here named
-# tpkg.  If we put the subdir in the require lines then users couldn't
-# run tpkg directly from an svn working copy.
-tpkglibdir = File.join(File.dirname(__FILE__), 'tpkg')
-if File.directory?(tpkglibdir)
-  $:.unshift(tpkglibdir)
+# Exclude standard libraries and gems from the warnings induced by
+# running ruby with the -w flag.  Several of these have warnings under
+# ruby 1.9 and there's nothing we can do to fix that.
+require 'tpkg/silently'
+Silently.silently do
+  begin
+    # Try loading facter w/o gems first so that we don't introduce a
+    # dependency on gems if it is not needed.
+    require 'facter'       # Facter
+  rescue LoadError
+    require 'rubygems'
+    require 'facter'
+  end
+  require 'digest/sha2'    # Digest::SHA256#hexdigest, etc.
+  require 'uri'            # URI
+  require 'net/http'       # Net::HTTP
+  require 'net/https'      # Net::HTTP#use_ssl, etc.
+  require 'time'           # Time#httpdate
+  require 'rexml/document' # REXML::Document
+  require 'fileutils'      # FileUtils.cp, rm, etc.
+  require 'tempfile'       # Tempfile
+  require 'find'           # Find
+  require 'etc'            # Etc.getpwnam, getgrnam
+  require 'openssl'        # OpenSSL
+  require 'open3'          # Open3
+  require 'set'            # Enumerable#to_set
+  require 'yaml'           # YAML
 end
-
-# We store this gem in our thirdparty directory. So we need to add it
-# it to the search path
-#  This one is for when everything is installed
-$:.unshift(File.join(File.dirname(__FILE__), 'thirdparty/kwalify-0.7.1/lib'))
-#  And this one for when we're in the svn directory structure
-$:.unshift(File.join(File.dirname(File.dirname(__FILE__)), 'thirdparty/kwalify-0.7.1/lib'))
-
-begin
-  # Try loading facter w/o gems first so that we don't introduce a
-  # dependency on gems if it is not needed.
-  require 'facter'         # Facter
-rescue LoadError
-  require 'rubygems'
-  require 'facter'
-end
-require 'digest/sha2'    # Digest::SHA256#hexdigest, etc.
-require 'uri'            # URI
-require 'net/http'       # Net::HTTP
-require 'net/https'      # Net::HTTP#use_ssl, etc.
-require 'time'           # Time#httpdate
-require 'rexml/document' # REXML::Document
-require 'fileutils'      # FileUtils.cp, rm, etc.
-require 'tempfile'       # Tempfile
-require 'find'           # Find
-require 'etc'            # Etc.getpwnam, getgrnam
-require 'openssl'        # OpenSSL
-require 'open3'          # Open3
-require 'versiontype'    # Version
-require 'deployer'
-require 'set'
-require 'metadata'
-require 'kwalify'        # for validating yaml
+require 'tpkg/versiontype' # Version
+require 'tpkg/deployer'
+require 'tpkg/metadata'
 
 class Tpkg
   
@@ -66,6 +50,9 @@ class Tpkg
   CONNECTION_TIMEOUT = 10
 
   DEFAULT_OWNERSHIP_UID = 0
+  DEFAULT_OWNERSHIP_GID = 0
+  DEFAULT_FILE_PERMS = nil
+  DEFAULT_DIR_PERMS = 0755
 
   attr_reader :installed_directory
  
@@ -452,15 +439,28 @@ class Tpkg
     end
     toplevel
   end
-
+  
+  # Takes the path to the 'tpkg' directory of an unpacked package and returns
+  # an array of the top level directories that exist for package files within
+  # that directory.  Currently that is one or both of 'reloc' for relocatable
+  # files and 'root' for non-relocatable files.
+  def self.get_package_toplevels(tpkgdir)
+    toplevels = []
+    ['reloc', 'root'].each do |toplevel|
+      if File.directory?(File.join(tpkgdir, toplevel))
+        toplevels << File.join(tpkgdir, toplevel)
+      end
+    end
+    toplevels
+  end
+  
   def self.get_filemetadata_from_directory(tpkgdir)
     filemetadata = {}
     root_dir = File.join(tpkgdir, "root")
     reloc_dir = File.join(tpkgdir, "reloc")
     files = []
 
-    Find.find(root_dir, reloc_dir) do |f|
-      next if !File.exist?(f)
+    Find.find(*get_package_toplevels(tpkgdir)) do |f|
       relocatable = false
 
       # Append file separator at the end for directory
@@ -616,17 +616,18 @@ class Tpkg
     metadata = metadata_from_directory(directory)
     # And write that out to metadata.yml
     metadata_tmpfile = Tempfile.new('metadata.yml', dest)
-    metadata.each do | metadata |
-      YAML::dump(metadata.to_hash.recursively{|h| h.stringify_keys }, metadata_tmpfile)  
-      #YAML::dump(metadata.to_hash, metadata_tmpfile)  
+    metadata.each do | m |
+      YAML::dump(m.to_hash.recursively{|h| h.stringify_keys }, metadata_tmpfile)
+      #YAML::dump(m.to_hash, metadata_tmpfile)  
     end
     metadata_tmpfile.close
     File.chmod(0644, metadata_tmpfile.path)
     File.rename(metadata_tmpfile.path, File.join(dest, 'metadata.yml'))
   end
   
-  # Haven't found a Ruby method for creating temporary directories,
-  # so create a temporary file and replace it with a directory.
+  # Ruby 1.8.7 and later have Dir.mktmpdir, but we support ruby 1.8.5 for
+  # RHEL/CentOS 5.  So this is a basic substitute.
+  # FIXME: consider "backport" for Dir.mktmpdir like we use in the test suite
   def self.tempdir(basename, tmpdir=Dir::tmpdir)
     tmpfile = Tempfile.new(basename, tmpdir)
     tmpdir = tmpfile.path
@@ -1092,7 +1093,7 @@ class Tpkg
       perms = stat.mode
       # This is what we set the ownership to by default
       uid = DEFAULT_OWNERSHIP_UID
-      gid = DEFAULT_OWNERSHIP_UID
+      gid = DEFAULT_OWNERSHIP_GID
     end
 
     # get default permission and ownership
@@ -1303,6 +1304,8 @@ class Tpkg
       elsif File.directory?(File.join(@configdir, 'tpkg', 'ca'))
         http.ca_path = File.join(@configdir, 'tpkg', 'ca')
         http.verify_mode = OpenSSL::SSL::VERIFY_PEER
+      else
+        http.verify_mode = OpenSSL::SSL::VERIFY_NONE
       end
     end
     http.start
@@ -2529,8 +2532,8 @@ class Tpkg
     
     # Handle any default permissions and ownership
     default_uid = DEFAULT_OWNERSHIP_UID
-    default_gid = DEFAULT_OWNERSHIP_UID
-    default_perms = nil
+    default_gid = DEFAULT_OWNERSHIP_GID
+    default_perms = DEFAULT_FILE_PERMS
 
     if (metadata[:files][:file_defaults][:posix][:owner] rescue nil)
       default_uid = Tpkg::lookup_uid(metadata[:files][:file_defaults][:posix][:owner])
@@ -2545,7 +2548,7 @@ class Tpkg
     # Set default dir uid/gid to be same as for file.
     default_dir_uid = default_uid
     default_dir_gid = default_gid
-    default_dir_perms = 0755
+    default_dir_perms = DEFAULT_DIR_PERMS
 
     if (metadata[:files][:dir_defaults][:posix][:owner] rescue nil)
       default_dir_uid = Tpkg::lookup_uid(metadata[:files][:dir_defaults][:posix][:owner])
@@ -2556,20 +2559,16 @@ class Tpkg
     if (metadata[:files][:dir_defaults][:posix][:perms] rescue nil)
       default_dir_perms = metadata[:files][:dir_defaults][:posix][:perms]
     end
-
+    
+    # FIXME: attempt lchown/lchmod on symlinks
     root_dir = File.join(workdir, 'tpkg', 'root')
     reloc_dir = File.join(workdir, 'tpkg', 'reloc')
-    Find.find(root_dir, reloc_dir) do |f|
-      # If the package doesn't contain either of the top level
-      # directories we need to skip them, find will pass them to us
-      # even if they don't exist.
-      next if !File.exist?(f)
-
+    Find.find(*Tpkg::get_package_toplevels(File.join(workdir, 'tpkg'))) do |f|
       begin
-        if File.directory?(f)
-          File.chown(default_dir_uid, default_dir_gid, f)
-        else
+        if File.file?(f) && !File.symlink?(f)
           File.chown(default_uid, default_gid, f)
+        elsif File.directory?(f) && !File.symlink?(f)
+          File.chown(default_dir_uid, default_dir_gid, f)
         end
       rescue Errno::EPERM
         raise if Process.euid == 0
@@ -2617,14 +2616,22 @@ class Tpkg
             gid = Tpkg::lookup_gid(tpkgfile[:posix][:group])
           end
           begin
-            File.chown(uid, gid, working_path)
+            if !File.symlink?(working_path)
+              File.chown(uid, gid, working_path)
+            else
+              # FIXME: attempt lchown
+            end
           rescue Errno::EPERM
             raise if Process.euid == 0
           end
         end
         if tpkgfile[:posix][:perms]
           perms = tpkgfile[:posix][:perms]
-          File.chmod(perms, working_path)
+          if !File.symlink?(working_path)
+            File.chmod(perms, working_path)
+          else
+            # FIXME: attempt lchmod
+          end
         end
       end
       
@@ -2669,11 +2676,7 @@ class Tpkg
 
     # We should get the perms, gid, uid stuff here since all the files
     # have been set up correctly
-    Find.find(root_dir, reloc_dir) do |f|
-      # If the package doesn't contain either of the top level
-      # directory we need to skip them, find will pass them to us
-      # even if they don't exist.
-      next if !File.exist?(f)
+    Find.find(*Tpkg::get_package_toplevels(File.join(workdir, 'tpkg'))) do |f|
       next if File.symlink?(f)
 
       # check if it's from root dir or reloc dir
@@ -3078,6 +3081,15 @@ class Tpkg
               # datafile again in the future.
               external.delete(:datafile)
             elsif external[:datascript]
+              # Warn the user about non-executable files, popen will visibly
+              # complain but in the midst of a complex install of multiple
+              # packages it won't be clear to the user in what context the
+              # program was executed nor which package has the problem.  Our
+              # warning specifies that it was a datascript and includes the
+              # package name.
+              if !File.executable?(external[:datascript])
+                warn "Warning: datascript for package #{File.basename(metadata[:filename])} is not executable, execution will likely fail"
+              end
               # Run the script
               IO.popen(external[:datascript]) do |pipe|
                 external[:data] = pipe.read

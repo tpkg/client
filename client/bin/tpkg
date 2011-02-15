@@ -1,6 +1,8 @@
 #!/usr/bin/ruby -w
 ##############################################################################
-# tpkg package management and deployment tool
+# tpkg package management system
+# Copyright 2009, 2010, 2011 AT&T Interactive
+# License: MIT (http://www.opensource.org/licenses/mit-license.php)
 ##############################################################################
 
 # Ensure we can find tpkg.rb
@@ -455,9 +457,9 @@ case @action
 when :make
   @other_options[:force] = @force
   @other_options[:compress] = @compress
-  pkgfile = Tpkg::make_package(@action_value, passphrase_callback, @other_options)
-  if pkgfile
-    puts "Package is #{pkgfile}"
+  madepkg = Tpkg::make_package(@action_value, passphrase_callback, @other_options)
+  if madepkg
+    puts "Package is #{madepkg}"
   else
     puts "Package build aborted or failed"
   end
@@ -483,7 +485,7 @@ when :verify
   # Verify an installed pkg
   else
     tpkg = instantiate_tpkg(@tpkg_options)
-    results = tpkg.verify_file_metadata(@action_value)
+    results = tpkg.verify_file_metadata([@action_value])
     if results.length == 0
       puts "No package found"
     end
@@ -506,12 +508,12 @@ when :execute_init
   ret_val = tpkg.execute_init(@init_options)
 when :query_installed
   tpkg = instantiate_tpkg(@tpkg_options)
-  req = nil
+  queryreq = nil
   matches = []
   if @action_value
     @action_value.each do | value |
-      req = Tpkg::parse_request(value, tpkg.installed_directory)
-      match = tpkg.installed_packages_that_meet_requirement(req)
+      queryreq = Tpkg::parse_request(value, tpkg.installed_directory)
+      match = tpkg.installed_packages_that_meet_requirement(queryreq)
 
       # If the user requested specific packages and we found no matches
       # then exit with a non-zero value to indicate failure.  This allows
@@ -521,7 +523,7 @@ when :query_installed
       matches |= match
     end
   else
-    matches = tpkg.installed_packages_that_meet_requirement(req)
+    matches = tpkg.installed_packages_that_meet_requirement(queryreq)
   end
 
   if !@quiet
@@ -571,23 +573,23 @@ when :query_list_files
   tpkg = instantiate_tpkg(@tpkg_options)
   pkgfiles = nil
   if File.exist?(@action_value)
-    fip = Tpkg::files_in_package(@action_value)
-    tpkg.normalize_paths(fip)
+    fipfile = Tpkg::files_in_package(@action_value)
+    tpkg.normalize_paths(fipfile)
     puts "#{@action_value}:"
-    fip[:normalized].each { |file| puts file }
+    fipfile[:normalized].each { |file| puts file }
   else
     pkgfiles = []
     metadatas = []
     requirements = []
     packages = {}
 
-    req = Tpkg::parse_request(@action_value)
-    pkgs = tpkg.installed_packages_that_meet_requirement(req)
-    if pkgs.nil? or pkgs.empty?
+    queryreq = Tpkg::parse_request(@action_value)
+    instpkgs = tpkg.installed_packages_that_meet_requirement(queryreq)
+    if instpkgs.nil? or instpkgs.empty?
       ret_val = 1
       puts "Could not find any installed packages that meet the request \"#{@action_value}\""
     end
-    pkgs.each do | pkg |
+    instpkgs.each do | pkg |
       pkgfiles << pkg[:metadata][:filename] 
     end
 
@@ -608,11 +610,11 @@ when :query_who_owns_file
   end
 when :query_available
   tpkg = instantiate_tpkg(@tpkg_options)
-  req = nil
+  queryreq = nil
   if @action_value
-    req = Tpkg::parse_request(@action_value)
+    queryreq = Tpkg::parse_request(@action_value)
   end
-  tpkg.available_packages_that_meet_requirement(req).each do |pkg|
+  tpkg.available_packages_that_meet_requirement(queryreq).each do |pkg|
     next if pkg[:source] == :native_installed
     next if pkg[:source] == :native_available
     puts "#{pkg[:metadata][:filename]} (#{pkg[:source]})"
@@ -649,9 +651,9 @@ when :query_requires
   end
 when :query_local_depends
   tpkg = instantiate_tpkg(@tpkg_options)
-  req = Tpkg::parse_request(@action_value)
-  pkgs = tpkg.installed_packages_that_meet_requirement(req)
-  pkgs.each do | pkg |
+  queryreq = Tpkg::parse_request(@action_value)
+  instpkgs = tpkg.installed_packages_that_meet_requirement(queryreq)
+  instpkgs.each do | pkg |
     puts pkg[:metadata][:filename] + ':'
     if pkg[:metadata][:dependencies]
       pkg[:metadata][:dependencies].each do |req|

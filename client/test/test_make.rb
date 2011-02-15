@@ -2,7 +2,7 @@
 # Test tpkg's ability to make packages
 #
 
-require File.dirname(__FILE__) + '/tpkgtest'
+require "./#{File.dirname(__FILE__)}/tpkgtest"
 
 class TpkgMakeTests < Test::Unit::TestCase
   include TpkgTests
@@ -12,7 +12,7 @@ class TpkgMakeTests < Test::Unit::TestCase
     
     @tar = Tpkg::find_tar
     
-    @pkgdir = Tempdir.new("pkgdir")
+    @pkgdir = Dir.mktmpdir('pkgdir')
     system("#{@tar} -C #{TESTPKGDIR} --exclude .svn --exclude tpkg-*.xml -cf - . | #{@tar} -C #{@pkgdir} -xf -")
     # Set special permissions on a file so that we can verify they are
     # preserved
@@ -26,9 +26,7 @@ class TpkgMakeTests < Test::Unit::TestCase
   end
   
   def verify_pkg(pkgfile)
-    workdir = Tempdir.new("workdir")
-    # Use an ensure block to make sure we cleanup workdir
-    begin
+    Dir.mktmpdir('workdir') do |workdir|
       assert(!pkgfile.nil? && pkgfile.kind_of?(String) && !pkgfile.empty?, 'make_package returned package filename')
       assert(File.exist?(pkgfile), 'make_package returned package filename that exists')
       
@@ -79,8 +77,6 @@ class TpkgMakeTests < Test::Unit::TestCase
       decrypted_contents = IO.read(File.join(unpackdir, 'tpkg', 'reloc', 'precryptfile'))
       unencrypted_contents = IO.read(File.join(TESTPKGDIR, 'reloc', 'precryptfile.plaintext'))
       assert_equal(unencrypted_contents, decrypted_contents, testname)
-    ensure
-      FileUtils.rm_rf(workdir)
     end
   end
   
@@ -266,7 +262,7 @@ class TpkgMakeTests < Test::Unit::TestCase
   
   def test_make_passphrase_callback
     # Test using a callback to supply the passphrase
-    callback = lambda { PASSPHRASE }
+    callback = lambda { |pkgname| PASSPHRASE }
     pkgfile = nil
     assert_nothing_raised { pkgfile = Tpkg.make_package(@pkgdir, callback) }
     begin
@@ -385,17 +381,16 @@ class TpkgMakeTests < Test::Unit::TestCase
     assert_raise(RuntimeError, testname) { Tpkg.make_package(@pkgdir, PASSPHRASE, :out => outdir.path) }
 
     testname = "Trying to output to a directory that is not writable"
-    outdir = Tempdir.new("outdir")
-    FileUtils.chmod 0555, outdir
-    assert_raise(RuntimeError, testname) { Tpkg.make_package(@pkgdir, PASSPHRASE, :out => outdir) }
-    FileUtils.rm_rf(outdir)
+    Dir.mktmpdir('outdir') do |outdir|
+      FileUtils.chmod 0555, outdir
+      assert_raise(RuntimeError, testname) { Tpkg.make_package(@pkgdir, PASSPHRASE, :out => outdir) }
+    end
 
     # Trying to output to a good directory
-    outdir = Tempdir.new("outdir")
-    pkgfile = Tpkg.make_package(@pkgdir, PASSPHRASE, :out => outdir)
-    assert(File.exists?(pkgfile))
-
-    FileUtils.rm_rf(outdir)
+    Dir.mktmpdir('outdir') do |outdir|
+      pkgfile = Tpkg.make_package(@pkgdir, PASSPHRASE, :out => outdir)
+      assert(File.exists?(pkgfile))
+    end
   end
 
   def teardown

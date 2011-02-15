@@ -2,7 +2,7 @@
 # Test tpkg's ability to upgrade packages
 #
 
-require File.dirname(__FILE__) + '/tpkgtest'
+require "./#{File.dirname(__FILE__)}/tpkgtest"
 
 class TpkgDowngradeTests < Test::Unit::TestCase
   include TpkgTests
@@ -10,34 +10,33 @@ class TpkgDowngradeTests < Test::Unit::TestCase
   def setup
     Tpkg::set_prompt(false)
 
-    @pkgfiles = []   
-    srcdir = Tempdir.new("srcdir")
-    FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
-    FileUtils.mkdir(File.join(srcdir, 'reloc'))
-
-    # Creating packages that will be used for testing
- 
-    # Package a-1 and a-2. No dependency.
-    @pkgfiles << make_package(:change => {'name' => 'a', 'version' => '1', 'package_version' => '1'}, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
-    @pkgfiles << make_package(:change => {'name' => 'a', 'version' => '2', 'package_version' => '1'}, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
-
-    # Package b-1 and b-2. b-1 depends on c-1
-    @pkgfiles << make_package(:change => {'name' => 'b', 'version' => '1', 'package_version' => '1'}, :dependencies => {'c' => {}}, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
-    @pkgfiles << make_package(:change => {'name' => 'b', 'version' => '2', 'package_version' => '1'}, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
-    @pkgfiles << make_package(:change => {'name' => 'c', 'version' => '1', 'package_version' => '1'}, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
-
-    # Package d-1 and d-2. d-1 depends on nonexistingpkg
-    @pkgfiles << make_package(:change => {'name' => 'd', 'version' => '1', 'package_version' => '1'}, :dependencies => {'nonexistingpkg' => {}}, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
-    @pkgfiles << make_package(:change => {'name' => 'd', 'version' => '2', 'package_version' => '1'}, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
-
-    # Package e-1, e-2 and f-1. f-1 depends on e-2
-    @pkgfiles << make_package(:change => {'name' => 'e', 'version' => '1', 'package_version' => '1'}, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
-    @pkgfiles << make_package(:change => {'name' => 'e', 'version' => '2', 'package_version' => '1'}, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
-    @pkgfiles << make_package(:change => {'name' => 'f', 'version' => '1', 'package_version' => '1'}, :dependencies => {'e' => {'minimum_version' => '2.0', 'maximum_version' => '2.0'}}, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
-
-    FileUtils.rm_rf(srcdir)
+    @pkgfiles = []
+    Dir.mktmpdir('srcdir') do |srcdir|
+      FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+      FileUtils.mkdir(File.join(srcdir, 'reloc'))
+      
+      # Creating packages that will be used for testing
+      
+      # Package a-1 and a-2. No dependency.
+      @pkgfiles << make_package(:change => {'name' => 'a', 'version' => '1', 'package_version' => '1'}, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      @pkgfiles << make_package(:change => {'name' => 'a', 'version' => '2', 'package_version' => '1'}, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      
+      # Package b-1 and b-2. b-1 depends on c-1
+      @pkgfiles << make_package(:change => {'name' => 'b', 'version' => '1', 'package_version' => '1'}, :dependencies => {'c' => {}}, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      @pkgfiles << make_package(:change => {'name' => 'b', 'version' => '2', 'package_version' => '1'}, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      @pkgfiles << make_package(:change => {'name' => 'c', 'version' => '1', 'package_version' => '1'}, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      
+      # Package d-1 and d-2. d-1 depends on nonexistingpkg
+      @pkgfiles << make_package(:change => {'name' => 'd', 'version' => '1', 'package_version' => '1'}, :dependencies => {'nonexistingpkg' => {}}, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      @pkgfiles << make_package(:change => {'name' => 'd', 'version' => '2', 'package_version' => '1'}, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      
+      # Package e-1, e-2 and f-1. f-1 depends on e-2
+      @pkgfiles << make_package(:change => {'name' => 'e', 'version' => '1', 'package_version' => '1'}, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      @pkgfiles << make_package(:change => {'name' => 'e', 'version' => '2', 'package_version' => '1'}, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      @pkgfiles << make_package(:change => {'name' => 'f', 'version' => '1', 'package_version' => '1'}, :dependencies => {'e' => {'minimum_version' => '2.0', 'maximum_version' => '2.0'}}, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    end
     
-    @testroot = Tempdir.new("testroot")
+    @testroot = Dir.mktmpdir('testroot')
     @testbase = File.join(@testroot, 'home', 'tpkg')
     FileUtils.mkdir_p(@testbase)
     @tpkg = Tpkg.new(:file_system_root => @testroot, :base => File.join('home', 'tpkg'), :sources => @pkgfiles)

@@ -73,15 +73,15 @@ def copy_tpkg_files(destdir, options={})
     
     tpkglibdir = File.join(libdir, 'tpkg')
     mkdir_p(tpkglibdir)
-    libs = ['deployer.rb', 'metadata.rb', 'thread_pool.rb', 'versiontype.rb']
+    libs = ['deployer.rb', 'metadata.rb', 'silently.rb', 'thread_pool.rb', 'versiontype.rb']
     libs.each do |lib|
-      cp(File.join('lib', lib), tpkglibdir, :preserve => true)
+      cp(File.join('lib', 'tpkg', lib), tpkglibdir, :preserve => true)
       chmod(0444, File.join(tpkglibdir, lib))
     end
     
     if options[:copythirdparty]
       # All the nice consistent usage of FileUtils and then this...
-      system("find thirdparty -name .svn -prune -o -print | cpio -pdum #{tpkglibdir}")
+      system("find lib/tpkg/thirdparty -name .svn -prune -o -print | cpio -pdum #{tpkglibdir}")
     end
   end
   

@@ -1,4 +1,4 @@
-require File.dirname(__FILE__) + '/tpkgtest'
+require "./#{File.dirname(__FILE__)}/tpkgtest"
 
 #
 # Test tpkg's ability to handle package checksums
@@ -22,16 +22,16 @@ class TpkgChecksumTests < Test::Unit::TestCase
     
     # Add a few characters to the inner checksummed tarball and test that
     # it now fails the checksum verification
-    workdir = Tempdir.new("workdir")
     tar = Tpkg::find_tar
-    system("#{tar} -C #{workdir} -xf #{@pkgfile}") || abort
-    File.open(File.join(workdir, 'testpkg-1.0-1', 'tpkg.tar'), 'a') do |file|
-      file.write('xxxxxx')
+    Dir.mktmpdir('workdir') do |workdir|
+      system("#{tar} -C #{workdir} -xf #{@pkgfile}") || abort
+      File.open(File.join(workdir, 'testpkg-1.0-1', 'tpkg.tar'), 'a') do |file|
+        file.write('xxxxxx')
+      end
+      badpkg = Tempfile.new('tpkgtest')
+      system("#{tar} -C #{workdir} -cf #{badpkg.path} testpkg-1.0-1") || abort
+      assert_raise(RuntimeError, 'verify bad checksum') { Tpkg::verify_package_checksum(badpkg.path) }
     end
-    badpkg = Tempfile.new('tpkgtest')
-    system("#{tar} -C #{workdir} -cf #{badpkg.path} testpkg-1.0-1") || abort
-    FileUtils.rm_rf(workdir)
-    assert_raise(RuntimeError, 'verify bad checksum') { Tpkg::verify_package_checksum(badpkg.path) }
     
     # Confirm that checksum verification also fails on something that isn't a valid package
     puts '#'
