@@ -283,6 +283,8 @@ class TpkgMiscTests < Test::Unit::TestCase
       # An external that exits non-zero should raise an exception
       File.open(extscript, 'w') do |file|
         file.puts('#!/bin/sh')
+        # Avoid generating SIGPIPE in tpkg
+        file.puts('cat > /dev/null')
         file.puts("exit 1")
       end
       File.chmod(0755, extscript)
