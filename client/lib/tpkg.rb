@@ -2559,7 +2559,8 @@ class Tpkg
     if (metadata[:files][:dir_defaults][:posix][:perms] rescue nil)
       default_dir_perms = metadata[:files][:dir_defaults][:posix][:perms]
     end
-
+    
+    # FIXME: attempt lchown/lchmod on symlinks
     root_dir = File.join(workdir, 'tpkg', 'root')
     reloc_dir = File.join(workdir, 'tpkg', 'reloc')
     Find.find(*Tpkg::get_package_toplevels(File.join(workdir, 'tpkg'))) do |f|
@@ -2615,14 +2616,22 @@ class Tpkg
             gid = Tpkg::lookup_gid(tpkgfile[:posix][:group])
           end
           begin
-            File.chown(uid, gid, working_path)
+            if !File.symlink?(working_path)
+              File.chown(uid, gid, working_path)
+            else
+              # FIXME: attempt lchown
+            end
           rescue Errno::EPERM
             raise if Process.euid == 0
           end
         end
         if tpkgfile[:posix][:perms]
           perms = tpkgfile[:posix][:perms]
-          File.chmod(perms, working_path)
+          if !File.symlink?(working_path)
+            File.chmod(perms, working_path)
+          else
+            # FIXME: attempt lchmod
+          end
         end
       end
       

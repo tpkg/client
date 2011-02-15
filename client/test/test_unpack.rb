@@ -173,8 +173,30 @@ class TpkgUnpackTests < Test::Unit::TestCase
     end
     FileUtils.rm_f(pkg)
     
-    # FIXME: Test that symlinks are not followed when applying permissions to
+    # Test that symlinks are not followed when applying permissions to
     # specific files
+    pkg = nil
+    Dir.mktmpdir('srcdir') do |srcdir|
+      FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+      FileUtils.mkdir_p(File.join(srcdir, 'reloc'))
+      FileUtils.mkdir_p(File.join(srcdir, 'reloc', 'dir'))
+      File.symlink(File.join(srcdir, 'reloc', 'dir'), File.join(srcdir, 'reloc', 'dirlink'))
+      File.open(File.join(srcdir, 'reloc', 'file'), 'w') do |file|
+        file.puts 'Hello'
+      end
+      File.chmod(0400, File.join(srcdir, 'reloc', 'file'))
+      File.symlink(File.join(srcdir, 'reloc', 'file'), File.join(srcdir, 'reloc', 'filelink'))
+      pkg = make_package(:change => { 'name' => 'unpacklinkperms' }, :files => {'dirlink' => {'perms' => '0777'}, 'filelink' => {'perms' => '0666'}}, :source_directory => srcdir, :output_directory => @tempoutdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    end
+    Dir.mktmpdir('testroot') do |testroot|
+      testbase = File.join(testroot, 'home', 'tpkg')
+      FileUtils.mkdir_p(testbase)
+      tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [pkg])
+      assert_nothing_raised { tpkg.unpack(pkg) }
+      assert_equal(Tpkg::DEFAULT_DIR_PERMS, File.stat(File.join(testbase, 'dir')).mode & 07777)
+      assert_equal(0400, File.stat(File.join(testbase, 'file')).mode & 07777)
+    end
+    FileUtils.rm_f(pkg)
     
     # Test that preinstall/postinstall are run at the right points
     #   Make up a package with scripts that create files so we can check timestamps
