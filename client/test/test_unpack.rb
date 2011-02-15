@@ -91,13 +91,13 @@ class TpkgUnpackTests < Test::Unit::TestCase
       # Set some crazy perms on this file so that we can be sure they
       # are preserved (there are no default permissions for files)
       File.chmod(0666, File.join(srcdir, 'reloc', 'etc', 'nopermsfile'))
-      pkg = make_package(:change => { 'name' => 'a' }, :output_directory => @tempoutdir, :source_directory => srcdir, :files => {'etc/666file' => {'perms' => '0666'}, 'etc/400file' => {'perms' => '0400'}}, :remove => ['posix_acl', 'windows_acl'])
+      pkg = make_package(:change => { 'name' => 'no-default-perms' }, :output_directory => @tempoutdir, :source_directory => srcdir, :files => {'etc/666file' => {'perms' => '0666'}, 'etc/400file' => {'perms' => '0400'}}, :remove => ['posix_acl', 'windows_acl'])
     end
     Dir.mktmpdir('testroot') do |testroot|
       tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [pkg])
-      # Standard umask settings are likely to be the same as the default
-      # permissions, which would mask failure here.  Set an extreme umask
-      # so that we know tpkg is enforcing the desired permissions.
+      # Standard umask settings might be the same as the default permissions,
+      # which would mask failure here.  Set an extreme umask so that we know
+      # tpkg is enforcing the desired permissions.
       oldumask = File.umask
       File.umask(0)
       assert_nothing_raised { tpkg.unpack(pkg) }
@@ -112,41 +112,62 @@ class TpkgUnpackTests < Test::Unit::TestCase
       assert_equal(0755, File.stat(File.join(testroot, 'home', 'tpkg', 'etc')).mode & 07777)
     end
     FileUtils.rm_f(pkg)
-
-    # Test perms for default directory setting
+    
+    # Test file_defaults and dir_defaults usage in a package
     pkg = nil
     Dir.mktmpdir('srcdir') do |srcdir|
-      FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-dir-default.xml'), File.join(srcdir, 'tpkg.xml'))
+      FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-default-perms.xml'), File.join(srcdir, 'tpkg.xml'))
       FileUtils.mkdir_p(File.join(srcdir, 'reloc'))
       FileUtils.mkdir_p(File.join(srcdir, 'reloc', 'dir1'))
+      File.open(File.join(srcdir, 'reloc', 'dir1', 'file1'), 'w') do |file|
+        file.puts 'Testing file_defaults'
+      end
+      # Ensure that the file goes into the package with permissions different
+      # from what we specify in the metadata so that we know tpkg set the
+      # permissions requested by the metadata and not that the file just came
+      # out of tar with the right permissions already.
+      File.chmod(0640, File.join(srcdir, 'reloc', 'dir1', 'file1'))
       FileUtils.mkdir_p(File.join(srcdir, 'reloc', 'dir1', 'subdir1'))
-      pkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'dir_default' }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      File.chmod(0750, File.join(srcdir, 'reloc', 'dir1', 'subdir1'))
+      pkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'default-perms' }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
     end
-   
     Dir.mktmpdir('testroot') do |testroot|
       testbase = File.join(testroot, 'home', 'tpkg')
       FileUtils.mkdir_p(testbase)
       tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [pkg])
-      # Standard umask settings are likely to be the same as the default
-      # permissions, which would mask failure here.  Set an extreme umask
-      # so that we know tpkg is enforcing the desired permissions.
+      # Standard umask settings might be the same as the default permissions,
+      # which would mask failure here.  Set an extreme umask so that we know
+      # tpkg is enforcing the desired permissions.
       oldumask = File.umask
       File.umask(0)
       assert_nothing_raised { tpkg.unpack(pkg) }
       File.umask(oldumask)
-      # This dir should have the 0555 perms we specified in the tpkg-dir-default.xml file
+      # This file should have the 0444 perms we specified in the
+      # tpkg-default-perms.xml file
+      assert_equal(0444, File.stat(File.join(testbase, 'dir1', 'file1')).mode & 07777)
+      # These directories should have the 0555 perms we specified
       assert_equal(0555, File.stat(File.join(testbase, 'dir1')).mode & 07777)
       assert_equal(0555, File.stat(File.join(testbase, 'dir1', 'subdir1')).mode & 07777)
       # The mktmpdir cleanup process doesn't seem to like cleaning up
-      # non-writeable directories
+      # non-writeable directories and links.  Note that any assertion failures
+      # will cause this to get skipped.  So if you start getting permission
+      # errors from the cleanup process look to see if you might have caused
+      # an assertion to fail.
       Find.find(testroot) do |f|
-        File.chmod(0700, f) if File.directory?(f)
+        if File.symlink?(f)
+          begin
+            File.lchmod(0700, f)
+          rescue NotImplementedError
+          end
+        else
+          File.chmod(0700, f)
+        end
       end
     end
     FileUtils.rm_f(pkg)
     
-    # Test that applying default permissions works in the face of symlinks in
-    # the package
+    # Test that applying standard default permissions works in the face of
+    # symlinks in the package
     pkg = nil
     Dir.mktmpdir('srcdir') do |srcdir|
       FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
@@ -155,13 +176,15 @@ class TpkgUnpackTests < Test::Unit::TestCase
       # fails as a result
       File.symlink('/path/to/nowhere', File.join(srcdir, 'reloc', 'brokenlink'))
       FileUtils.mkdir_p(File.join(srcdir, 'reloc', 'dir'))
-      File.symlink(File.join(srcdir, 'reloc', 'dir'), File.join(srcdir, 'reloc', 'dirlink'))
+      File.symlink('dir', File.join(srcdir, 'reloc', 'dirlink'))
       File.open(File.join(srcdir, 'reloc', 'file'), 'w') do |file|
         file.puts 'Hello'
       end
+      # Set some crazy perms on this file so that we can be sure they
+      # are preserved (there are no default permissions for files)
       File.chmod(0777, File.join(srcdir, 'reloc', 'file'))
-      File.symlink(File.join(srcdir, 'reloc', 'file'), File.join(srcdir, 'reloc', 'filelink'))
-      pkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'unpacklinks' }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      File.symlink('file', File.join(srcdir, 'reloc', 'filelink'))
+      pkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'no-default-perms-with-links' }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
     end
     Dir.mktmpdir('testroot') do |testroot|
       testbase = File.join(testroot, 'home', 'tpkg')
@@ -173,20 +196,79 @@ class TpkgUnpackTests < Test::Unit::TestCase
     end
     FileUtils.rm_f(pkg)
     
+    # Test that applying specified default permissions works in the face of
+    # symlinks in the package
+    pkg = nil
+    Dir.mktmpdir('srcdir') do |srcdir|
+      FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-default-perms.xml'), File.join(srcdir, 'tpkg.xml'))
+      FileUtils.mkdir_p(File.join(srcdir, 'reloc'))
+      # Broken link to ensure that nothing attempts to traverse the link and
+      # fails as a result
+      File.symlink('/path/to/nowhere', File.join(srcdir, 'reloc', 'brokenlink'))
+      FileUtils.mkdir_p(File.join(srcdir, 'reloc', 'dir'))
+      File.symlink('dir', File.join(srcdir, 'reloc', 'dirlink'))
+      File.open(File.join(srcdir, 'reloc', 'file'), 'w') do |file|
+        file.puts 'Hello'
+      end
+      File.chmod(0777, File.join(srcdir, 'reloc', 'file'))
+      File.symlink('file', File.join(srcdir, 'reloc', 'filelink'))
+      pkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'default-perms-with-links' }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    end
+    Dir.mktmpdir('testroot') do |testroot|
+      testbase = File.join(testroot, 'home', 'tpkg')
+      FileUtils.mkdir_p(testbase)
+      tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [pkg])
+      assert_nothing_raised { tpkg.unpack(pkg) }
+      assert_equal(0444, File.stat(File.join(testbase, 'file')).mode & 07777)
+      assert_equal(0555, File.stat(File.join(testbase, 'dir')).mode & 07777)
+      begin
+        # Test to see if lchmod is implemented on this platform.  If not then
+        # tpkg won't have been able to use it and we can't check if it worked.
+        lchmodtestfile = Tempfile.new('lchmodtest')
+        File.lchmod(0555, lchmodtestfile.path)
+        # If that didn't raise an exception then we can proceed with
+        # assertions related to lchmod
+        assert_equal(0444, File.lstat(File.join(testbase, 'brokenlink')).mode & 07777)
+        assert_equal(0444, File.lstat(File.join(testbase, 'filelink')).mode & 07777)
+        assert_equal(0444, File.lstat(File.join(testbase, 'dirlink')).mode & 07777)
+      rescue NotImplementedError
+        warn "lchmod not available on this platform, link permissions not tested"
+      end
+      # The mktmpdir cleanup process doesn't seem to like cleaning up
+      # non-writeable directories and links.  Note that any assertion failures
+      # will cause this to get skipped.  So if you start getting permission
+      # errors from the cleanup process look to see if you might have caused
+      # an assertion to fail.
+      Find.find(testroot) do |f|
+        if File.symlink?(f)
+          begin
+            File.lchmod(0700, f)
+          rescue NotImplementedError
+          end
+        else
+          File.chmod(0700, f)
+        end
+      end
+    end
+    FileUtils.rm_f(pkg)
+    
     # Test that symlinks are not followed when applying permissions to
     # specific files
     pkg = nil
     Dir.mktmpdir('srcdir') do |srcdir|
       FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
       FileUtils.mkdir_p(File.join(srcdir, 'reloc'))
+      # Broken link to ensure that nothing attempts to traverse the link and
+      # fails as a result
+      File.symlink('/path/to/nowhere', File.join(srcdir, 'reloc', 'brokenlink'))
       FileUtils.mkdir_p(File.join(srcdir, 'reloc', 'dir'))
-      File.symlink(File.join(srcdir, 'reloc', 'dir'), File.join(srcdir, 'reloc', 'dirlink'))
+      File.symlink('dir', File.join(srcdir, 'reloc', 'dirlink'))
       File.open(File.join(srcdir, 'reloc', 'file'), 'w') do |file|
         file.puts 'Hello'
       end
       File.chmod(0400, File.join(srcdir, 'reloc', 'file'))
-      File.symlink(File.join(srcdir, 'reloc', 'file'), File.join(srcdir, 'reloc', 'filelink'))
-      pkg = make_package(:change => { 'name' => 'unpacklinkperms' }, :files => {'dirlink' => {'perms' => '0777'}, 'filelink' => {'perms' => '0666'}}, :source_directory => srcdir, :output_directory => @tempoutdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      File.symlink('file', File.join(srcdir, 'reloc', 'filelink'))
+      pkg = make_package(:change => { 'name' => 'specific-perms-with-links' }, :files => {'brokenlink' => {'perms' => '0555'}, 'dirlink' => {'perms' => '0770'}, 'filelink' => {'perms' => '0666'}}, :source_directory => srcdir, :output_directory => @tempoutdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
     end
     Dir.mktmpdir('testroot') do |testroot|
       testbase = File.join(testroot, 'home', 'tpkg')
@@ -195,6 +277,19 @@ class TpkgUnpackTests < Test::Unit::TestCase
       assert_nothing_raised { tpkg.unpack(pkg) }
       assert_equal(Tpkg::DEFAULT_DIR_PERMS, File.stat(File.join(testbase, 'dir')).mode & 07777)
       assert_equal(0400, File.stat(File.join(testbase, 'file')).mode & 07777)
+      begin
+        # Test to see if lchmod is implemented on this platform.  If not then
+        # tpkg won't have been able to use it and we can't check if it worked.
+        lchmodtestfile = Tempfile.new('lchmodtest')
+        File.lchmod(0555, lchmodtestfile.path)
+        # If that didn't raise an exception then we can proceed with
+        # assertions related to lchmod
+        assert_equal(0555, File.lstat(File.join(testbase, 'brokenlink')).mode & 07777)
+        assert_equal(0666, File.lstat(File.join(testbase, 'filelink')).mode & 07777)
+        assert_equal(0770, File.lstat(File.join(testbase, 'dirlink')).mode & 07777)
+      rescue NotImplementedError
+        warn "lchmod not available on this platform, link permissions not tested"
+      end
     end
     FileUtils.rm_f(pkg)
     
