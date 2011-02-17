@@ -464,12 +464,14 @@ class Metadata
   # Verify the yaml text against the given schema
   # Return array of errors (if there are any)
   def verify_yaml(schema, yaml_text)
-    schema = Kwalify::Yaml.load_file(schema)
-
-    ## create validator
-    validator = Kwalify::Validator.new(schema.with_indifferent_access)
-    ## validate
-    errors = validator.validate(YAML::load(yaml_text).with_indifferent_access)
+    errors = nil
+    # Kwalify generates lots of warnings, silence it
+    Silently.silently do
+      schema = Kwalify::Yaml.load_file(schema)
+      validator = Kwalify::Validator.new(schema.with_indifferent_access)
+      errors = validator.validate(YAML::load(yaml_text).with_indifferent_access)
+    end
+    errors
   end
 
   # Once we implement validating the XML using the DTD, we won't need
