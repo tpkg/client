@@ -332,19 +332,14 @@ class Metadata
   end
 
   # Write the metadata to a file under the specified directory
-  # The file will be saved as tpkg.yml or tpkg.xml.
-  def write(dir, retain_format=false)
-    file = nil
-    if retain_format && @format == 'xml'
-      puts "TODO"
-    else
-      file = File.new(File.join(dir, "tpkg.yml"), "w")
+  # The file will be saved as tpkg.yml, even if originally loaded as XML.
+  def write(dir)
+    File.open(File.join(dir, "tpkg.yml"), "w") do |file|
       # When we convert xml to hash, we store the key as symbol. So when we
       # write back out to file, we should stringify all the keys for readability.
       data = to_hash.recursively{|h| h.stringify_keys }
       YAML::dump(data, file)
     end
-    file.close
   end
 
   # Add tpkg_version to the existing tpkg.xml or tpkg.yml file
