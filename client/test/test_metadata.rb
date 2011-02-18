@@ -394,19 +394,19 @@ YAML
     
     metadata = Metadata.get_pkgs_metadata_from_yml_doc(metadatayaml)
     # Right overall data structure?
-    assert(metadata.kind_of?(Hash))
+    assert_kind_of(Hash, metadata)
     # Both pkgone entries in the same hash key?
     assert_equal(2, metadata['pkgone'].length)
     # YAML parsed into right object?
     firstpkgone = metadata['pkgone'].shift
-    assert(firstpkgone.kind_of?(Metadata))
+    assert_kind_of(Metadata, firstpkgone)
     # Parsing looks reasonable?
     assert_equal('pkgone', firstpkgone[:name])
     # Just one pkgtwo entry in that hash key?
     assert_equal(1, metadata['pkgtwo'].length)
     # Object type and parsing looks reasonable?
     pkgtwo = metadata['pkgtwo'].shift
-    assert(pkgtwo.kind_of?(Metadata))
+    assert_kind_of(Metadata, pkgtwo)
     assert_equal('pkgtwo', pkgtwo[:name])
     
     # Test the side-effect use case
@@ -423,7 +423,7 @@ YAML
     assert_equal(bogusvalue2, metadata['pkgtwo'].shift(2))
     # Metadata for pkgtwo was appended to our array?
     pkgtwo = metadata['pkgtwo'].shift
-    assert(pkgtwo.kind_of?(Metadata))
+    assert_kind_of(Metadata, pkgtwo)
     assert_equal('pkgtwo', pkgtwo[:name])
   end
   
@@ -439,7 +439,7 @@ YAML
         file.write yaml
       end
       metadata = Metadata.instantiate_from_dir(pkgdir)
-      assert(metadata.kind_of?(Metadata))
+      assert_kind_of(Metadata, metadata)
       assert_equal('pkgone', metadata[:name])
     end
     
@@ -456,9 +456,21 @@ XML
         file.write xml
       end
       metadata = Metadata.instantiate_from_dir(pkgdir)
-      assert(metadata.kind_of?(Metadata))
+      assert_kind_of(Metadata, metadata)
       assert_equal('pkgone', metadata[:name])
     end
+  end
+  
+  def test_initialize
+    # FIXME
+  end
+  
+  def test_square_brackets
+    # FIXME
+  end
+  
+  def test_square_brackets_assign
+    # FIXME
   end
   
   def test_to_hash
@@ -466,7 +478,59 @@ XML
   end
   
   def test_write
-    # FIXME
+    Dir.mktmpdir('outputdir') do |outputdir|
+      yaml = <<YAML
+name: pkgone
+version: 1
+maintainer: test@example.com
+description: Package one
+YAML
+      metadata = Metadata.new(yaml, 'yml')
+      metadata.write(outputdir)
+      # tpkg.yml there?
+      assert(File.file?(File.join(outputdir, 'tpkg.yml')))
+      # and nothing else?
+      assert_equal(3, Dir.entries(outputdir).length)
+      # tpkg.yml contains the right stuff?
+      filelines = File.readlines(File.join(outputdir, 'tpkg.yml'))
+      filelines.each {|line| line.chomp!}
+      assert(filelines.include?('--- '))
+      assert(filelines.include?('name: pkgone'))
+      assert(filelines.include?('version: 1'))
+      assert(filelines.include?('maintainer: test@example.com'))
+      assert(filelines.include?('description: Package one'))
+      assert_equal(5, filelines.length)
+    end
+    
+    Dir.mktmpdir('outputdir') do |outputdir|
+      xml = <<XML
+<tpkg>
+  <name>pkgone</name>
+  <version>1</version>
+  <maintainer>test@example.com</maintainer>
+  <description>Package one</description>
+</tpkg>
+XML
+      metadata = Metadata.new(xml, 'xml')
+      metadata.write(outputdir)
+      # tpkg.yml there?
+      assert(File.file?(File.join(outputdir, 'tpkg.yml')))
+      # and nothing else?
+      assert_equal(3, Dir.entries(outputdir).length)
+      # tpkg.yml contains the right stuff?
+      filelines = File.readlines(File.join(outputdir, 'tpkg.yml'))
+      filelines.each {|line| line.chomp!}
+      # The xml to yaml conversion yields slightly different but semantically
+      # equivalent results to a direct dump of yaml
+      filelines.delete('')
+      assert(filelines.include?('--- '))
+      assert(filelines.include?('name: pkgone'))
+      assert(filelines.include?('version: "1"'))
+      assert(filelines.include?('maintainer: test@example.com'))
+      assert(filelines.include?('description: Package one'))
+      assert(filelines.include?('files: {}'))
+      assert_equal(6, filelines.length)
+    end
   end
   
   def test_add_tpkg_version
