@@ -230,7 +230,8 @@ end
 # is that you can give it a metadata file of any format, such as yaml or xml,
 # and it will provide you a uniform interface for accessing/dealing with the metadata.
 class Metadata
-  attr_accessor :source, :file_path
+  attr_reader :text, :format, :file
+  attr_accessor :source
   REQUIRED_FIELDS = [:name, :version, :maintainer, :description]
 
   # Cleans up a string to make it suitable for use in a filename
@@ -247,7 +248,7 @@ class Metadata
       if metadata_text =~ /^:?name:(.+)/
         name = $1.strip
         metadata[name] ||= []
-        metadata[name] << Metadata.new(metadata_text,'yml', source)
+        metadata[name] << Metadata.new(metadata_text,'yml', nil, source)
       end
     end
     return metadata
@@ -258,31 +259,31 @@ class Metadata
   def self.instantiate_from_dir(dir)
     metadata = nil
     if File.exist?(File.join(dir, 'tpkg.yml'))
-      metadata = Metadata.new(File.read(File.join(dir, 'tpkg.yml')), 'yml')
-      metadata.file_path = File.join(dir, 'tpkg.yml')
+      metadata = Metadata.new(File.read(File.join(dir, 'tpkg.yml')),
+                              'yml',
+                              File.join(dir, 'tpkg.yml'))
     elsif File.exists?(File.join(dir, 'tpkg.xml'))
-      metadata = Metadata.new(File.read(File.join(dir, 'tpkg.xml')), 'xml')
-      metadata.file_path = File.join(dir, 'tpkg.xml')
+      metadata = Metadata.new(File.read(File.join(dir, 'tpkg.xml')),
+                              'xml',
+                              File.join(dir, 'tpkg.xml'))
     end
     return metadata
   end
 
   # text = text representation of the metadata
   # format = yml, xml, json, etc.
+  # file = Path to the metadata file that was the source of this metadata
   # source = Source, in the tpkg sense, of the package described by this
   # metadata.  I.e. the filename of an individual package or a directory or
   # URL containing multiple packages and a metadata.yml file.  Used by tpkg to
   # report on how many packages are available from various sources.
-  # FIXME: file_path should be set at initialize, remove from attr_accessor
-  def initialize(text, format, source=nil)
+  def initialize(text, format, file=nil, source=nil)
     @text = text
     # FIXME: should define enum of supported formats and reject others
     @format = format
+    @file = file
     @source = source
     @hash = nil
-    # Path to the metadata file, if known
-    # FIXME: rename to file
-    @file_path = nil
   end
 
   def [](key)
@@ -359,9 +360,9 @@ class Metadata
       # Add to in-memory data
       self[:tpkg_version] = version
       # Update the metadata source file (if known)
-      if @file_path
+      if @file
         if @format == 'yml'
-          File.open(@file_path, 'a') do |file|
+          File.open(@file, 'a') do |file|
             file.puts "tpkg_version: #{version}"
           end 
         elsif @format == 'xml'
@@ -369,7 +370,7 @@ class Metadata
           tpkg_version_ele = REXML::Element.new('tpkg_version')
           tpkg_version_ele.text = version
           metadata_xml.root.add_element(tpkg_version_ele)  
-          File.open(@file_path, 'w') do |file|
+          File.open(@file, 'w') do |file|
             metadata_xml.write(file)
           end
         else
