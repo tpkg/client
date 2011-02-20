@@ -423,23 +423,41 @@ class Tpkg
     # This assumes the first entry in the tarball is the top level directory.
     # I think that is a safe assumption.
     toplevel = nil
-    # FIXME: This is so lame, to read the whole package to get the
-    # first filename.  Blech.
-    IO.popen("#{find_tar} -tf #{package_file} #{@@taroptions}") do |pipe|
-      toplevel = pipe.gets
-      if toplevel.nil?
-         raise "Package directory structure of #{package_file} unexpected. Unable to get top level."
+    # We need one or more 512 byte tar blocks from the file to get the first
+    # filename.  In most cases we'll just need one block, but if the top-level
+    # directory has an exceptionally long name it may be spread over multiple
+    # blocks.  The trick is that we don't want any additional blocks because
+    # that will confuse tar and it will report that the archive is damaged. 
+    # So start with one block and go up to an arbitrarily picked limit of 10
+    # blocks (I've been unable to make a test tarball that needed more than 3
+    # blocks) and see if tar succeeds in listing a file.
+    1.upto(10) do |numblocks|
+      tarblocks = File.read(package_file, 512*numblocks)
+      # Open3.popen3("#{find_tar} -tf - #{@@taroptions}") do |stdin, stdout, stderr|
+      #   stdin.write(tarblocks)
+      #   stdin.close
+      #   toplevel = stdout.read
+      # end
+      # Unfortunately popen3 doesn't provide a mechanism for determining the
+      # success or failure of the command until ruby 1.9.  ($? is never
+      # accurately set for popen3, the mechanism in ruby 1.9 for getting the
+      # exit status for popen3 is unique to popen3.)  So we're left with this,
+      # which it rather Unix-specific.
+      IO.popen("#{find_tar} -tf - #{@@taroptions} 2> /dev/null", 'r+') do |pipe|
+        pipe.write(tarblocks)
+        pipe.close_write
+        toplevel = pipe.read
       end
-      toplevel.chomp!
-      # Avoid SIGPIPE, if we don't sink the rest of the output from tar
-      # then tar ends up getting SIGPIPE when it tries to write to the
-      # closed pipe and exits with error, which causes us to throw an
-      # exception down below here when we check the exit status.
-      pipe.read
+      if $?.success?
+        break
+      else
+        toplevel = nil
+      end
     end
-    if !$?.success?
+    if toplevel.nil?
       raise "Error reading top level directory from #{package_file}"
     end
+    toplevel.chomp!
     # Strip off the trailing slash
     toplevel.sub!(Regexp.new("#{File::SEPARATOR}$"), '')
     if toplevel.include?(File::SEPARATOR)
@@ -1509,6 +1527,7 @@ class Tpkg
             end
             stderr_first_line = stderr.gets
           end
+          # FIXME: popen3 doesn't set $?
           if !$?.success?
             # Ignore 'no matching packages', raise anything else
             if stderr_first_line != "Error: No matching Packages to list\n"
@@ -1546,6 +1565,7 @@ class Tpkg
           end
           stderr_first_line = stderr.gets
         end
+        # FIXME: popen3 doesn't set $?
         if !$?.success?
           # Ignore 'no matching packages', raise anything else
           if stderr_first_line !~ 'No packages found matching'
