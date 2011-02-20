@@ -274,10 +274,13 @@ class Metadata
   # URL containing multiple packages and a metadata.yml file.  Used by tpkg to
   # report on how many packages are available from various sources.
   def initialize(metadata_text, format, source=nil)
-    @hash = nil
     @metadata_text = metadata_text
+    # FIXME: should define enum of supported formats and object to others
     @format = format
     @source = source
+    @hash = nil
+    # Path to the metadata file, if known
+    @file_path = nil
   end
 
   def [](key)
@@ -287,16 +290,16 @@ class Metadata
   def []=(key,value)
     to_hash[key]=value
   end
-
+  
   def to_hash
     if @hash  
       return @hash 
     end
-
+    
     if @format == 'yml'
       hash = YAML::load(@metadata_text)
       @hash = hash.with_indifferent_access
-
+      
       # We need this for backward compatibility. With xml, we specify
       # native dependency as type: :native rather then native: true
       @hash[:dependencies].each do | dep |
@@ -308,7 +311,7 @@ class Metadata
           end
         end
       end if @hash[:dependencies]
-
+      
       @hash[:files][:files].each do |file|
         # We need to do this for backward compatibility. In the old yml schema,
         # the encrypt field can either be "true" or a string value. Now, it is
@@ -325,12 +328,14 @@ class Metadata
           file[:posix][:perms] = "#{file[:posix][:perms]}".oct
         end
       end if @hash[:files] && @hash[:files][:files]
-    else
+    elsif @format == 'xml'
       @hash = metadata_xml_to_hash.with_indifferent_access
+    else
+      raise "Unknown metadata format"
     end
-    return @hash
+    @hash
   end
-
+  
   # Write the metadata to a file under the specified directory
   # The file will be saved as tpkg.yml, even if originally loaded as XML.
   def write(dir)
@@ -341,39 +346,37 @@ class Metadata
       YAML::dump(data, file)
     end
   end
-
+  
   # Add tpkg_version to the existing tpkg.xml or tpkg.yml file
   def add_tpkg_version(version)
-    begin
-      if @format == 'xml'
-        metadata_xml = REXML::Document.new(@metadata_text)
-        if metadata_xml.root.elements["tpkg_version"] && (tpkg_version = metadata_xml.root.elements["tpkg_version"].text) != Tpkg::VERSION
-          warn "Warning: tpkg_version is specified as #{tpkg_version}, which doesn't match with the actual tpkg version being used (#{Tpkg::VERSION})."
-        elsif !metadata_xml.root.elements["tpkg_version"]
-          tpkg_version_ele = REXML::Element.new("tpkg_version")
-          tpkg_version_ele.text = Tpkg::VERSION
+    if self[:tpkg_version]
+      if self[:tpkg_version] != version
+        warn "Warning: tpkg_version is specified as #{self[:tpkg_version]}, which doesn't match with the actual tpkg version being used (#{version})."
+      end
+    else
+      # Add to in-memory data
+      self[:tpkg_version] = version
+      # Update the metadata source file (if known)
+      if @file_path
+        if @format == 'yml'
+          File.open(@file_path, 'a') do |file|
+            file.puts "tpkg_version: #{version}"
+          end 
+        elsif @format == 'xml'
+          metadata_xml = REXML::Document.new(@metadata_text)
+          tpkg_version_ele = REXML::Element.new('tpkg_version')
+          tpkg_version_ele.text = version
           metadata_xml.root.add_element(tpkg_version_ele)  
           File.open(@file_path, 'w') do |file|
             metadata_xml.write(file)
           end
+        else
+          raise "Unknown metadata format"
         end
-      elsif @format == 'yml'
-        if (tpkg_version = to_hash[:tpkg_version]) && tpkg_version != Tpkg::VERSION
-          warn "Warning: tpkg_version is specified as #{tpkg_version}, which doesn't match with the actual tpkg version being used (#{Tpkg::VERSION})."
-        elsif !tpkg_version
-          File.open(@file_path, 'a') do |file|
-            file.puts "tpkg_version: #{Tpkg::VERSION}"
-          end 
-        end
-      else
-        raise "Unknown metadata format"
       end
-    rescue Errno::EACCES => e
-      warn "Warning: Failed to insert tpkg_version into tpkg.(xml|yml)."
-      puts e
-    end 
+    end
   end
-
+  
   def generate_package_filename
     name = to_hash[:name]
     version = to_hash[:version]
@@ -716,12 +719,13 @@ class Metadata
 
     return metadata_hash
   end
-
+  
   def get_native_deps
-    dependencies = to_hash[:dependencies]
-    return nil if dependencies.nil? or dependencies.empty?
-
-    return dependencies.select{|dep| dep[:type] == :native}
+    native_deps = []
+    if self[:dependencies]
+      native_deps = self[:dependencies].select{|dep| dep[:type] == :native}
+    end
+    native_deps
   end
 end
 
