@@ -462,15 +462,75 @@ XML
   end
   
   def test_initialize
-    # FIXME
+    yaml = <<YAML
+name: pkgone
+version: 1
+maintainer: test@example.com
+description: Package one
+YAML
+    
+    metadata = Metadata.new(yaml, 'yml')
+    assert_equal(yaml, metadata.text)
+    assert_equal('yml', metadata.format)
+    assert_equal(nil, metadata.file)
+    assert_equal(nil, metadata.source)
+    
+    file = Tempfile.new('metadata').path
+    metadata = Metadata.new(yaml, 'yml', file)
+    assert_equal(yaml, metadata.text)
+    assert_equal('yml', metadata.format)
+    assert_equal(file, metadata.file)
+    assert_equal(nil, metadata.source)
+    
+    source = 'http://example.com/tpkg/'
+    metadata = Metadata.new(yaml, 'yml', file, source)
+    assert_equal(yaml, metadata.text)
+    assert_equal('yml', metadata.format)
+    assert_equal(file, metadata.file)
+    assert_equal(source, metadata.source)
   end
   
   def test_square_brackets
-    # FIXME
+    # This method is just a convenience proxy for to_hash, so only minimal
+    # testing is called for here
+    yaml = <<YAML
+name: pkgone
+version: 1
+maintainer: test@example.com
+description: Package one
+dependencies:
+- name: dep1
+- name: dep2
+YAML
+    
+    metadata = Metadata.new(yaml, 'yml')
+    assert_equal('pkgone', metadata[:name])
+    assert_equal(1, metadata[:version])
+    assert_equal([{'name'=>'dep1', 'type'=>:tpkg},
+                  {'name'=>'dep2', 'type'=>:tpkg}],
+                 metadata[:dependencies])
   end
   
   def test_square_brackets_assign
-    # FIXME
+    # This method is just a convenience proxy for to_hash, so only minimal
+    # testing is called for here
+    yaml = <<YAML
+name: pkgone
+version: 1
+maintainer: test@example.com
+description: Package one
+YAML
+    
+    metadata = Metadata.new(yaml, 'yml')
+    metadata[:name] = 'pkgtwo'
+    assert_equal('pkgtwo', metadata[:name])
+    metadata[:version] = 2
+    assert_equal(2, metadata[:version])
+    metadata[:dependencies] = [{'name'=>'dep1', 'type'=>:tpkg},
+                               {'name'=>'dep2', 'type'=>:tpkg}]
+    assert_equal([{'name'=>'dep1', 'type'=>:tpkg},
+                  {'name'=>'dep2', 'type'=>:tpkg}],
+                 metadata[:dependencies])
   end
   
   def test_to_hash
