@@ -392,7 +392,17 @@ class TpkgMakeTests < Test::Unit::TestCase
       assert(File.exists?(pkgfile))
     end
   end
-
+  
+  def test_make_tpkg_version
+    # FIXME
+    testname = 'make_package added tpkg_version to metadata'
+    # The source directory from which the package is made may not be writeable
+    # by the user making the package.  As such attempting to add tpkg_version
+    # to the metadata file will fail.  We expect tpkg to warn the user about
+    # that fact but not fail.
+    testname = 'make_package warned if adding tpkg_version failed due to permissions'
+  end
+  
   def teardown
     FileUtils.rm_rf(@pkgdir)
   end
