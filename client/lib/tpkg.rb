@@ -372,10 +372,18 @@ class Tpkg
         end
         File.delete(pkgfile)
       end
-    
+      
       # update metadata file with the tpkg version
-      metadata.add_tpkg_version(VERSION)
- 
+      begin
+        metadata.add_tpkg_version(VERSION)
+      rescue Errno::EACCES => e
+        # The source directory from which the package is made may not be
+        # writeable by the user making the package.  It is not critical that
+        # the tpkg version get added to the package metadata, so just warn the
+        # user if that happens.
+        warn "Failed to insert tpkg_version into tpkg.(xml|yml): #{e.message}"
+      end 
+      
       # Tar up the tpkg directory
       tpkgfile = File.join(package_directory, 'tpkg.tar')
       system("#{find_tar} -C #{workdir} -cf #{tpkgfile} tpkg") || raise("tpkg.tar creation failed")
@@ -4602,8 +4610,7 @@ class Tpkg
   def stub_native_pkg(pkg)
     # gather all of the native dependencies
     native_deps = pkg[:metadata].get_native_deps
-    
-    return if native_deps.nil? or native_deps.empty?
+    return if native_deps.empty?
     
     if Tpkg::get_os =~ /RedHat|CentOS|Fedora/
       rpm = create_rpm("stub_for_#{pkg[:metadata][:name]}", native_deps)
@@ -4625,7 +4632,7 @@ class Tpkg
   def remove_native_stub_pkg(pkg)
     # Don't have to do anything if this package has no native dependencies
     native_deps = pkg[:metadata].get_native_deps
-    return if native_deps.nil? or native_deps.empty?
+    return if native_deps.empty?
     
     # the convention is that stub package is named as "stub_for_pkgname"
     stub_pkg_name = "stub_for_#{pkg[:metadata][:name]}"
