@@ -110,6 +110,10 @@ class TpkgInstallTests < Test::Unit::TestCase
     pkgfiles.each { |pkgfile| FileUtils.rm_f(pkgfile) }
   end
   
+  def test_stub_native_pkg
+    # FIXME
+  end
+  
   def teardown
     FileUtils.rm_f(@pkgfile)
     FileUtils.rm_rf(@testroot)

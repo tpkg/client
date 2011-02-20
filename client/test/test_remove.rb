@@ -684,6 +684,10 @@ EOF
     end
   end
   
+  def test_remove_native_stub_pkg
+    # FIXME
+  end
+  
   def teardown
     FileUtils.rm_rf(@tempoutdir)
   end
