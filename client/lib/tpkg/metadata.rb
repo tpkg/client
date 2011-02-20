@@ -267,19 +267,21 @@ class Metadata
     return metadata
   end
 
-  # metadata_text = text representation of the metadata
+  # text = text representation of the metadata
   # format = yml, xml, json, etc.
   # source = Source, in the tpkg sense, of the package described by this
   # metadata.  I.e. the filename of an individual package or a directory or
   # URL containing multiple packages and a metadata.yml file.  Used by tpkg to
   # report on how many packages are available from various sources.
-  def initialize(metadata_text, format, source=nil)
-    @metadata_text = metadata_text
-    # FIXME: should define enum of supported formats and object to others
+  # FIXME: file_path should be set at initialize, remove from attr_accessor
+  def initialize(text, format, source=nil)
+    @text = text
+    # FIXME: should define enum of supported formats and reject others
     @format = format
     @source = source
     @hash = nil
     # Path to the metadata file, if known
+    # FIXME: rename to file
     @file_path = nil
   end
 
@@ -297,7 +299,7 @@ class Metadata
     end
     
     if @format == 'yml'
-      hash = YAML::load(@metadata_text)
+      hash = YAML::load(@text)
       @hash = hash.with_indifferent_access
       
       # We need this for backward compatibility. With xml, we specify
@@ -363,7 +365,7 @@ class Metadata
             file.puts "tpkg_version: #{version}"
           end 
         elsif @format == 'xml'
-          metadata_xml = REXML::Document.new(@metadata_text)
+          metadata_xml = REXML::Document.new(@text)
           tpkg_version_ele = REXML::Element.new('tpkg_version')
           tpkg_version_ele.text = version
           metadata_xml.root.add_element(tpkg_version_ele)  
@@ -443,7 +445,7 @@ class Metadata
         warn "Warning: unable to validate metadata because #{schema_file} does not exist"
         return
       end 
-      errors = verify_yaml(schema_file, @metadata_text)
+      errors = verify_yaml(schema_file, @text)
     elsif @format == 'xml'
       # TODO: use DTD to validate XML
       errors = verify_required_fields
@@ -491,7 +493,7 @@ class Metadata
     return if @format != "xml"
 
     metadata_hash = {}
-    metadata_xml = REXML::Document.new(@metadata_text)
+    metadata_xml = REXML::Document.new(@text)
 
     if metadata_xml.root.attributes['filename'] # && !metadata_xml.root.attributes['filename'].empty?
       metadata_hash[:filename] = metadata_xml.root.attributes['filename'] 
@@ -750,10 +752,10 @@ class FileMetadata < Metadata
     end
 
     if @format == 'bin'
-      hash = Marshal::load(@metadata_text)
+      hash = Marshal::load(@text)
       @hash = hash.with_indifferent_access
     elsif @format == 'yml'
-      hash = YAML::load(@metadata_text)
+      hash = YAML::load(@text)
       @hash = hash.with_indifferent_access
     elsif @format == 'xml'
       @hash = file_metadata_xml_to_hash
@@ -766,7 +768,7 @@ class FileMetadata < Metadata
 
     file_metadata_hash = {}
     files = []
-    file_metadata_xml = REXML::Document.new(@metadata_text)
+    file_metadata_xml = REXML::Document.new(@text)
     file_metadata_hash[:package_file] = file_metadata_xml.root.attributes['package_file']
     file_metadata_xml.elements.each("files/file") do | file_ele |
       file = {}
