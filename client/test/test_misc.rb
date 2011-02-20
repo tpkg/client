@@ -23,6 +23,44 @@ class TpkgMiscTests < Test::Unit::TestCase
   def test_package_toplevel_directory
     # Verify normal operation
     assert_equal('testpkg-1.0-1-os-architecture', Tpkg::package_toplevel_directory(@pkgfile))
+    
+    # Verify that it works on a package with top level directory with an
+    # unusually long name
+    longpkg = nil
+    longpkgname = ''
+    1.upto(240) do
+      longpkgname << 'a'
+    end
+    Dir.mktmpdir('longtoplevel') do |longtoplevel|
+      # It seems like most common filesystems limit filenames to 255
+      # characters. Anything over 100 characters should force tar to use one
+      # of the extended formats that needs more than 1 block.
+      # The top level directory will end up being pkgname-version so stop a
+      # few characters short of 255 to leave room for the version
+      File.open(File.join(longtoplevel, 'tpkg.yml'), 'w') do |tpkgyml|
+        yaml = <<YAML
+name: #{longpkgname}
+version: 1
+maintainer: me
+description: me@example.com
+YAML
+        tpkgyml.write(yaml)
+      end
+      longpkg = Tpkg.make_package(longtoplevel, nil, :out => @tempoutdir)
+    end
+    assert_equal("#{longpkgname}-1", Tpkg::package_toplevel_directory(longpkg))
+    
+    # Verify that it fails in the expected way on something that isn't a tarball
+    boguspkg = Tempfile.new('boguspkg')
+    boguspkg.puts('xxxxxx')
+    boguspkg.close
+    assert_raise(RuntimeError) { Tpkg::verify_package_checksum(boguspkg.path) }
+    begin
+      Tpkg::verify_package_checksum(boguspkg.path)
+    rescue RuntimeError => e
+      assert_match(/Error reading top level directory/, e.message)
+    end
+    
     # Verify that it fails on a bogus package due to the unexpected
     # directory structure
     boguspkg = Tempfile.new('tpkgtest')
@@ -31,6 +69,11 @@ class TpkgMiscTests < Test::Unit::TestCase
       system("#{Tpkg::find_tar} -cf #{boguspkg.path} #{File.join(bogusdir, 'bogus')}")
     end
     assert_raise(RuntimeError) { Tpkg::package_toplevel_directory(boguspkg.path) }
+    begin
+      Tpkg::verify_package_checksum(boguspkg.path)
+    rescue RuntimeError => e
+      assert_match(/top level is more than one directory deep/, e.message)
+    end
   end
   
   def test_source_to_local_directory
