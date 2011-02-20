@@ -534,7 +534,159 @@ XML
   end
   
   def test_add_tpkg_version
-    # FIXME
+    # yaml, no version, from file
+    yaml = <<YAML
+name: pkgone
+version: 1
+maintainer: test@example.com
+description: Package one
+YAML
+    Dir.mktmpdir('pkgdir') do |pkgdir|
+      File.open(File.join(pkgdir, 'tpkg.yml'), 'w') do |file|
+        file.write yaml
+      end
+      metadata = Metadata.instantiate_from_dir(pkgdir)
+      metadata.add_tpkg_version(Tpkg::VERSION)
+      
+      # Added to in-memory data
+      assert_equal(Tpkg::VERSION, metadata[:tpkg_version])
+      # File updated
+      new_metadata = Metadata.instantiate_from_dir(pkgdir)
+      assert_equal(Tpkg::VERSION, new_metadata[:tpkg_version])
+    end
+    
+    # yaml, correct version, from file
+    yaml_with_correct_version = <<YAML
+name: pkgone
+version: 1
+maintainer: test@example.com
+description: Package one
+tpkg_version: #{Tpkg::VERSION}
+YAML
+    Dir.mktmpdir('pkgdir') do |pkgdir|
+      File.open(File.join(pkgdir, 'tpkg.yml'), 'w') do |file|
+        file.write yaml_with_correct_version
+      end
+      metadata = Metadata.instantiate_from_dir(pkgdir)
+      metadata.add_tpkg_version(Tpkg::VERSION)
+      
+      # In-memory data still correct
+      assert_equal(Tpkg::VERSION, metadata[:tpkg_version])
+      # File still correct
+      new_metadata = Metadata.instantiate_from_dir(pkgdir)
+      assert_equal(Tpkg::VERSION, new_metadata[:tpkg_version])
+    end
+    
+    # yaml, incorrect version, from file
+    yaml_with_incorrect_version = <<YAML
+name: pkgone
+version: 1
+maintainer: test@example.com
+description: Package one
+tpkg_version: 0
+YAML
+    Dir.mktmpdir('pkgdir') do |pkgdir|
+      File.open(File.join(pkgdir, 'tpkg.yml'), 'w') do |file|
+        file.write yaml_with_incorrect_version
+      end
+      metadata = Metadata.instantiate_from_dir(pkgdir)
+      metadata.add_tpkg_version(Tpkg::VERSION)
+      
+      # Version mismatch results in warning
+      # FIXME, how to check for warning?
+      # In-memory data remains incorrect
+      assert_equal(0, metadata[:tpkg_version])
+      # File remains incorrect
+      new_metadata = Metadata.instantiate_from_dir(pkgdir)
+      assert_equal(0, new_metadata[:tpkg_version])
+    end
+    
+    # yaml, no version, from string
+    metadata = Metadata.new(yaml, 'yml')
+    metadata.add_tpkg_version(Tpkg::VERSION)
+    # Added to in-memory data
+    assert_equal(Tpkg::VERSION, metadata[:tpkg_version])
+    
+    # xml, no version, from file
+    xml = <<XML
+<tpkg>
+  <name>pkgone</name>
+  <version>1</version>
+  <maintainer>test@example.com</maintainer>
+  <description>Package one</description>
+</tpkg>
+XML
+    Dir.mktmpdir('pkgdir') do |pkgdir|
+      File.open(File.join(pkgdir, 'tpkg.xml'), 'w') do |file|
+        file.write xml
+      end
+      metadata = Metadata.instantiate_from_dir(pkgdir)
+      metadata.add_tpkg_version(Tpkg::VERSION)
+      
+      # Added to in-memory data
+      assert_equal(Tpkg::VERSION, metadata[:tpkg_version])
+      # File updated
+      new_metadata = Metadata.instantiate_from_dir(pkgdir)
+      assert_equal(Tpkg::VERSION, new_metadata[:tpkg_version])
+      # FIXME: verify still complies with DTD?
+    end
+    
+    # xml, correct version, from file
+    xml_with_correct_version = <<XML
+<tpkg>
+  <name>pkgone</name>
+  <version>1</version>
+  <maintainer>test@example.com</maintainer>
+  <description>Package one</description>
+  <tpkg_version>#{Tpkg::VERSION}</tpkg_version>
+</tpkg>
+XML
+    Dir.mktmpdir('pkgdir') do |pkgdir|
+      File.open(File.join(pkgdir, 'tpkg.xml'), 'w') do |file|
+        file.write xml_with_correct_version
+      end
+      metadata = Metadata.instantiate_from_dir(pkgdir)
+      metadata.add_tpkg_version(Tpkg::VERSION)
+      
+      # In-memory data still correct
+      assert_equal(Tpkg::VERSION, metadata[:tpkg_version])
+      # File still correct
+      new_metadata = Metadata.instantiate_from_dir(pkgdir)
+      assert_equal(Tpkg::VERSION, new_metadata[:tpkg_version])
+      # FIXME: verify still complies with DTD?
+    end
+    
+    # xml, incorrect version, from file
+    xml_with_incorrect_version = <<XML
+<tpkg>
+  <name>pkgone</name>
+  <version>1</version>
+  <maintainer>test@example.com</maintainer>
+  <description>Package one</description>
+  <tpkg_version>0</tpkg_version>
+</tpkg>
+XML
+    Dir.mktmpdir('pkgdir') do |pkgdir|
+      File.open(File.join(pkgdir, 'tpkg.xml'), 'w') do |file|
+        file.write xml_with_incorrect_version
+      end
+      metadata = Metadata.instantiate_from_dir(pkgdir)
+      metadata.add_tpkg_version(Tpkg::VERSION)
+      
+      # Version mismatch results in warning
+      # FIXME, how to check for warning?
+      # In-memory data remains incorrect
+      assert_equal('0', metadata[:tpkg_version])
+      # File remains incorrect
+      new_metadata = Metadata.instantiate_from_dir(pkgdir)
+      assert_equal('0', new_metadata[:tpkg_version])
+    end
+    
+    # xml, no version, from string
+    metadata = Metadata.new(xml, 'xml')
+    metadata.add_tpkg_version(Tpkg::VERSION)
+    # Added to in-memory data
+    assert_equal(Tpkg::VERSION, metadata[:tpkg_version])
   end
   
   def test_generate_package_filename
@@ -551,6 +703,57 @@ XML
   
   def test_verify_required_fields
     # FIXME
+  end
+  
+  def test_get_native_deps
+    # Metadata with no dependencies
+    yaml = <<YAML
+name: pkgone
+version: 1
+maintainer: test@example.com
+description: Package one
+YAML
+    metadata = Metadata.new(yaml, 'yml')
+    assert_equal([], metadata.get_native_deps)
+    # Metadata with empty dependencies
+    yaml = <<YAML
+name: pkgone
+version: 1
+maintainer: test@example.com
+description: Package one
+dependencies:
+YAML
+    metadata = Metadata.new(yaml, 'yml')
+    assert_equal([], metadata.get_native_deps)
+    # Metadata with dependencies but none native
+    yaml = <<YAML
+name: pkgone
+version: 1
+maintainer: test@example.com
+description: Package one
+dependencies:
+- name: dep1
+- name: dep2
+YAML
+    metadata = Metadata.new(yaml, 'yml')
+    assert_equal([], metadata.get_native_deps)
+    # Metadata with native dependencies
+    yaml = <<YAML
+name: pkgone
+version: 1
+maintainer: test@example.com
+description: Package one
+dependencies:
+- name: dep1
+- name: nativedep1
+  native: true
+- name: nativedep2
+  native: true
+YAML
+        metadata = Metadata.new(yaml, 'yml')
+        assert_equal([{'name'=>'nativedep1', 'native'=>true, 'type'=>:native},
+                      {'name'=>'nativedep2', 'native'=>true, 'type'=>:native}],
+                     metadata.get_native_deps)
   end
   
   def teardown
