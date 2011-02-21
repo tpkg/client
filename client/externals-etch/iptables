@@ -5,20 +5,28 @@ set -e
 pkgfile=$1
 operation=$2
 
-requestfile=/var/etch/requests/etc/sysconfig/iptables/$pkgfile
+# /etc/sysconfig/iptables for Red Hat
+# /var/lib/iptables/active for Debian
+requestfiles="/var/etch/requests/etc/sysconfig/iptables/$pkgfile /var/etch/requests/var/lib/iptables/active/$pkgfile"
 
 case "$operation" in
 'install')
-	mkdir -p `dirname "$requestfile"`
-	tmpfile=`mktemp "$requestfile.XXXXXX"` || exit 1
-	echo "<request>" > $tmpfile
-	# Dump in the data passed to us on stdin
-	cat >> $tmpfile
-	echo "</request>" >> $tmpfile
-	chmod 644 "$tmpfile"
+	for requestfile in $requestfiles
+	do
+		mkdir -p `dirname "$requestfile"`
+		tmpfile=`mktemp "$requestfile.XXXXXX"` || exit 1
+		echo "<request>" > $tmpfile
+		# Dump in the data passed to us on stdin
+		cat >> $tmpfile
+		echo "</request>" >> $tmpfile
+		chmod 644 "$tmpfile"
+	done
 	;;
 'remove')
-	rm -f "$requestfile".*
+	for requestfile in $requestfiles
+	do
+		rm -f "$requestfile".*
+	done
 	;;
 *)
 	echo "$0: Invalid arguments"
@@ -26,5 +34,5 @@ case "$operation" in
 	;;
 esac
 
-/usr/sbin/etch /etc/sysconfig/iptables
+/usr/sbin/etch /etc/sysconfig/iptables /var/lib/iptables/active
 
