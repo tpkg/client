@@ -9,6 +9,7 @@ then
   tmpfile=`mktemp -t etc.profile.XXXXXX`
   # yank out those lines
   sed -e "$start_line,$end_line d" /etc/profile > $tmpfile
+  chmod 644 $tmpfile
   if [ -s $tmpfile ]; then
     mv $tmpfile /etc/profile
   fi
