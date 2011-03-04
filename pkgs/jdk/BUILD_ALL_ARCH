@@ -20,7 +20,7 @@ cat tpkg.xml | \
 	sed "s/NAME/$PKG/" | \
 	sed "s/VERSION/$VER/" | \
 	sed "s/PKGVER/$PKGVER/" | \
-	sed "s/OS/RedHat-$OSMAJOR,CentOS-$OSMAJOR,Ubuntu-9,Ubuntu-9.04/" | \
+	sed "s/OS/RedHat-$OSMAJOR,CentOS-$OSMAJOR,Ubuntu-9/" | \
         sed '/<files>/a\
 <file_defaults><posix><owner>t</owner><group>roleusers</group></posix></file_defaults>' > $pkgdir/tpkg.xml
 
