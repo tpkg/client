@@ -1,9 +1,8 @@
 #!/bin/sh
 
-sed "s,%BASE%,$TPKG_HOME," $TPKG_HOME/etc/profile.d/java.sh > $TPKG_HOME/etc/profile.d/java.sh.new
-test -s $TPKG_HOME/etc/profile.d/java.sh.new || exit 1
-mv $TPKG_HOME/etc/profile.d/java.sh.new $TPKG_HOME/etc/profile.d/java.sh || exit 1
+set -e
 
-# Ideally, we should be able to specify this in tpkg.xml. But tpkg doesn't handle
-# ownership and permission for symlink. So we're manually setting it here
-chown -h t:roleusers $TPKG_HOME/jdk_current
+sed "s,%BASE%,$TPKG_HOME," $TPKG_HOME/etc/profile.d/java.sh > $TPKG_HOME/etc/profile.d/java.sh.new
+test -s $TPKG_HOME/etc/profile.d/java.sh.new
+mv $TPKG_HOME/etc/profile.d/java.sh.new $TPKG_HOME/etc/profile.d/java.sh
+
