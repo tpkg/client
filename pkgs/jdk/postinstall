@@ -2,7 +2,7 @@
 
 set -e
 
-sed "s,%BASE%,$TPKG_HOME," $TPKG_HOME/etc/profile.d/java.sh > $TPKG_HOME/etc/profile.d/java.sh.new
-test -s $TPKG_HOME/etc/profile.d/java.sh.new
-mv $TPKG_HOME/etc/profile.d/java.sh.new $TPKG_HOME/etc/profile.d/java.sh
+sed "s,%BASE%,$TPKG_HOME," $TPKG_HOME/etc/profile.d/jdk.sh > $TPKG_HOME/etc/profile.d/jdk.sh.new
+test -s $TPKG_HOME/etc/profile.d/jdk.sh.new
+mv $TPKG_HOME/etc/profile.d/jdk.sh.new $TPKG_HOME/etc/profile.d/jdk.sh
 

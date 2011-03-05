@@ -45,9 +45,9 @@ rm $pkgdir/reloc/$src/src.zip
 
 echo "Setting up profile.d script"
 mkdir -p $pkgdir/reloc/etc/profile.d
-cp java.sh $pkgdir/reloc/etc/profile.d/
+cp jdk.sh $pkgdir/reloc/etc/profile.d/
 
-sed -i "s,%INSTALLED_DIR%,$src," $pkgdir/reloc/etc/profile.d/java.sh 
+sed -i "s,%INSTALLED_DIR%,$src," $pkgdir/reloc/etc/profile.d/jdk.sh 
 
 # Make package
 echo "Running tpkg --make"
