@@ -1,5 +1,5 @@
 ANT_HOME=/opt/tpkg/share/PKG-VER
 export ANT_HOME
-PATH=/opt/tpkg/share/PKG-VER:$PATH
+PATH=$PATH:/opt/tpkg/share/PKG-VER/bin
 export PATH
 
