@@ -1,14 +1,14 @@
-#!/sbin/sh
+#!/bin/sh
 # Before running this script, do the following:
 # First, download the jdk*.bin file.
 # Second, execute that .bin file. That should extract and install
-# files into something like "jdk1.6.0_20". Rename it to jdk1.6.0_20.x86_64
+# files into something like "jdk1.6.0_24". Rename it to jdk1.6.0_24.x86_64
 # to distinguish it from the 32bit version
 
 set -e
 
 PKG=jdk
-VER=1.6.0_20
+VER=1.6.0_24
 PKGVER=1
 OS=`tpkg --qenv | grep 'Operating System' | awk '{print $NF}'`
 if echo $OS | egrep 'RedHat|CentOS'
@@ -42,7 +42,7 @@ mkdir -p $pkgdir/reloc
 cp -r $src $pkgdir/reloc/$PKG$VER
 
 # delete unnecesarry source code
-rm $pkgdir/reloc/$src/src.zip
+rm $pkgdir/reloc/$PKG$VER/src.zip
 
 echo "Setting up profile.d script"
 mkdir -p $pkgdir/reloc/etc/profile.d
