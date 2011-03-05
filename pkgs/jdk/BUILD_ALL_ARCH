@@ -24,6 +24,7 @@ rm -rf $PKG-$VER
 #cd $PKG-$VER
 #make
 src="$PKG$VER"
+dst="$PKG$VER"
 pkgdir=`mktemp -d -t tpkg.XXXXXX`
 cat ../tpkg.xml | \
 	sed "s/NAME/$PKG/" | \
@@ -38,16 +39,16 @@ chmod 755 $pkgdir/postinstall
 
 echo "Copying jdk files to staging directory"
 mkdir -p $pkgdir/reloc
-cp -r $src $pkgdir/reloc
+cp -r $src $pkgdir/reloc/$dst
 
 # delete unnecesarry source code
-rm $pkgdir/reloc/$src/src.zip
+rm $pkgdir/reloc/$dst/src.zip
 
 echo "Setting up profile.d script"
 mkdir -p $pkgdir/reloc/etc/profile.d
 cp jdk.sh $pkgdir/reloc/etc/profile.d/
 
-sed -i "s,%INSTALLED_DIR%,$src," $pkgdir/reloc/etc/profile.d/jdk.sh 
+sed -i "s,%INSTALLED_DIR%,$dst," $pkgdir/reloc/etc/profile.d/jdk.sh 
 
 # Make package
 echo "Running tpkg --make"
