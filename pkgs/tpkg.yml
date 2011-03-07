@@ -2,7 +2,7 @@ name: NAME
 version: VERSION
 package_version: PKGVER
 maintainer: tpkg-users@lists.sourceforge.net
-operatingsystem: OS
-architecture: ARCH
+operatingsystem: [OS]
+architecture: [ARCH]
 description: See https://sourceforge.net/apps/trac/tpkg/browser/trunk/pkgs
 
