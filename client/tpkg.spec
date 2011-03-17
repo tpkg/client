@@ -23,6 +23,6 @@ tpkg client
 /usr/share/man/man1/tpkg.1
 /usr/share/man/man1/cpan2tpkg.1
 /usr/share/man/man1/gem2tpkg.1
-/etc/profile.d/tpkg_profile.sh
+/etc/profile.d/tpkg.sh
 %config /etc/tpkg.conf
 /etc/tpkg

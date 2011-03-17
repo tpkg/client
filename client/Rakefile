@@ -137,8 +137,8 @@ def copy_tpkg_files(destdir, options={})
   if options[:profiledir]
     profiledir = File.join(BUILDROOT, options[:profiledir])
     mkdir_p(profiledir)
-    cp('tpkg_profile.sh', profiledir, :preserve => true)
-    chmod(0755, File.join(profiledir, 'tpkg_profile.sh'))
+    cp('tpkg_profile.sh', File.join(profiledir, 'tpkg.sh'), :preserve => true)
+    chmod(0755, File.join(profiledir, 'tpkg.sh'))
   end
 end
 
