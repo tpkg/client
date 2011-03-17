@@ -1,0 +1,40 @@
+#!/bin/sh
+
+set -e
+
+pkgfile=$1
+operation=$2
+
+# Grab the data passed to us on stdin
+datafile=`mktemp`
+cat > $datafile
+# We expect just one line of data containing the home directory path
+homedir=`head -1 $datafile`
+# Make sure we got some sort of string for the home directory
+test -n "$homedir"
+
+requestfile=/var/etch/requests/$homedir/.ssh/authorized_keys/$pkgfile
+
+case "$operation" in
+'install')
+	mkdir -p `dirname "$requestfile"`
+	tmpfile=`mktemp "$requestfile.XXXXXX"` || exit 1
+	echo "<request>" > $tmpfile
+	# Dump in the data we captured above
+	cat $datafile >> $tmpfile
+	echo "</request>" >> $tmpfile
+	chmod 644 "$tmpfile"
+	;;
+'remove')
+	rm -f "$requestfile".*
+	;;
+*)
+	echo "$0: Invalid arguments"
+	exit 1
+	;;
+esac
+
+# There's no guarantee that the user has keys in etch, and etch will throw an
+# error if you ask it to generate a file that it doesn't know about.
+#/usr/sbin/etch $homedir/.ssh/authorized_keys
+
