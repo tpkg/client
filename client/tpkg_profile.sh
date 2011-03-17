@@ -22,6 +22,13 @@ fi
 
 PATH=$tpkgbase/bin:$PATH
 export PATH
+if [ -n "$MANPATH" ]
+then
+  MANPATH=$tpkgbase/man:$MANPATH
+else
+  MANPATH=$tpkgbase/man
+fi
+export MANPATH
 
 for i in $tpkgbase/etc/profile.d/*.sh ; do
     if [ -r "$i" ]; then
