@@ -3063,7 +3063,7 @@ class Tpkg
       
       begin
         # Warn the user about non-executable files, as system will just
-        # silently fail and exit if that's the case.
+        # silently fail and return if that's the case.
         if !File.executable?(File.join(workdir, 'tpkg', 'preinstall'))
           warn "Warning: preinstall script for #{File.basename(package_file)} is not executable, execution will likely fail"
         end
@@ -3088,7 +3088,7 @@ class Tpkg
       
       begin
         # Warn the user about non-executable files, as system will just
-        # silently fail and exit if that's the case.
+        # silently fail and return if that's the case.
         if !File.executable?(File.join(workdir, 'tpkg', 'postinstall'))
           warn "Warning: postinstall script for #{File.basename(package_file)} is not executable, execution will likely fail"
         end
@@ -4062,7 +4062,7 @@ class Tpkg
         Dir.chdir(File.join(workdir, 'tpkg'))
         
         # Warn the user about non-executable files, as system will just
-        # silently fail and exit if that's the case.
+        # silently fail and return if that's the case.
         if !File.executable?(File.join(workdir, 'tpkg', 'preremove'))
           warn "Warning: preremove script for #{File.basename(package_file)} is not executable, execution will likely fail"
         end
@@ -4145,7 +4145,7 @@ class Tpkg
         Dir.chdir(File.join(workdir, 'tpkg'))
         
         # Warn the user about non-executable files, as system will just
-        # silently fail and exit if that's the case.
+        # silently fail and return if that's the case.
         if !File.executable?(File.join(workdir, 'tpkg', 'postremove'))
           warn "Warning: postremove script for #{File.basename(package_file)} is not executable, execution will likely fail"
         end
@@ -4357,6 +4357,11 @@ class Tpkg
     
     ordered_init_scripts.each do |init_script|
       installed_path = init_script[:path]
+      # Warn the user about non-executable files, as system will just
+      # silently fail and return if that's the case.
+      if !File.executable?(installed_path)
+        warn "Warning: init script for #{pkg[:metadata][:name]} is not executable, execution will likely fail"
+      end
       system("#{installed_path} #{action}")
       ret_val = INITSCRIPT_ERR if !$?.success?
     end
