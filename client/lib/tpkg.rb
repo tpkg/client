@@ -2474,7 +2474,11 @@ class Tpkg
   def run_external(pkgfile, operation, name, data)
     externalpath = File.join(@external_directory, name)
     if !File.executable?(externalpath)
-      raise "External #{externalpath} does not exist or is not executable"
+      if @force
+        warn "External #{externalpath} does not exist or is not executable"
+      else
+        raise "External #{externalpath} does not exist or is not executable"
+      end
     end
     case operation
     when :install
@@ -2489,7 +2493,11 @@ class Tpkg
         # Tell the user which external and package were involved, otherwise
         # failures in externals are very hard to debug
         # FIXME: should we clean up the external request files?
-        raise Tpkg.wrap_exception(e, "External #{name} #{operation} for #{File.basename(pkgfile)}: " + e.message)
+        if @force
+          warn "External #{name} #{operation} for #{File.basename(pkgfile)}: " + e.message
+        else
+          raise Tpkg.wrap_exception(e, "External #{name} #{operation} for #{File.basename(pkgfile)}: " + e.message)
+        end
       end
     when :remove
       begin
@@ -2500,7 +2508,11 @@ class Tpkg
           raise "Exit value #{$?.exitstatus}"
         end
       rescue => e
-        raise Tpkg.wrap_exception(e, "External #{name} #{operation} for #{File.basename(pkgfile)}: " + e.message)
+        if @force
+          warn "External #{name} #{operation} for #{File.basename(pkgfile)}: " + e.message
+        else
+          raise Tpkg.wrap_exception(e, "External #{name} #{operation} for #{File.basename(pkgfile)}: " + e.message)
+        end
       end
     else
       raise "Bug, unknown external operation #{operation}"
@@ -3125,7 +3137,15 @@ class Tpkg
           begin
             if external[:datafile]
               # Read the file
-              external[:data] = IO.read(external[:datafile])
+              begin
+                external[:data] = IO.read(external[:datafile])
+              rescue => e
+                if @force
+                  warn "Datafile #{external[:datafile]} for package #{File.basename(metadata[:filename])}: " + e.message
+                else
+                  raise Tpkg.wrap_exception(e, "Datafile #{external[:datafile]} for package #{File.basename(metadata[:filename])}: " + e.message)
+                end
+              end
               # Drop the datafile key so that we don't waste time re-reading the
               # datafile again in the future.
               external.delete(:datafile)
@@ -3137,14 +3157,22 @@ class Tpkg
               # warning specifies that it was a datascript and includes the
               # package name.
               if !File.executable?(external[:datascript])
-                warn "Warning: datascript for package #{File.basename(metadata[:filename])} is not executable, execution will likely fail"
+                warn "Datascript for package #{File.basename(metadata[:filename])} is not executable, execution will likely fail"
               end
               # Run the script
-              IO.popen(external[:datascript]) do |pipe|
-                external[:data] = pipe.read
-              end
-              if !$?.success?
-                raise "Datascript #{external[:datascript]} for package #{File.basename(metadata[:filename])} had exit value #{$?.exitstatus}"
+              begin
+                IO.popen(external[:datascript]) do |pipe|
+                  external[:data] = pipe.read
+                end
+                if !$?.success?
+                  raise "Exit value #{$?.exitstatus}"
+                end
+              rescue => e
+                if @force
+                  warn "Datascript #{external[:datascript]} for package #{File.basename(metadata[:filename])}: " + e.message
+                else
+                  raise Tpkg.wrap_exception(e, "Datascript #{external[:datascript]} for package #{File.basename(metadata[:filename])}: " + e.message)
+                end
               end
               # Drop the datascript key so that we don't waste time re-running the
               # datascript again in the future.

@@ -305,6 +305,7 @@ YAML
       end
       File.chmod(0755, extscript)
       tpkg = Tpkg.new(:file_system_root => testroot, :base => relative_base)
+      tpkg_force = Tpkg.new(:file_system_root => testroot, :base => relative_base, :force => true)
       
       # Test install
       assert_nothing_raised { tpkg.run_external('pkgfile', :install, extname, extdata) }
@@ -316,6 +317,9 @@ YAML
       # A non-existent external raises an exception
       File.delete(extscript)
       assert_raise(RuntimeError) { tpkg.run_external('pkgfile', :install, extname, extdata) }
+      # Unless forced
+      assert_nothing_raised { tpkg_force.run_external('pkgfile', :install, extname, extdata) }
+      
       # A non-executable external raises an exception
       File.open(extscript, 'w') do |file|
         file.puts('#!/bin/sh')
@@ -323,6 +327,9 @@ YAML
       end
       File.chmod(0644, extscript)
       assert_raise(RuntimeError) { tpkg.run_external('pkgfile', :install, extname, extdata) }
+      # Unless forced
+      assert_nothing_raised { tpkg_force.run_external('pkgfile', :install, extname, extdata) }
+      
       # An external that exits non-zero should raise an exception
       File.open(extscript, 'w') do |file|
         file.puts('#!/bin/sh')
@@ -332,10 +339,20 @@ YAML
       end
       File.chmod(0755, extscript)
       assert_raise(RuntimeError) { tpkg.run_external('pkgfile', :install, extname, extdata) }
+      # Unless forced
+      assert_nothing_raised { tpkg_force.run_external('pkgfile', :install, extname, extdata) }
+      
       # An invalid operation should raise an exception
       assert_raise(RuntimeError) { tpkg.run_external('pkgfile', :bogus, extname, extdata) }
+      # The externals operation to perform is determined within tpkg.  If an
+      # invalid operation is specified that's a significant tpkg bug, not
+      # something we have any reason to expect a user to see and thus no
+      # reason to allow a force to override raising that exception.
+      
       # An invalid external name should raise an exception
       assert_raise(RuntimeError) { tpkg.run_external('pkgfile', :install, 'bogus', extdata) }
+      # Unless forced
+      assert_nothing_raised { tpkg_force.run_external('pkgfile', :install, 'bogus', extdata) }
     end
   end
   

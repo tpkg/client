@@ -939,7 +939,8 @@ class TpkgUnpackTests < Test::Unit::TestCase
       testbase = File.join(testroot, 'home', 'tpkg')
       FileUtils.mkdir_p(testbase)
       tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'))
-    
+      tpkg_force = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :force => true)
+      
       Dir.mktmpdir('run_externals_for_install') do |workdir|
         FileUtils.mkdir(File.join(workdir, 'tpkg'))
         
@@ -1065,6 +1066,8 @@ class TpkgUnpackTests < Test::Unit::TestCase
         metadata[:externals] = original_externals
         assert_raise(Errno::ENOENT) { tpkg.run_externals_for_install(metadata, workdir) }
         assert_equal(pwd, Dir.pwd)
+        # Unless forced
+        assert_nothing_raised { tpkg_force.run_externals_for_install(metadata, workdir) }
         # Put datafile back
         FileUtils.mv(File.join(workdir, 'datafile'), File.join(workdir, 'tpkg', 'datafile'))
         
@@ -1077,6 +1080,8 @@ class TpkgUnpackTests < Test::Unit::TestCase
         # Errno::ENOENT in ruby 1.9, raised by popen
         assert_raise(RuntimeError, Errno::ENOENT) { tpkg.run_externals_for_install(metadata, workdir) }
         assert_equal(pwd, Dir.pwd)
+        # Unless forced
+        assert_nothing_raised { tpkg_force.run_externals_for_install(metadata, workdir) }
         # Put datascript back
         FileUtils.mv(File.join(workdir, 'datascript'), File.join(workdir, 'tpkg', 'datascript'))
         
@@ -1088,6 +1093,8 @@ class TpkgUnpackTests < Test::Unit::TestCase
         # Errno::EACCES in ruby 1.9, raised by popen
         assert_raise(RuntimeError, Errno::EACCES) { tpkg.run_externals_for_install(metadata, workdir) }
         assert_equal(pwd, Dir.pwd)
+        # Unless forced
+        assert_nothing_raised { tpkg_force.run_externals_for_install(metadata, workdir) }
         # Restore permissions
         File.chmod(0755, File.join(workdir, 'tpkg', 'datascript'))
         
@@ -1101,6 +1108,8 @@ class TpkgUnpackTests < Test::Unit::TestCase
         metadata[:externals] = original_externals
         assert_raise(RuntimeError) { tpkg.run_externals_for_install(metadata, workdir) }
         assert_equal(pwd, Dir.pwd)
+        # Unless forced
+        assert_nothing_raised { tpkg_force.run_externals_for_install(metadata, workdir) }
       end
     end
   end
