@@ -346,7 +346,45 @@ class TpkgUpgradeTests < Test::Unit::TestCase
     
     pkgfiles.each { |pkgfile| FileUtils.rm_f(pkgfile) }
   end
-
+  
+  # b-1 depends on a-2
+  # b-2 depends on a-1
+  # Can we upgrade from b-1 to b-2?
+  def test_upgrade_with_dependency_rollback
+    pkgfiles = []
+    Dir.mktmpdir('srcdir') do |srcdir|
+      FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+      pkgfiles <<  make_package(:change => { 'name' => 'deprolla', 'version' => '1' }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      pkgfiles <<  make_package(:change => { 'name' => 'deprolla', 'version' => '2' }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      pkgfiles <<  make_package(:change => { 'name' => 'deprollb', 'version' => '1' }, :source_directory => srcdir, :dependencies => {'deprolla' => {'minimum_version' => '2', 'maximum_version' => '2'}}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      pkgfiles <<  make_package(:change => { 'name' => 'deprollb', 'version' => '2' }, :source_directory => srcdir, :dependencies => {'deprolla' => {'minimum_version' => '1', 'maximum_version' => '1'}}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    end
+    
+    tpkg = Tpkg.new(:file_system_root => @testroot, :base => File.join('home', 'tpkg'), :sources => pkgfiles)
+    tpkg.install(['deprollb=1.0'], PASSPHRASE)
+    metadata = @tpkg.metadata_for_installed_packages
+    
+    tpkg.upgrade(['deprollb'])
+    
+    metadata = @tpkg.metadata_for_installed_packages
+    
+    apkg = nil
+    bpkg = nil
+    metadata.each do |m|
+      if m[:name] == 'deprolla'
+        apkg = m
+      elsif m[:name] == 'deprollb'
+        bpkg = m
+      end
+    end
+    # Package b should version 2
+    assert_equal('2', bpkg[:version])
+    # Package a should version 1
+    assert_equal('1', apkg[:version])
+    
+    pkgfiles.each { |pkgfile| FileUtils.rm_f(pkgfile) }
+  end
+  
   def teardown
     @pkgfiles.each { |pkgfile| FileUtils.rm_f(pkgfile) }
     FileUtils.rm_rf(@testroot)
