@@ -51,17 +51,8 @@ end
 
 opts = OptionParser.new(nil, 24, '  ')
 opts.banner = 'Usage: tpkg [options]'
-opts.on('--servers', '-s', '=SERVERS', Array, 'Servers to apply the actions to') do |opt|
-  @servers = opt
-  @deploy = true
-  @deploy_params = @deploy_params - ['--servers', '-s', @servers.join(","), "--servers=#{@servers.join(',')}"]
-end
 opts.on('--make', '-m', '=DIRECTORY', 'Make a package out of the contents of the directory') do |opt|
   @action = :make
-  @action_value = opt
-end
-opts.on('--extract', '-x', '=DIRECTORY', 'Extract the metadata for a directory of packages') do |opt|
-  @action = :extract
   @action_value = opt
 end
 installexample = "      --install pkgname=version=package_version\n          (Example: tpkg --install hive=2.1)  Will install hive version 2.1"
@@ -80,6 +71,11 @@ opts.on('--downgrade', '=PACKAGES', 'Downgrade one or more packages', Array) do 
   @rerun_with_sudo = true
   @action = :upgrade
   @action_value = opt
+end
+opts.on('--servers', '-s', '=SERVERS', Array, 'Servers to apply the actions to, defaults to local') do |opt|
+  @servers = opt
+  @deploy = true
+  @deploy_params = @deploy_params - ['--servers', '-s', @servers.join(","), "--servers=#{@servers.join(',')}"]
 end
 opts.on('--ua', 'Upgrade all packages') do |opt|
   @rerun_with_sudo = true
@@ -236,6 +232,10 @@ opts.on('--qconf', "Display tpkg's configuration settings") do |opt|
 end
 opts.on('--base', '=BASE', 'Base directory for tpkg operations') do |opt|
   @tpkg_options[:base] = opt
+end
+opts.on('--extract', '-x', '=DIRECTORY', 'Extract the metadata for a directory of packages') do |opt|
+  @action = :extract
+  @action_value = opt
 end
 opts.on('--source', '=NAME', 'Sources where packages are located', Array) do |opt|
   @tpkg_options[:sources] = opt
