@@ -72,7 +72,7 @@ opts.on('--downgrade', '=PACKAGES', 'Downgrade one or more packages', Array) do 
   @action = :upgrade
   @action_value = opt
 end
-opts.on('--servers', '-s', '=SERVERS', Array, 'Servers to apply the actions to, defaults to local') do |opt|
+opts.on('--servers', '-s', '=SERVERS', Array, 'Servers on which to apply actions, defaults to local') do |opt|
   @servers = opt
   @deploy = true
   @deploy_params = @deploy_params - ['--servers', '-s', @servers.join(","), "--servers=#{@servers.join(',')}"]
