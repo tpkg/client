@@ -1,8 +1,5 @@
 #!/bin/bash
 
-# Where to get the source?
-#  MOG_DOMAIN=pkg.upstream mogwai get FreeImage3131.zip
-
 PKG=freeimage
 VER=3.13.1
 PKGVER=1
@@ -15,7 +12,7 @@ metadata=$(cat<<EOF
 name: $PKG
 version: $VER
 package_version: $PKGVER
-maintainer: system.architecture@yplist.flight.yellowpages.com
+maintainer: tpkg-users@lists.sourceforge.net
 operatingsystem:
 - RedHat-$OSMAJOR
 - CentOS-$OSMAJOR
