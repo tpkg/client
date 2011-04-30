@@ -24,7 +24,7 @@ metadata=$(cat<<EOF
 name: $OUR_PKG_NAME
 version: $VER
 package_version: $PKGVER
-maintainer: system.architecture@yplist.flight.yellowpages.com
+maintainer: tpkg-users@lists.sourceforge.net
 operatingsystem: [RedHat-$OSMAJOR, CentOS-$OSMAJOR]
 architecture: [$ARCH]
 dependencies:
