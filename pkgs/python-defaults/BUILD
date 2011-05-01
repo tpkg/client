@@ -5,7 +5,7 @@ set -e
 set -u
 
 PKG=python-defaults
-VERS="2.6 3.1"
+VERS="2.7 3.2"
 PKGVER=1
 prefix=/opt/tpkg
 
@@ -32,10 +32,19 @@ do
 EOF
 
 	mkdir -p $pkgdir/reloc/bin
-	for i in python
-	do
-		ln -s python$ver $pkgdir/reloc/bin/$i
-	done
+	ln -s python$ver $pkgdir/reloc/bin/python
+	# Due to
+	# http://docs.python.org/py3k/whatsnew/3.2.html#pep-3149-abi-version-tagged-so-files
+	# the binary is called something like python3.2m-config where the
+	# letter(s) following the version depend on the build flags used.
+	# Sigh, what a PITA.
+	if [ $ver = "3.2" ]
+	then
+		# Automating this is more pain than I want to deal with right now
+		ln -s python${ver}m-config $pkgdir/reloc/bin/python-config
+	else
+		ln -s python$ver-config $pkgdir/reloc/bin/python-config
+	fi
 
 	tpkg --make $pkgdir
 	rm -rf $pkgdir
