@@ -10,30 +10,35 @@ then
         # Save folks from having to build separate packages for Red Hat and
         # CentOS
         OSMAJOR=`echo $OS | cut -d- -f2`
-        OS="RedHat-$OSMAJOR,CentOS-$OSMAJOR"
+        OS="RedHat-$OSMAJOR, CentOS-$OSMAJOR"
 fi
 ARCH=`tpkg --qenv | grep 'Architecture' | awk '{print $NF}'`
 
 if echo $OS | egrep 'RedHat|CentOS'
 then
-	rpm --quiet -q gcc || sudo yum install gcc
+	rpm --quiet -q gcc bzip2-devel || sudo yum install gcc bzip2-devel
 fi
 
-for ver in 2.6.6 3.1.2
+for ver in 2.7.1 3.2
 do
 	rm -rf Python-$ver
 	tar jxvf Python-$ver.tar.bz2
 	cd Python-$ver
-	./configure --prefix=/opt/tpkg
+	./configure --prefix=/opt/tpkg --mandir=/opt/tpkg/man
 	make
 	pkgdir=`mktemp -d -t tpkg.XXXXXX`
-	cat ../../tpkg.xml | \
+	cat ../../tpkg.yml | \
 		sed "s/NAME/$PKG/" | \
 		sed "s/VERSION/$ver/" | \
 		sed "s/PKGVER/$PKGVER/" | \
 		sed "s/OS/$OS/" | \
-		sed "s/ARCH/$ARCH/" | \
-		grep -v files > $pkgdir/tpkg.xml
+		sed "s/ARCH/$ARCH/" \
+		> $pkgdir/tpkg.yml
+	cat <<EOF >> $pkgdir/tpkg.yml
+dependencies:
+- name: bzip2
+  native: true
+EOF
 	# Install
 	mkdir $pkgdir/root
 	make altinstall DESTDIR=$pkgdir/root
