@@ -1,0 +1,25 @@
+#!/bin/sh
+
+# Init file for rabbitmq
+
+case "$1" in
+'start')
+	echo "Starting rabbitmq"
+	su rabbitmq -s /bin/sh -c "/opt/tpkg/sbin/rabbitmq-server > /opt/tpkg/var/log/rabbitmq/startup.log 2>&1 &"
+	;;
+
+'stop')
+	su rabbitmq -s /bin/sh -c "/opt/tpkg/sbin/rabbitmqctl stop"
+	;;
+
+'restart')
+	$0 stop
+	$0 start
+	;;
+*)
+	echo "Usage: $0 { start | stop | restart }"
+	exit 1
+	;;
+esac
+exit 0
+
