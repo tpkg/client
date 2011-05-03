@@ -3,7 +3,7 @@
 set -e
 
 PKG=curl
-VER=7.21.1
+VER=7.21.6
 PKGVER=1
 OS=`tpkg --qenv | grep 'Operating System' | awk '{print $NF}'`
 if echo $OS | egrep 'RedHat|CentOS'
