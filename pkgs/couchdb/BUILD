@@ -62,6 +62,8 @@ files:
   files:
   - path: /opt/tpkg/etc/init.d/couchdb
     init: {}
+    posix:
+      perms: 0555
   - path: /opt/tpkg/etc/couchdb/local.ini
     config: true
   - path: /opt/tpkg/var/lib/couchdb
