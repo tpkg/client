@@ -146,7 +146,8 @@ class TpkgRemoveTests < Test::Unit::TestCase
     
     # Test that preremove/postremove are run at the right points
     #   Make up a package with scripts that create files so we can check timestamps
-    # Also, test PS-476 tpkg should chdir to package unpack directory before calling pre/post/install/remove scripts
+    # Also, test tpkg should chdir to package unpack directory before calling
+    # pre/post/install/remove scripts
     scriptfiles = {}
     pkgfile = nil
     

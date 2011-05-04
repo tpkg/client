@@ -128,7 +128,8 @@ class TpkgUpgradeTests < Test::Unit::TestCase
     assert_not_nil(bpkg)
     assert_equal('2.0', bpkg[:version])
 
-    # These test cases are for PS-375: Can't upgrade if package has lower package version number
+    # These test cases are for: Can't upgrade if package has higher version
+    # number but lower package version number
     # install  c-1.2.3
     assert_nothing_raised{@tpkg.install(['c=1.2'], PASSPHRASE)}
     metadata = @tpkg.metadata_for_installed_packages

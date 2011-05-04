@@ -109,7 +109,8 @@ class TpkgDependencyTests < Test::Unit::TestCase
 
     FileUtils.rm_f(pkgfile)
 
-    # More complicated test for PS-375
+    # More complicated test for: Can't upgrade if package has higher version
+    # number but lower package version number
     pkgfile = make_package(:output_directory => @tempoutdir, :change => {'version' => '2.3', 'package_version' => '2' }, :remove => ['operatingsystem', 'architecture'])
     metadata = Tpkg::metadata_from_package(pkgfile)
     pkg = { :metadata => metadata, :source => pkgfile }
@@ -275,7 +276,8 @@ class TpkgDependencyTests < Test::Unit::TestCase
       pkgs = tpkg.available_packages_that_meet_requirement(req)
       assert(pkgs.empty?)
       
-      # PS-478
+      # Users should be able to specify a dependency such that they indicate
+      # that the desired package has no package version.
       pkgfiles << make_package(:output_directory => @tempoutdir, :change => {'version' => '2'}, :remove => ['operatingsystem', 'architecture', 'package_version'])
       pkgfiles << make_package(:output_directory => @tempoutdir, :change => {'version' => '2', 'package_version' => '1'}, :remove => ['operatingsystem', 'architecture'])
       pkgfiles << make_package(:output_directory => @tempoutdir, :change => {'version' => '2', 'package_version' => '112'}, :remove => ['operatingsystem', 'architecture'])
@@ -694,7 +696,8 @@ class TpkgDependencyTests < Test::Unit::TestCase
       packages.clear
       FileUtils.rm_f(apkg)
       
-      # PS-465: local package dependencies on install
+      # package dependencies on install when installing local package files
+      # (i.e. not sourced from a server)
       # Check that tpkg accept list of local packages where one depends on another
       localapkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'locala', 'version' => '1.0' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
       localbpkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'localb', 'version' => '1.0' }, :dependencies => {'locala' => {}}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
