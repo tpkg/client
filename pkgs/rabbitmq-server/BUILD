@@ -22,7 +22,8 @@ then
 		rpm --quiet -q $rpm || sudo yum install $rpm
 	done
 fi
-for tpkg in erlang-otp python-defaults
+# Build fails with python 3
+for tpkg in erlang-otp python-defaults=2.7
 do
 	tpkg --quiet -q $tpkg || tpkg -i $tpkg
 done
@@ -42,7 +43,6 @@ cat ../../tpkg.yml | \
 cat <<EOF >> $pkgdir/tpkg.yml
 dependencies:
 - name: erlang-otp
-- name: python-defaults
 externals:
   - name: user
     data: rabbitmq
