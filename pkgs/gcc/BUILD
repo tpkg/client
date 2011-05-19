@@ -69,18 +69,41 @@ cat ../../tpkg.yml | \
 	sed "s/ARCH/$ARCH/" > $pkgdir/tpkg.yml
 cat <<EOF >> $pkgdir/tpkg.yml
 dependencies:
+- name: libgcc
+  minimum_version: $VER
+  maximum_version: $VER
+  minimum_package_version: $PKGVER
+  maximum_package_version: $PKGVER
 - name: gmp
+  minimum_version: 4.3.2
 - name: mpfr
+  minimum_version: 2.4.2
 - name: mpc
+  minimum_version: 0.8.1
 EOF
 mkdir $pkgdir/root
 # Install
 make install DESTDIR=$pkgdir/root
 rm $pkgdir/root/opt/tpkg/share/info/dir
-# Make package
+# Split off libgcc package
+libpkgdir=`mktemp -d -t tpkg.XXXXXX`
+cat ../../tpkg.yml | \
+	sed "s/NAME/libgcc/" | \
+	sed "s/VERSION/$VER/" | \
+	sed "s/PKGVER/$PKGVER/" | \
+	sed "s/OS/$OS/" | \
+	sed "s/ARCH/$ARCH/" > $libpkgdir/tpkg.yml
+mkdir -p $libpkgdir/root/opt/tpkg
+mv $pkgdir/root/opt/tpkg/lib $libpkgdir/root/opt/tpkg
+mkdir -p $pkgdir/root/opt/tpkg/lib
+mv $libpkgdir/root/opt/tpkg/lib/gcc $pkgdir/root/opt/tpkg/lib
+mv $pkgdir/root/opt/tpkg/lib64 $libpkgdir/root/opt/tpkg
+# Make packages
 tpkg --make $pkgdir
+tpkg --make $libpkgdir
 # Cleanup
 rm -rf $pkgdir
+rm -rf $libpkgdir
 cd ..
 rm -rf $PKG-$VER
 
