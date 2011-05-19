@@ -19,7 +19,7 @@ ARCH=`tpkg --qenv | grep 'Architecture' | awk '{print $NF}'`
 # to express that on the command line, so we specify the latest version.
 for tpkg in gcc=4.6.0
 do
-	tpkg --quiet -q $tpkg || tpkg -i $tkg
+	tpkg --quiet -q $tpkg || tpkg -i $tpkg
 done
 
 rm -rf $PKG-$VER
@@ -42,7 +42,7 @@ cat ../../tpkg.yml | \
 	sed "s/ARCH/$ARCH/" > $pkgdir/tpkg.yml
 cat <<EOF >> $pkgdir/tpkg.yml
 dependencies:
-- name: gcc
+- name: libgcc
 EOF
 mkdir $pkgdir/root
 # Install
