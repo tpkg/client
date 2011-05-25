@@ -25,10 +25,6 @@ done
 rm -rf $PKG-$VER
 tar zxvf $PKG-$VER.tar.gz
 cd $PKG-$VER
-#LDFLAGS="-L/opt/tpkg/lib -Wl,-rpath=/opt/tpkg/lib"
-#export LDFLAGS
-#CFLAGS="-L/opt/tpkg/lib -Wl,-rpath=/opt/tpkg/lib"
-#export CFLAGS
 CXXFLAGS="-L/opt/tpkg/lib -L/opt/tpkg/lib64 -Wl,-rpath=/opt/tpkg/lib -Wl,-rpath=/opt/tpkg/lib64"
 export CXXFLAGS
 ./configure --prefix=/opt/tpkg
@@ -43,6 +39,7 @@ cat ../../tpkg.yml | \
 cat <<EOF >> $pkgdir/tpkg.yml
 dependencies:
 - name: libgcc
+  minimum_version: 4.2
 EOF
 mkdir $pkgdir/root
 # Install
