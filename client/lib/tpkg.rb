@@ -38,6 +38,8 @@ require 'tpkg/versiontype' # Version
 require 'tpkg/deployer'
 require 'tpkg/metadata'
 
+OpenSSLCipherError = OpenSSL::Cipher.const_defined?(:CipherError) ? OpenSSL::Cipher::CipherError : OpenSSL::CipherError
+
 class Tpkg
   
   VERSION = 'trunk'
@@ -2710,7 +2712,7 @@ class Tpkg
             begin
               Tpkg::decrypt(metadata[:name], working_path, options[:passphrase], *([tpkgfile[:encrypt][:algorithm]].compact))
               break
-            rescue OpenSSL::CipherError
+            rescue OpenSSLCipherError
               @@passphrase = nil
               if i == 3
                 raise "Incorrect passphrase."
