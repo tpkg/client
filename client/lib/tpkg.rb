@@ -168,7 +168,8 @@ class Tpkg
     end
     tmpfile.write(MAGIC)
     tmpfile.write(salt)
-    tmpfile.write(c.update(IO.read(filename)) + c.final)
+    content = IO.read(filename)
+    tmpfile.write(c.update(content) + c.final) unless content.empty?
     tmpfile.close
     File.rename(tmpfile.path, filename)
   end
@@ -210,7 +211,8 @@ class Tpkg
     rescue Errno::EPERM
       raise if Process.euid == 0
     end
-    tmpfile.write(c.update(file.read) + c.final)
+    content = file.read
+    tmpfile.write(c.update(content) + c.final) unless content.empty?
     tmpfile.close
     File.rename(tmpfile.path, filename)
   end

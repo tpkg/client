@@ -55,6 +55,11 @@ class TpkgEncryptTests < Test::Unit::TestCase
       decrypted = `openssl enc -d -#{cipher} -pass pass:#{PASSPHRASE} -in #{File.join(testdir, 'file2')}`
       assert_equal(plaintext, decrypted)
     end
+    
+    # Test encrypting an empty file
+    File.open(tmpfile.path, 'w') do |file|
+    end
+    Tpkg::encrypt('tpkgtest', tmpfile.path, callback, cipher)
   end
   
   def test_decrypt
@@ -98,6 +103,13 @@ class TpkgEncryptTests < Test::Unit::TestCase
       decrypted = IO.read(File.join(testdir, 'file1'))
       assert_equal(plaintext, decrypted)
     end
+    
+    # Test decrypting an empty file
+    IO.popen(
+      "openssl enc -#{cipher} -salt -pass pass:#{PASSPHRASE} -out #{tmpfile.path}",
+      'w') do |pipe|
+    end
+    Tpkg::decrypt('tpkgtest', tmpfile.path, callback, cipher)
   end
   
   def test_verify_precrypt_file
