@@ -24,7 +24,7 @@ do
 	rm -rf Python-$ver
 	tar jxvf Python-$ver.tar.bz2
 	cd Python-$ver
-	./configure --prefix=/opt/tpkg --mandir=/opt/tpkg/man
+	LDFLAGS="-Wl,-rpath,/opt/tpkg/lib" ./configure --prefix=/opt/tpkg --mandir=/opt/tpkg/man --enable-shared
 	make
 	pkgdir=`mktemp -d -t tpkg.XXXXXX`
 	cat ../../tpkg.yml | \
