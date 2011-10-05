@@ -3,7 +3,7 @@
 set -e
 
 PKG=curl
-VER=7.21.6
+VER=7.22.0
 PKGVER=1
 OS=`tpkg --qenv | grep 'Operating System' | awk '{print $NF}'`
 if echo $OS | egrep 'RedHat|CentOS'
@@ -30,6 +30,10 @@ fi
 rm -rf $PKG-$VER
 tar jxvf $PKG-$VER.tar.bz2
 cd $PKG-$VER
+# The install process fails to honor the prefix= setting when --mandir
+# is specified, instead trying to install the man pages directly into
+# /opt/tpkg/man
+#./configure --prefix=/opt/tpkg --mandir=/opt/tpkg/man
 ./configure --prefix=/opt/tpkg
 make
 pkgdir=`mktemp -d -t tpkg.XXXXXX`
@@ -42,6 +46,8 @@ cat ../../tpkg.xml | \
 mkdir $pkgdir/reloc
 # Install
 make install prefix=$pkgdir/reloc
+# See above
+mv $pkgdir/reloc/share/man $pkgdir/reloc/man
 # Make package
 tpkg --make $pkgdir
 # Cleanup
