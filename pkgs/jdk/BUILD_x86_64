@@ -32,7 +32,10 @@ cat ../tpkg.xml | \
 	sed "s/VERSION/$VER/" | \
 	sed "s/PKGVER/$PKGVER/" | \
 	sed "s/OS/$OS/" | \
-	sed "s/ARCH/x86_64/" > $pkgdir/tpkg.xml
+	sed "s/ARCH/x86_64/" | \
+	sed '/<files>/i\
+<dependencies><dependency><name>libXtst</name><native/></dependency></dependencies>' \
+	> $pkgdir/tpkg.xml
 
 echo "Copying postinstall script over"
 cp postinstall $pkgdir/postinstall
