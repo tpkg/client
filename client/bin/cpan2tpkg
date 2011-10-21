@@ -315,8 +315,17 @@ MODULE: foreach my $name ($extinst->modules)
 		$packlistfile =~ s/^$workdir//;
 		# Make directory tree in $tpkgdir
 		mkpath("$tpkgdir/root/" . dirname($packlistfile));
+
 		# Copy file
-		copy("$workdir/$packlistfile", "$tpkgdir/root/$packlistfile");
+		my $src = "$workdir/$packlistfile";
+		my $dst = "$tpkgdir/root/$packlistfile";
+		copy($src, $dst);
+
+		# preserve permissions
+		# (avoiding dependency on File::Copy::Recursive::fcopy)
+		my $mode = (stat($src))[2];
+		chmod($mode & 07777, $dst);
+
 		if ($packlistfile =~ quotemeta($Config{archname}))
 		{
 			$nativefile = 1;
