@@ -393,6 +393,21 @@ def package(gem)
     pkgnamesuffix = '-' + @gemdep.first.sub(/\W/, '')
   end
   
+  # Determine if we're packaging a gem the user requested or a dependency gem.
+  # If we're packaging a dependency gem we don't want to add @extradeps or
+  # @nativedeps.  Say you run gem2tpkg for gem foo. You specify some extra
+  # dependencies with --extra-deps and/or --native-deps. Gem foo depends on
+  # gems bar and baz. The generated tpkgs for bar and baz will include those
+  # extra dependencies. I don't think they should. Bar and baz may be very
+  # general gems with no close relationship to foo. It seems to me if the user
+  # needs bar and baz to have the same extra dependencies they should gem2tpkg
+  # those separately. We shouldn't assume everything in the dependency chain
+  # needs those same dependencies.
+  packaging_requested_gem = false
+  if @gems.include?(gem)
+    packaging_requested_gem = true
+  end
+  
   # Add tpkg.xml
   os = nil
   arch = nil
@@ -419,7 +434,8 @@ def package(gem)
       file.puts "  <architecture>#{arch}</architecture>"
     end
     if !deps.empty? ||
-       !@extradeps.empty? || !@nativedeps.empty? ||
+       (!@extradeps.empty? && packaging_requested_gem) ||
+       (!@nativedeps.empty? && packaging_requested_gem) ||
        !@gemdep.empty?
       file.puts '  <dependencies>'
       deps.each do |depgem, depvers|
@@ -433,28 +449,30 @@ def package(gem)
         end
         file.puts '    </dependency>'
       end
-      @extradeps.each do |extradep, depvers|
-        file.puts '    <dependency>'
-        file.puts "      <name>#{extradep}</name>"
-        if depvers[:minimum_version]
-          file.puts "      <minimum_version>#{depvers[:minimum_version]}</minimum_version>"
+      if packaging_requested_gem
+        @extradeps.each do |extradep, depvers|
+          file.puts '    <dependency>'
+          file.puts "      <name>#{extradep}</name>"
+          if depvers[:minimum_version]
+            file.puts "      <minimum_version>#{depvers[:minimum_version]}</minimum_version>"
+          end
+          if depvers[:maximum_version]
+            file.puts "      <maximum_version>#{depvers[:maximum_version]}</maximum_version>"
+          end
+          file.puts '    </dependency>'
         end
-        if depvers[:maximum_version]
-          file.puts "      <maximum_version>#{depvers[:maximum_version]}</maximum_version>"
+        @nativedeps.each do |nativedep, depvers|
+          file.puts '    <dependency>'
+          file.puts "      <name>#{nativedep}</name>"
+          if depvers[:minimum_version]
+            file.puts "      <minimum_version>#{depvers[:minimum_version]}</minimum_version>"
+          end
+          if depvers[:maximum_version]
+            file.puts "      <maximum_version>#{depvers[:maximum_version]}</maximum_version>"
+          end
+          file.puts '      <native/>'
+          file.puts '    </dependency>'
         end
-        file.puts '    </dependency>'
-      end
-      @nativedeps.each do |nativedep, depvers|
-        file.puts '    <dependency>'
-        file.puts "      <name>#{nativedep}</name>"
-        if depvers[:minimum_version]
-          file.puts "      <minimum_version>#{depvers[:minimum_version]}</minimum_version>"
-        end
-        if depvers[:maximum_version]
-          file.puts "      <maximum_version>#{depvers[:maximum_version]}</maximum_version>"
-        end
-        file.puts '      <native/>'
-        file.puts '    </dependency>'
       end
       @gemdep.each do |gemdep|
         file.puts '    <dependency>'
