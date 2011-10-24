@@ -56,7 +56,7 @@ opts.on('--extra-deps', '=EXTRADEPS', Array, 'Extra dependencies to add to the p
   while !opt.empty?
     dep = opt.shift
     # These are optional, shift will return nil if they aren't present
-    # and we'll handle that properly when creating tpkg.xml
+    # and we'll handle that properly when creating tpkg.yml
     depminver = opt.shift
     depmaxver = opt.shift
     @extradeps[dep] = {}
@@ -69,7 +69,7 @@ opts.on('--native-deps', '=NATIVEDEPS', Array, 'Native dependencies to add to th
   while !opt.empty?
     dep = opt.shift
     # These are optional, shift will return nil if they aren't present
-    # and we'll handle that properly when creating tpkg.xml
+    # and we'll handle that properly when creating tpkg.yml
     depminver = opt.shift
     depmaxver = opt.shift
     @nativedeps[dep] = {}
@@ -273,7 +273,7 @@ def package(gem)
       operator.sub!(/^\(/, '')
       depver.sub!(/\)$/, '')
       depver.sub!(/,$/, '')
-      # Save the dependency info for tpkg.xml
+      # Save the dependency info for tpkg.yml
       # http://rubygems.org/read/chapter/16
       deps[depgem] = {}
       case operator
@@ -408,80 +408,68 @@ def package(gem)
     packaging_requested_gem = true
   end
   
-  # Add tpkg.xml
+  # Add tpkg.yml
   os = nil
   arch = nil
-  File.open(File.join(pkgdir, 'tpkg.xml'), 'w') do |file|
-    file.puts '<?xml version="1.0" encoding="UTF-8"?>'
-    file.puts '<!DOCTYPE tpkg SYSTEM "http://tpkg.sourceforge.net/tpkg-1.0.dtd">'
-    file.puts '<tpkg>'
-    file.puts "  <name>gem-#{gem}#{pkgnamesuffix}</name>"
-    file.puts "  <version>#{gemspec.version.to_s}</version>"
-    file.puts "  <package_version>#{@pkgver}</package_version>"
-    file.puts "  <description>Ruby gem for #{gem}</description>"
-    file.puts '  <maintainer>gem2tpkg</maintainer>'
+  File.open(File.join(pkgdir, 'tpkg.yml'), 'w') do |file|
+
+    file.puts "name: gem-#{gem}#{pkgnamesuffix}"
+    file.puts "version: #{gemspec.version.to_s}"
+    file.puts "package_version: #{@pkgver}"
+    file.puts "description: Ruby gem for #{gem}"
+    file.puts 'maintainer: gem2tpkg'
     # If the gemspec lists any extensions then the package has native
     # code and needs to be flagged as specific to the OS and architecture
     if gemspec.extensions && !gemspec.extensions.empty?
       os = Tpkg::get_os
       if os =~ /RedHat-(.*)/
-        os = os + ",CentOS-#{$1}"
+        os = os + ", CentOS-#{$1}"
       elsif os =~ /CentOS-(.*)/
-        os = os + ",RedHat-#{$1}"
+        os = os + ", RedHat-#{$1}"
       end
       arch = Facter['hardwaremodel'].value
-      file.puts "  <operatingsystem>#{os}</operatingsystem>"
-      file.puts "  <architecture>#{arch}</architecture>"
+      file.puts "operatingsystem: [#{os}]"
+      file.puts "architecture: [#{arch}]"
     end
     if !deps.empty? ||
        (!@extradeps.empty? && packaging_requested_gem) ||
        (!@nativedeps.empty? && packaging_requested_gem) ||
        !@gemdep.empty?
-      file.puts '  <dependencies>'
+      file.puts 'dependencies:'
       deps.each do |depgem, depvers|
-        file.puts '    <dependency>'
-        file.puts "      <name>gem-#{depgem}#{pkgnamesuffix}</name>"
+        file.puts "  - name: gem-#{depgem}#{pkgnamesuffix}"
         if depvers[:minimum_version]
-          file.puts "      <minimum_version>#{depvers[:minimum_version]}</minimum_version>"
+          file.puts "    minimum_version: #{depvers[:minimum_version]}"
         end
         if depvers[:maximum_version]
-          file.puts "      <maximum_version>#{depvers[:maximum_version]}</maximum_version>"
+          file.puts "    maximum_version: #{depvers[:maximum_version]}"
         end
-        file.puts '    </dependency>'
       end
       if packaging_requested_gem
         @extradeps.each do |extradep, depvers|
-          file.puts '    <dependency>'
-          file.puts "      <name>#{extradep}</name>"
+          file.puts "  - name: #{extradep}"
           if depvers[:minimum_version]
-            file.puts "      <minimum_version>#{depvers[:minimum_version]}</minimum_version>"
+            file.puts "    minimum_version: #{depvers[:minimum_version]}"
           end
           if depvers[:maximum_version]
-            file.puts "      <maximum_version>#{depvers[:maximum_version]}</maximum_version>"
+            file.puts "    maximum_version: #{depvers[:maximum_version]}"
           end
-          file.puts '    </dependency>'
         end
         @nativedeps.each do |nativedep, depvers|
-          file.puts '    <dependency>'
-          file.puts "      <name>#{nativedep}</name>"
+          file.puts "  - name: #{nativedep}"
           if depvers[:minimum_version]
-            file.puts "      <minimum_version>#{depvers[:minimum_version]}</minimum_version>"
+            file.puts "    minimum_version: #{depvers[:minimum_version]}"
           end
           if depvers[:maximum_version]
-            file.puts "      <maximum_version>#{depvers[:maximum_version]}</maximum_version>"
+            file.puts "    maximum_version: #{depvers[:maximum_version]}"
           end
-          file.puts '      <native/>'
-          file.puts '    </dependency>'
+          file.puts '    native: true'
         end
       end
       @gemdep.each do |gemdep|
-        file.puts '    <dependency>'
-        file.puts "      <name>#{gemdep}</name>"
-        file.puts '    </dependency>'
+        file.puts "  - name: #{gemdep}"
       end
-      file.puts '  </dependencies>'
     end
-    file.puts '</tpkg>'
   end
   
   # Make package
