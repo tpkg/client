@@ -26,7 +26,7 @@ class TpkgInitScriptsTests < Test::Unit::TestCase
       File.open(File.join(srcdir, 'root', 'etc', 'rootfile'), 'w') do |file|
         file.puts "Hello"
       end
-      @pkgfile = make_package(:output_directory => @tempoutdir, :source_directory => srcdir, :files => {'/etc/rootfile' => {'perms' => '0666'}}, :remove => ['posix_acl', 'windows_acl'])
+      @pkgfile = make_package(:output_directory => @tempoutdir, :source_directory => srcdir, :files => {'/etc/rootfile' => {'perms' => '0666'}})
     end
   end
   
@@ -46,7 +46,7 @@ class TpkgInitScriptsTests < Test::Unit::TestCase
       
       pkg  = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'initpkg'  }, :source_directory => srcdir, 
                           :files => { "myinit1" => { 'init' => {'start' => '1' }} , "myinit2" => { 'init' => {'start' => '2' }}, "myinit3" => { 'init' => {'start' => '3' }}}, 
-                          :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+                          :remove => ['operatingsystem', 'architecture'])
     end
     Dir.mktmpdir('testroot') do |testroot|
       testbase = File.join(testroot, 'home', 'tpkg')

@@ -78,7 +78,7 @@ class TpkgRemoveTests < Test::Unit::TestCase
         File.open(File.join(srcdir, 'reloc', 'directory', "#{pkgname}.conf"), 'w') do |file|
           file.puts pkgname
         end
-        pkgfiles << make_package(:output_directory => @tempoutdir, :change => {'name' => pkgname}, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'], :files => { "directory/#{pkgname}.conf" => { 'config' => true}})
+        pkgfiles << make_package(:output_directory => @tempoutdir, :change => {'name' => pkgname}, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture'], :files => { "directory/#{pkgname}.conf" => { 'config' => true}})
       end
     end
     
@@ -181,7 +181,7 @@ class TpkgRemoveTests < Test::Unit::TestCase
         File.chmod(0755, File.join(srcdir, script))
       end
       # Change name of package so that the file doesn't conflict with @pkgfile
-      pkgfile = make_package(:output_directory => @tempoutdir, :source_directory => srcdir, :change => {'name' => 'scriptpkg'}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      pkgfile = make_package(:output_directory => @tempoutdir, :source_directory => srcdir, :change => {'name' => 'scriptpkg'}, :remove => ['operatingsystem', 'architecture'])
     end
     
     # Install the script package
@@ -202,8 +202,8 @@ class TpkgRemoveTests < Test::Unit::TestCase
       File.open(File.join(srcdir, 'reloc', 'myinit'), 'w') do |file|
         file.puts('init script')
       end
-      pkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'initpkg' }, :source_directory => srcdir, :files => { 'myinit' => { 'init' => {} } }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
-      pkg2 = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'initpkg2' }, :source_directory => srcdir, :files => { 'myinit' => { 'init' => {} } }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      pkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'initpkg' }, :source_directory => srcdir, :files => { 'myinit' => { 'init' => {} } }, :remove => ['operatingsystem', 'architecture'])
+      pkg2 = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'initpkg2' }, :source_directory => srcdir, :files => { 'myinit' => { 'init' => {} } }, :remove => ['operatingsystem', 'architecture'])
     end
     Dir.mktmpdir('testroot') do |testroot|
       tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [pkg,pkg2])
@@ -240,8 +240,8 @@ class TpkgRemoveTests < Test::Unit::TestCase
       File.open(File.join(srcdir, 'reloc', 'mycrontab'), 'w') do |file|
         file.puts(crontab_contents)
       end
-      pkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'crontabpkg' }, :source_directory => srcdir, :files => { 'mycrontab' => { 'crontab' => {'user' => 'root'} } }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
-      pkg2 = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'crontabpkg2' }, :source_directory => srcdir, :files => { 'mycrontab' => { 'crontab' => {'user' => 'root'} } }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      pkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'crontabpkg' }, :source_directory => srcdir, :files => { 'mycrontab' => { 'crontab' => {'user' => 'root'} } }, :remove => ['operatingsystem', 'architecture'])
+      pkg2 = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'crontabpkg2' }, :source_directory => srcdir, :files => { 'mycrontab' => { 'crontab' => {'user' => 'root'} } }, :remove => ['operatingsystem', 'architecture'])
     end
     Dir.mktmpdir('testroot') do |testroot|
       tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [pkg])
@@ -295,7 +295,7 @@ class TpkgRemoveTests < Test::Unit::TestCase
     pkg = nil
     Dir.mktmpdir('srcdir') do |srcdir|
       FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
-      pkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'externalpkg' }, :externals => { extname => { 'data' => extdata } }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      pkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'externalpkg' }, :externals => { extname => { 'data' => extdata } }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture'])
     end
     Dir.mktmpdir('testroot') do |testroot|
       externalsdir = File.join(testroot, 'usr', 'lib', 'tpkg', 'externals')
@@ -357,7 +357,7 @@ EOF
       File.open(File.join(srcdir, 'datafile'), 'w') do |file|
         file.print(extdata)
       end
-      pkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'externalpkg' }, :externals => { extname => { 'datafile' => './datafile' } }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      pkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'externalpkg' }, :externals => { extname => { 'datafile' => './datafile' } }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture'])
     end
     Dir.mktmpdir('testroot') do |testroot|
       externalsdir = File.join(testroot, 'usr', 'lib', 'tpkg', 'externals')
@@ -423,7 +423,7 @@ EOF
         file.puts("printf \"#{extdata}\"")
       end
       File.chmod(0755, File.join(srcdir, 'datascript'))
-      pkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'externalpkg' }, :externals => { extname => { 'datascript' => './datascript' } }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      pkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'externalpkg' }, :externals => { extname => { 'datascript' => './datascript' } }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture'])
     end
     Dir.mktmpdir('testroot') do |testroot|
       externalsdir = File.join(testroot, 'usr', 'lib', 'tpkg', 'externals')
@@ -706,7 +706,7 @@ EOF
         file.puts('esac')
       end
       File.chmod(0755, initscript)
-      pkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'initpkg' }, :source_directory => srcdir, :files => { 'myinit' => { 'init' => {} } }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      pkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'initpkg' }, :source_directory => srcdir, :files => { 'myinit' => { 'init' => {} } }, :remove => ['operatingsystem', 'architecture'])
     end
     
     # Removing the package without skip_remove_stop should run the init script

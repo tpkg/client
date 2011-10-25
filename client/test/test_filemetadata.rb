@@ -7,7 +7,7 @@ class TpkgFileMetadataTests < Test::Unit::TestCase
     Tpkg::set_prompt(false)
     
     # Make up our regular test package
-    @pkgfile = make_package(:remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'], :files => {'file' => {'perms' => '0641'}})
+    @pkgfile = make_package(:remove => ['operatingsystem', 'architecture'], :files => {'file' => {'perms' => '0641'}})
   end
   
   def test_file_metadata

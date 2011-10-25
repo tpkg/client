@@ -13,7 +13,7 @@ class TpkgLockTests < Test::Unit::TestCase
     Tpkg::set_prompt(false)
     
     # Make up our regular test package
-    @pkgfile = make_package(:remove => ['operatingsystem', 'architecture','posix_acl', 'windows_acl'])
+    @pkgfile = make_package(:remove => ['operatingsystem', 'architecture'])
     
     # Make a test repository
     @testbase = Dir.mktmpdir('testbase')

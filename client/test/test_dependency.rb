@@ -330,7 +330,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
     # Now run a test to verify that we prefer already installed packages
     Dir.mktmpdir('testbase') do |testbase|
       #  First install an older version of a
-      older_apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '0.9' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      older_apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '0.9' }, :remove => ['operatingsystem', 'architecture'])
       tpkg = Tpkg.new(:base => testbase, :sources => [older_apkg] + @pkgfiles)
       tpkg.install(['a=0.9'], PASSPHRASE)
       # Now request 'a' and verify that we get back the currently installed
@@ -351,7 +351,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
     # Test that we don't prefer installed packages if :prefer is false
     Dir.mktmpdir('testbase') do |testbase|
       #  First install an older version of d
-      older_dpkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'd', 'version' => '0.9' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      older_dpkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'd', 'version' => '0.9' }, :remove => ['operatingsystem', 'architecture'])
       tpkg = Tpkg.new(:base => testbase, :sources => [older_dpkg] + @pkgfiles)
       tpkg.install(['d=0.9'], PASSPHRASE)
       # Now request an update of 'd' and verify that we get back the newer
@@ -378,7 +378,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
     # the scoring process.
     Dir.mktmpdir('testbase') do |testbase|
       #  First install an older version of a
-      older_apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '0.9' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      older_apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '0.9' }, :remove => ['operatingsystem', 'architecture'])
       tpkg = Tpkg.new(:base => testbase, :sources => [older_apkg] + @pkgfiles)
       tpkg.install(['a=0.9'], PASSPHRASE)
       # Now request an update of 'a' and verify that we get back the newer
@@ -404,10 +404,10 @@ class TpkgDependencyTests < Test::Unit::TestCase
     # a tpkg with the same name. For this we need a native package that is
     # generally available on systems that developers are likely to use, I'm
     # going to use wget for now.
-    nativedep = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'nativedep' }, :dependencies => {'wget' => {'native' => true}}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
-    tpkgdep = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'tpkgdep' }, :dependencies => {'wget' => {}}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
-    wget = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'wget' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
-    parent = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'parent' }, :dependencies => {'nativedep' => {}, 'tpkgdep' => {}}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    nativedep = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'nativedep' }, :dependencies => {'wget' => {'native' => true}}, :remove => ['operatingsystem', 'architecture'])
+    tpkgdep = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'tpkgdep' }, :dependencies => {'wget' => {}}, :remove => ['operatingsystem', 'architecture'])
+    wget = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'wget' }, :remove => ['operatingsystem', 'architecture'])
+    parent = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'parent' }, :dependencies => {'nativedep' => {}, 'tpkgdep' => {}}, :remove => ['operatingsystem', 'architecture'])
     Dir.mktmpdir('testbase') do |testbase|
       mixeddeppkgs = [nativedep, tpkgdep, wget, parent]
       tpkg = Tpkg.new(:base => testbase, :sources => mixeddeppkgs)
@@ -434,9 +434,9 @@ class TpkgDependencyTests < Test::Unit::TestCase
     # on a non-existent package.  This particular arrangement led to
     # attempting to reference a nil value as a pkg.
     Dir.mktmpdir('testbase') do |testbase|
-      baddep1 = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'baddep', 'version' => '1' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
-      baddep2 = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'baddep', 'version' => '2' }, :dependencies => {'bogus' => {}}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
-      baddep3 = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'baddep', 'version' => '2' }, :dependencies => {'bogus' => {}}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      baddep1 = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'baddep', 'version' => '1' }, :remove => ['operatingsystem', 'architecture'])
+      baddep2 = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'baddep', 'version' => '2' }, :dependencies => {'bogus' => {}}, :remove => ['operatingsystem', 'architecture'])
+      baddep3 = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'baddep', 'version' => '2' }, :dependencies => {'bogus' => {}}, :remove => ['operatingsystem', 'architecture'])
       tpkg = Tpkg.new(:base => testbase, :sources => [baddep1, baddep2, baddep3])
       solution_packages = nil
       assert_nothing_raised { solution_packages = tpkg.best_solution([{:name => 'baddep', :type => :tpkg}], {}, ['baddep']) }
@@ -451,10 +451,10 @@ class TpkgDependencyTests < Test::Unit::TestCase
     # callers of resolve_dependencies was messed up and it would fail to find
     # valid solutions.
     Dir.mktmpdir('testbase') do |testbase|
-      baddep1 = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'baddep', 'version' => '1' }, :dependencies => {'notbogus' => {}}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
-      baddep2 = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'baddep', 'version' => '2' }, :dependencies => {'notbogus' => {}, 'bogus' => {}}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
-      notbogus = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'notbogus', 'version' => '1' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
-      bogus = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'bogus', 'version' => '1', 'operatingsystem' => 'bogusos' }, :remove => ['architecture', 'posix_acl', 'windows_acl'])
+      baddep1 = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'baddep', 'version' => '1' }, :dependencies => {'notbogus' => {}}, :remove => ['operatingsystem', 'architecture'])
+      baddep2 = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'baddep', 'version' => '2' }, :dependencies => {'notbogus' => {}, 'bogus' => {}}, :remove => ['operatingsystem', 'architecture'])
+      notbogus = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'notbogus', 'version' => '1' }, :remove => ['operatingsystem', 'architecture'])
+      bogus = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'bogus', 'version' => '1', 'operatingsystem' => 'bogusos' }, :remove => ['architecture'])
       tpkg = Tpkg.new(:base => testbase, :sources => [baddep1, baddep2, notbogus, bogus])
       solution_packages = nil
       assert_nothing_raised { solution_packages = tpkg.best_solution([{:name => 'baddep', :type => :tpkg}], {}, ['baddep']) }
@@ -505,7 +505,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
       assert_equal(packages[:tpkg].values.flatten, result[:solution])
       
       # Check an invalid solution
-      xpkgfile = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'x' }, :dependencies => {'y' => {}}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      xpkgfile = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'x' }, :dependencies => {'y' => {}}, :remove => ['operatingsystem', 'architecture'])
       metadata = Tpkg::metadata_from_package(xpkgfile)
       xpkg = {:metadata => metadata}
       solution[:pkgs] << xpkg
@@ -544,7 +544,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
 
   def test_requirements_for_currently_installed_packages
     Dir.mktmpdir('testbase') do |testbase|
-      apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '2.0' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '2.0' }, :remove => ['operatingsystem', 'architecture'])
       tpkg = Tpkg.new(:base => testbase, :sources => [apkg])
       tpkg.install(['a'], PASSPHRASE)
       requirements = []
@@ -628,7 +628,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
       packages.clear
       
       # Test with a given filename (full path to the actual package)  rather than a package spec
-      apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '2.0' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '2.0' }, :remove => ['operatingsystem', 'architecture'])
       tpkg.parse_requests([apkg], requirements, packages)
       assert_equal(1, requirements.length)
       assert_equal(2, requirements.first.length)   # should this be 6?
@@ -640,7 +640,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
       FileUtils.rm_f(apkg)
       
       # Test with a filename of a package that has been installed rather than a package spec
-      apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '2.0' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '2.0' }, :remove => ['operatingsystem', 'architecture'])
       tpkg.install([apkg], PASSPHRASE)
       FileUtils.rm_f(apkg)
       tpkg.parse_requests([File.basename(apkg)], requirements, packages)
@@ -654,7 +654,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
       packages.clear
       
       # Test package with special character like "++"
-      apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a++', 'version' => '2.0' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a++', 'version' => '2.0' }, :remove => ['operatingsystem', 'architecture'])
       tpkg = Tpkg.new(:base => testbase, :sources => (@pkgfiles << apkg))
       tpkg.parse_requests([apkg], requirements, packages)
       assert_equal(1, requirements.length)
@@ -684,7 +684,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
       packages = {}
       
       # First just check that it properly checks a package with dependencies
-      apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '2.0' }, :dependencies => {'b' => {}}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '2.0' }, :dependencies => {'b' => {}}, :remove => ['operatingsystem', 'architecture'])
       tpkg.parse_requests([apkg], requirements, packages)
       assert_nothing_raised { tpkg.check_requests(packages) }
       assert_equal(1, requirements.length)
@@ -699,9 +699,9 @@ class TpkgDependencyTests < Test::Unit::TestCase
       # package dependencies on install when installing local package files
       # (i.e. not sourced from a server)
       # Check that tpkg accept list of local packages where one depends on another
-      localapkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'locala', 'version' => '1.0' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
-      localbpkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'localb', 'version' => '1.0' }, :dependencies => {'locala' => {}}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
-      localcpkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'localc', 'version' => '1.0' }, :dependencies => {'nonexisting' => {}}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      localapkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'locala', 'version' => '1.0' }, :remove => ['operatingsystem', 'architecture'])
+      localbpkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'localb', 'version' => '1.0' }, :dependencies => {'locala' => {}}, :remove => ['operatingsystem', 'architecture'])
+      localcpkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'localc', 'version' => '1.0' }, :dependencies => {'nonexisting' => {}}, :remove => ['operatingsystem', 'architecture'])
       tpkg.parse_requests([localapkg, localbpkg], requirements, packages) 
       assert_nothing_raised { tpkg.check_requests(packages) }
       requirements.clear
@@ -720,7 +720,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
       
       # Verify that it rejects a package that can't be installed on this
       # machine
-      apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '2.0', 'operatingsystem' => 'bogusos' }, :dependencies => {'b' => {}}, :remove => ['posix_acl', 'windows_acl'])
+      apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '2.0', 'operatingsystem' => 'bogusos' }, :dependencies => {'b' => {}})
       tpkg.parse_requests([apkg], requirements, packages) 
       assert_raise(RuntimeError) { tpkg.check_requests(packages) }
       requirements.clear
@@ -728,7 +728,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
       FileUtils.rm_f(apkg)    
       
       # Verify that it rejects a package with an unresolvable dependency
-      apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '2.0' }, :dependencies => {'x' => {}}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '2.0' }, :dependencies => {'x' => {}}, :remove => ['operatingsystem', 'architecture'])
       tpkg.parse_requests([apkg], requirements, packages) 
       assert_raise(RuntimeError) { tpkg.check_requests(packages) }
       requirements.clear

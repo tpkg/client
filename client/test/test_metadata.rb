@@ -346,8 +346,8 @@ class TpkgMetadataTests < Test::Unit::TestCase
       File.open(File.join(srcdir, 'reloc', 'myinit'), 'w') do |file|
         file.puts('init script')
       end
-      pkg  = make_package(:change => { 'name' => 'a' }, :source_directory => srcdir, :files => { 'myinit' => { 'init' => {} } }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
-      pkg2 = make_package(:change => { 'name' => 'b' }, :source_directory => srcdir, :files => { 'myinit' => { 'init' => { 'levels' => '' } } }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      pkg  = make_package(:change => { 'name' => 'a' }, :source_directory => srcdir, :files => { 'myinit' => { 'init' => {} } }, :remove => ['operatingsystem', 'architecture'])
+      pkg2 = make_package(:change => { 'name' => 'b' }, :source_directory => srcdir, :files => { 'myinit' => { 'init' => { 'levels' => '' } } }, :remove => ['operatingsystem', 'architecture'])
     end
     Dir.mktmpdir('testroot') do |testroot|
       testbase = File.join(testroot, 'home', 'tpkg')
@@ -376,7 +376,7 @@ class TpkgMetadataTests < Test::Unit::TestCase
       File.open(File.join(srcdir, 'reloc', 'mycrontab'), 'w') do |file|
         file.puts('crontab')
       end
-      pkg = make_package(:change => { 'name' => 'a' }, :source_directory => srcdir, :files => { 'mycrontab' => { 'crontab' => {'user' => 'root'} } }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      pkg = make_package(:change => { 'name' => 'a' }, :source_directory => srcdir, :files => { 'mycrontab' => { 'crontab' => {'user' => 'root'} } }, :remove => ['operatingsystem', 'architecture'])
     end
     Dir.mktmpdir('testroot') do |testroot|
       testbase = File.join(testroot, 'home', 'tpkg')

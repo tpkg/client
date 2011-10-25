@@ -1358,16 +1358,24 @@ class Tpkg
           name = metadata_yml[:name]
           metadata[name] = [] if !metadata[name]
           metadata[name] << metadata_yml
-        elsif File.directory?(source)
-          if !File.exists?(File.join(source, 'metadata.yml'))
-            warn "Warning: the source directory #{source} has no metadata.yml file. Try running tpkg -x #{source} first."
-            next
+        elsif source[0] == File::SEPARATOR
+          if File.directory?(source)
+            if !File.exists?(File.join(source, 'metadata.yml'))
+              warn "Source directory #{source} has no metadata.yml file. Try running tpkg -x #{source} first."
+              next
+            end
+            metadata_contents = File.read(File.join(source, 'metadata.yml'))
+            Metadata::get_pkgs_metadata_from_yml_doc(metadata_contents, metadata, source)
+          else
+            warn "Source directory #{source} does not exist, skipping."
           end
-          
-          metadata_contents = File.read(File.join(source, 'metadata.yml'))
-          Metadata::get_pkgs_metadata_from_yml_doc(metadata_contents, metadata, source)
         else
           uri = http = localdate = remotedate = localdir = localpath = nil
+          
+          if !URI.parse(source).absolute?
+            warn "Source #{source} is not a file, directory, or absolute URI, skipping"
+            next
+          end
           
           uri = URI.join(source, 'metadata.yml')
           http = gethttp(uri)

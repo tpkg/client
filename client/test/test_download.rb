@@ -56,7 +56,7 @@ class TpkgDownloadTests < Test::Unit::TestCase
   def test_download_pkgs
     # set up multiple packages
     ['pkga', 'pkgb'].each do |name|
-      pkgfile = make_package(:change => {'name' => name}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      pkgfile = make_package(:change => {'name' => name}, :remove => ['operatingsystem', 'architecture'])
       FileUtils.cp(pkgfile, @pkgdir)
     end
 

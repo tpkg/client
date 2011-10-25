@@ -171,8 +171,8 @@ YAML
       FileUtils.mkdir_p(File.join(testbase, 'home', 'tpkg'))
       tpkg = Tpkg.new(:file_system_root => testbase, :base => File.join('home', 'tpkg'))
       
-      pkg1 = make_package(:output_directory => @tempoutdir, :change => { 'version' => '2.0' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
-      pkg2 = make_package(:output_directory => @tempoutdir, :change => { 'version' => '3.0' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      pkg1 = make_package(:output_directory => @tempoutdir, :change => { 'version' => '2.0' }, :remove => ['operatingsystem', 'architecture'])
+      pkg2 = make_package(:output_directory => @tempoutdir, :change => { 'version' => '3.0' }, :remove => ['operatingsystem', 'architecture'])
       # The check for conflicting files shouldn't complain when nothing
       # else is installed
       conflicts = tpkg.conflicting_files(pkg1)
@@ -193,7 +193,7 @@ YAML
         FileUtils.mkdir_p(File.join(srcdir, 'root', 'home', 'tpkg'))
         FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
         FileUtils.cp(File.join(TESTPKGDIR, 'reloc', 'file'), File.join(srcdir, 'root', 'home', 'tpkg'))
-        rootpkg = make_package(:output_directory => @tempoutdir, :change => { 'version' => '4.0' }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+        rootpkg = make_package(:output_directory => @tempoutdir, :change => { 'version' => '4.0' }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture'])
       end
       conflicts = tpkg.conflicting_files(rootpkg)
       assert(!conflicts.empty?)
@@ -219,7 +219,7 @@ YAML
         # TODO: change ownership
         # no file_defaults settings, no file posix defined, then use whatever the current 
         # perms and ownership of the file
-        pkg1 = make_package(:output_directory => @tempoutdir, :source_directory => srcdir, :change => { 'name' => 'pkg1' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+        pkg1 = make_package(:output_directory => @tempoutdir, :source_directory => srcdir, :change => { 'name' => 'pkg1' }, :remove => ['operatingsystem', 'architecture'])
         metadata = Tpkg::metadata_from_package(pkg1)
         data = {:actual_file => File.join(srcdir, 'reloc', 'myfile')}
         predicted_perms, predicted_uid, predicted_gid = Tpkg::predict_file_perms_and_ownership(data)
@@ -231,7 +231,7 @@ YAML
         tpkg.remove(['pkg1'])
         
         # if metadata has file_defaults settings and nothing else, then use that
-        pkg2 = make_package(:output_directory => @tempoutdir, :source_directory => srcdir, :change => { 'name' => 'pkg2' }, :file_defaults => { 'perms' => '0654', 'owner' => Etc.getlogin, 'group' => Etc.getpwnam(Etc.getlogin).gid}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+        pkg2 = make_package(:output_directory => @tempoutdir, :source_directory => srcdir, :change => { 'name' => 'pkg2' }, :file_defaults => { 'perms' => '0654', 'owner' => Etc.getlogin, 'group' => Etc.getpwnam(Etc.getlogin).gid}, :remove => ['operatingsystem', 'architecture'])
         metadata = Tpkg::metadata_from_package(pkg2)
         data = {:actual_file => File.join(srcdir, 'reloc', 'myfile'), :metadata => metadata}
         predicted_perms, predicted_uid, predicted_gid = Tpkg::predict_file_perms_and_ownership(data)
@@ -242,7 +242,7 @@ YAML
         tpkg.remove(['pkg2'])
         
         # if metadata has the file perms & ownership explicitly defined, then that override everything
-        pkg3 = make_package(:output_directory => @tempoutdir, :source_directory => srcdir, :change => { 'name' => 'pkg3' }, :file_defaults => { 'perms' => '0654', 'owner' => Etc.getlogin, 'group' => Etc.getpwnam(Etc.getlogin).gid}, :files => { 'myfile' => {'perms' => '0733'}}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+        pkg3 = make_package(:output_directory => @tempoutdir, :source_directory => srcdir, :change => { 'name' => 'pkg3' }, :file_defaults => { 'perms' => '0654', 'owner' => Etc.getlogin, 'group' => Etc.getpwnam(Etc.getlogin).gid}, :files => { 'myfile' => {'perms' => '0733'}}, :remove => ['operatingsystem', 'architecture'])
         metadata = Tpkg::metadata_from_package(pkg3)
         file_metadata = {:posix => { :perms => 0733}}
         data = {:actual_file => File.join(srcdir, 'reloc', 'myfile'), :metadata => metadata, :file_metadata => file_metadata}

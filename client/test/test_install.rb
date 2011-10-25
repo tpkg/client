@@ -13,7 +13,7 @@ class TpkgInstallTests < Test::Unit::TestCase
     Tpkg::set_prompt(false)
     
     # Make up our regular test package
-    @pkgfile = make_package(:remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    @pkgfile = make_package(:remove => ['operatingsystem', 'architecture'])
     @testroot = Dir.mktmpdir('testroot')
   end
   
@@ -66,7 +66,7 @@ class TpkgInstallTests < Test::Unit::TestCase
         end
         File.chmod(0755, File.join(srcdir, 'postinstall'))
         
-        @pkgfiles << make_package(:change => {'name' => pkgname}, :source_directory => srcdir, :dependencies => deps, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+        @pkgfiles << make_package(:change => {'name' => pkgname}, :source_directory => srcdir, :dependencies => deps, :remove => ['operatingsystem', 'architecture'])
       end
     end
 
@@ -85,7 +85,7 @@ class TpkgInstallTests < Test::Unit::TestCase
   def test_install_multiple_versions
     pkgfiles = []
     ['1', '2'].each do |pkgver|
-      pkgfiles << make_package(:change => {'version' => pkgver, 'name' => 'versiontest'}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      pkgfiles << make_package(:change => {'version' => pkgver, 'name' => 'versiontest'}, :remove => ['operatingsystem', 'architecture'])
     end
     
     Dir.mktmpdir('testroot') do |testroot|

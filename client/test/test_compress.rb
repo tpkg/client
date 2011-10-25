@@ -11,9 +11,9 @@ class TpkgCompressTests < Test::Unit::TestCase
   def setup
     Tpkg::set_prompt(false)
     # Make up our regular test package
-    @pkgfile = make_package(:remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
-    @gzip_pkgfile = make_package(:change => {'name' => 'gzip_pkg'}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'], :compress => 'gzip')
-    @bz2_pkgfile = make_package(:change => {'name' => 'bz2_pkg'}, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'], :compress => 'bz2')
+    @pkgfile = make_package(:remove => ['operatingsystem', 'architecture'])
+    @gzip_pkgfile = make_package(:change => {'name' => 'gzip_pkg'}, :remove => ['operatingsystem', 'architecture'], :compress => 'gzip')
+    @bz2_pkgfile = make_package(:change => {'name' => 'bz2_pkg'}, :remove => ['operatingsystem', 'architecture'], :compress => 'bz2')
   end
 
   # Given a .tpkg file, verify that we can figure out how the inner level archive tpkg.tar 
@@ -35,7 +35,7 @@ class TpkgCompressTests < Test::Unit::TestCase
   def test_bad_compression_type
     assert_raise(RuntimeError, 'verify bad compression type')  { 
       make_package(:change => {'name' => 'bogus_compression_pkg'}, 
-                   :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'], :compress => 'bogus')
+                   :remove => ['operatingsystem', 'architecture'], :compress => 'bogus')
     }
   end
 

@@ -16,11 +16,11 @@ class TpkgConflictTests < Test::Unit::TestCase
       pkgfiles = []
       FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
       
-      pkgfiles <<  make_package(:change => { 'name' => 'pkgA', 'version' => '1.0' }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'], :conflicts => {'pkgB' => {}})
-      pkgfiles <<  make_package(:change => { 'name' => 'pkgB', 'version' => '1.0' }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
-      pkgfiles <<  make_package(:change => { 'name' => 'pkgC', 'version' => '1.0' }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
-      pkgfiles <<  make_package(:change => { 'name' => 'pkgC', 'version' => '2.0' }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'], :conflicts => {'pkgD' => {}})
-      pkgfiles <<  make_package(:change => { 'name' => 'pkgD', 'version' => '1.0' }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      pkgfiles <<  make_package(:change => { 'name' => 'pkgA', 'version' => '1.0' }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture'], :conflicts => {'pkgB' => {}})
+      pkgfiles <<  make_package(:change => { 'name' => 'pkgB', 'version' => '1.0' }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture'])
+      pkgfiles <<  make_package(:change => { 'name' => 'pkgC', 'version' => '1.0' }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture'])
+      pkgfiles <<  make_package(:change => { 'name' => 'pkgC', 'version' => '2.0' }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture'], :conflicts => {'pkgD' => {}})
+      pkgfiles <<  make_package(:change => { 'name' => 'pkgD', 'version' => '1.0' }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture'])
       
       # Should not be able to install both pkgA and B since A conflicts with B
       Dir.mktmpdir('testroot') do |testroot|

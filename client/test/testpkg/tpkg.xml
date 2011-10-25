@@ -31,10 +31,5 @@
         <perms>0400</perms>
       </posix>
     </file>
-    <file>
-      <path>acltest</path>
-      <posix_acl>TODO</posix_acl>
-      <windows_acl>TODO</windows_acl>
-    </file>
   </files>
 </tpkg>

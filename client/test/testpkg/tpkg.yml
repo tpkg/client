@@ -22,7 +22,4 @@ files:
         precrypt: true
       posix:
         perms: 0400
-    - path: acltest
-      posix_acl: TODO
-      windows_acl: TODO
 

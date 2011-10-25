@@ -22,7 +22,7 @@ class TpkgQueryTests < Test::Unit::TestCase
 
   def test_metadata_for_installed_packages
     Dir.mktmpdir('testbase') do |testbase|
-      apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '2.0' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '2.0' }, :remove => ['operatingsystem', 'architecture'])
       tpkg = Tpkg.new(:base => testbase, :sources => [apkg])
       tpkg.install(['a'], PASSPHRASE)
       metadata = tpkg.metadata_for_installed_packages
@@ -34,8 +34,8 @@ class TpkgQueryTests < Test::Unit::TestCase
   
   def test_installed_packages
     Dir.mktmpdir('testbase') do |testbase|
-      apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '2.0' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
-      bpkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'b', 'version' => '2.0' }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+      apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '2.0' }, :remove => ['operatingsystem', 'architecture'])
+      bpkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'b', 'version' => '2.0' }, :remove => ['operatingsystem', 'architecture'])
       tpkg = Tpkg.new(:base => testbase, :sources => [apkg, bpkg])
       tpkg.install(['a', 'b'], PASSPHRASE)
       
@@ -62,7 +62,7 @@ class TpkgQueryTests < Test::Unit::TestCase
       ['1.0', '2.0'].each do |ver|
         Dir.mktmpdir('srcdir') do |srcdir|
           FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
-          pkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => ver }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+          pkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => ver }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture'])
           tpkg.install([pkg], PASSPHRASE)
           pkgfiles << pkg
         end
@@ -88,7 +88,7 @@ class TpkgQueryTests < Test::Unit::TestCase
         File.open(File.join(srcdir, 'reloc', 'directory', pkgname), 'w') do |file|
           file.puts pkgname
         end
-        pkgfiles << make_package(:output_directory => @tempoutdir, :change => {'name' => pkgname}, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+        pkgfiles << make_package(:output_directory => @tempoutdir, :change => {'name' => pkgname}, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture'])
       end
     end
     
