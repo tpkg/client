@@ -78,7 +78,7 @@ while (scalar @extradepsopts)
 {
 	my $dep = shift @extradepsopts;
 	# These are optional, shift will return undef if they aren't present
-	# and we'll handle that properly when creating tpkg.xml
+	# and we'll handle that properly when creating tpkg.yml
 	my $depminver = shift @extradepsopts;
 	my $depmaxver = shift @extradepsopts;
 	$extradeps{$dep} = {};
@@ -90,7 +90,7 @@ while (scalar @nativedepsopts)
 {
 	my $dep = shift @nativedepsopts;
 	# These are optional, shift will return undef if they aren't present
-	# and we'll handle that properly when creating tpkg.xml
+	# and we'll handle that properly when creating tpkg.yml
 	my $depminver = shift @nativedepsopts;
 	my $depmaxver = shift @nativedepsopts;
 	$nativedeps{$dep} = {};
@@ -331,16 +331,13 @@ MODULE: foreach my $name ($extinst->modules)
 			$nativefile = 1;
 		}
 	}
-	# Create tpkg.xml
-	open(my $xmlfh, '>', "$tpkgdir/tpkg.xml") or die;
-	print $xmlfh '<?xml version="1.0" encoding="UTF-8"?>', "\n";
-	print $xmlfh '<!DOCTYPE tpkg SYSTEM "http://tpkg.sourceforge.net/tpkg-1.0.dtd">', "\n";
-	print $xmlfh '<tpkg>', "\n";
-	print $xmlfh "  <name>cpan-perl$majorminor-$pkgname</name>", "\n";
-	print $xmlfh "  <version>$ver</version>", "\n";
-	print $xmlfh "  <package_version>$pkgver</package_version>", "\n";
-	print $xmlfh "  <description>cpan package for $pkgname</description>", "\n";
-	print $xmlfh '  <maintainer>cpan2tpkg</maintainer>', "\n";
+	# Create tpkg.yml
+	open(my $ymlfh, '>', "$tpkgdir/tpkg.yml") or die;
+	print $ymlfh "name: cpan-perl$majorminor-$pkgname", "\n";
+	print $ymlfh "version: $ver", "\n";
+	print $ymlfh "package_version: $pkgver", "\n";
+	print $ymlfh "description: cpan package for $pkgname", "\n";
+	print $ymlfh 'maintainer: cpan2tpkg', "\n";
 	# If the package has native code then it needs to be flagged as
 	# specific to the OS and architecture
 	if ($nativefile)
@@ -369,68 +366,58 @@ MODULE: foreach my $name ($extinst->modules)
 		# vice-versa
 		if ($os =~ /RedHat-(.*)/)
 		{
-			$os = $os . ",CentOS-$1";
+			$os = $os . ", CentOS-$1";
 		}
 		elsif ($os =~ /CentOS-(.*)/)
 		{
-			$os = $os . ",RedHat-$1";
+			$os = $os . ", RedHat-$1";
 		}
-		print $xmlfh "  <operatingsystem>$os</operatingsystem>", "\n";
-		print $xmlfh "  <architecture>$arch</architecture>", "\n";
+		print $ymlfh "operatingsystem: [$os]", "\n";
+		print $ymlfh "architecture: [$arch]", "\n";
 	}
 	# Insert appropriate dependencies into the package
-	print $xmlfh '  <dependencies>', "\n";
+	print $ymlfh 'dependencies:', "\n";
 	foreach my $dep (keys %deps)
 	{
-		print $xmlfh '    <dependency>', "\n";
-		print $xmlfh "      <name>cpan-perl$majorminor-$dep</name>", "\n";
+		print $ymlfh "  - name: cpan-perl$majorminor-$dep", "\n";
 		if ($deps{$dep}{minimum_version})
 		{
-			print $xmlfh "      <minimum_version>$deps{$dep}{minimum_version}</minimum_version>", "\n";
+			print $ymlfh "    minimum_version: $deps{$dep}{minimum_version}", "\n";
 		}
 		if ($deps{$dep}{maximum_version})
 		{
-			print $xmlfh "      <maximum_version>$deps{$dep}{maximum_version}</maximum_version>", "\n";
+			print $ymlfh "    maximum_version: $deps{$dep}{maximum_version}", "\n";
 		}
-		print $xmlfh '    </dependency>', "\n";
 	}
 	foreach my $extradep (keys %extradeps)
 	{
-		print $xmlfh '    <dependency>', "\n";
-		print $xmlfh "      <name>$extradep</name>", "\n";
+		print $ymlfh "  - name: $extradep", "\n";
 		if ($extradeps{$extradep}{minimum_version})
 		{
-			print $xmlfh "      <minimum_version>$extradeps{$extradep}{minimum_version}</minimum_version>", "\n";
+			print $ymlfh "    minimum_version: $extradeps{$extradep}{minimum_version}", "\n";
 		}
 		if ($extradeps{$extradep}{maximum_version})
 		{
-		print $xmlfh "      <maximum_version>$extradeps{$extradep}{maximum_version}</maximum_version>", "\n";
+  		print $ymlfh "    maximum_version: $extradeps{$extradep}{maximum_version}", "\n";
 		}
-		print $xmlfh '    </dependency>', "\n";
 	}
 	foreach my $nativedep (keys %nativedeps)
 	{
-		print $xmlfh '    <dependency>', "\n";
-		print $xmlfh "      <name>$nativedep</name>", "\n";
+		print $ymlfh "  - name: $nativedep", "\n";
 		if ($nativedeps{$nativedep}{minimum_version})
 		{
-			print $xmlfh "      <minimum_version>$nativedeps{$nativedep}{minimum_version}</minimum_version>", "\n";
+			print $ymlfh "    minimum_version: $nativedeps{$nativedep}{minimum_version}", "\n";
 		}
 		if ($nativedeps{$nativedep}{maximum_version})
 		{
-			print $xmlfh "      <maximum_version>$nativedeps{$nativedep}{maximum_version}</maximum_version>", "\n";
+			print $ymlfh "    maximum_version: $nativedeps{$nativedep}{maximum_version}", "\n";
 		}
-		print $xmlfh '      <native/>', "\n";
-		print $xmlfh '    </dependency>', "\n";
+		print $ymlfh '    native: true', "\n";
 	}
 	# Insert an appropriate dependency on Perl itself
-	print $xmlfh '    <dependency>', "\n";
-	print $xmlfh "      <name>perl</name>", "\n";
-	print $xmlfh "      <minimum_version>", sprintf("%vd", $^V), "</minimum_version>", "\n";
-	print $xmlfh "      <maximum_version>$majordotminor.9999</maximum_version>", "\n";
-	print $xmlfh '    </dependency>', "\n";
-	print $xmlfh '  </dependencies>', "\n";
-	print $xmlfh '</tpkg>', "\n";
+	print $ymlfh '  - name: perl', "\n";
+	print $ymlfh '    minimum_version: ', sprintf("%vd", $^V), "\n";
+	print $ymlfh "    maximum_version: $majordotminor.9999", "\n";
 	# Build package
 	system("tpkg --make $tpkgdir");
 }
