@@ -118,8 +118,10 @@ module TpkgTests
     end
     
     # FIXME:  We currently assume the specified filename exists and is a valid
-    # template file that we make changes to.  Might want to rearchitect that
-    # at some point.
+    # template file that we make changes to.  We should create the metadata
+    # file from scratch. That would eliminate the need for :remove, which
+    # seems hacky.  And eliminate the need for this half-baked parsing and
+    # manipulation, which is super hacky.
     tpkgdst = Tempfile.new(File.basename(filename), File.dirname(filename))
     IO.foreach(filename) do |line|
       if line =~ /^\s*<(\w+)>/
@@ -272,7 +274,7 @@ module TpkgTests
     pkgfile = nil
     Dir.mktmpdir('pkgdir') do |pkgdir|
       # Copy package contents into working directory
-      system("#{Tpkg::find_tar} -C #{source_directory} --exclude .svn -cf - . | #{Tpkg::find_tar} -C #{pkgdir} -xpf -")
+      system("#{Tpkg::find_tar} -C #{source_directory} --exclude .svn --exclude 'tpkg-*.xml' --exclude 'tpkg*.yml' -cf - . | #{Tpkg::find_tar} -C #{pkgdir} -xpf -")
       create_metadata_file(File.join(pkgdir, 'tpkg.xml'), options)
       pkgfile = Tpkg.make_package(pkgdir, passphrase, options)
     end
