@@ -1358,7 +1358,7 @@ class Tpkg
           name = metadata_yml[:name]
           metadata[name] = [] if !metadata[name]
           metadata[name] << metadata_yml
-        elsif source[0] == File::SEPARATOR
+        elsif source[0,1] == File::SEPARATOR || File.directory?(source)
           if File.directory?(source)
             if !File.exists?(File.join(source, 'metadata.yml'))
               warn "Source directory #{source} has no metadata.yml file. Try running tpkg -x #{source} first."
