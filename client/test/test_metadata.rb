@@ -138,8 +138,18 @@ class TpkgMetadataTests < Test::Unit::TestCase
     pkgfile2 = make_package(:change => {'name' => 'testpkg2', 'version' => '2.0'})
     FileUtils.mv(pkgfile2, @pkgdir)
     pkgfile2 = File.join(@pkgdir, File.basename(pkgfile2))
-
+    
     Tpkg::extract_metadata(@pkgdir)
+    
+    # Source as filename
+    tpkg = Tpkg.new(:base => testbase, :sources => [pkgfile])
+    assert_nothing_raised { tpkg.prep_metadata }
+    
+    # Source as directory
+    tpkg = Tpkg.new(:base => testbase, :sources => [@pkgdir])
+    assert_nothing_raised { tpkg.prep_metadata }
+    
+    # Source as URI
     
     s = WEBrick::HTTPServer.new(:Port => 3500, :DocumentRoot => @pkgdir)
     # There may be an easier way to push WEBrick into the background, but
@@ -159,18 +169,20 @@ class TpkgMetadataTests < Test::Unit::TestCase
       # @metadata is missing the XML headers (XML version and DTD).
       # Someday we should fix that, in the meantime check that they look
       # similar by checking the name element.
+      puts "metadata_from_package:"
+      p Tpkg::metadata_from_package(@pkgfile)
+      puts "tpkg.metadata:"
+      p tpkg.metadata['testpkg'].first
       assert_equal(Tpkg::metadata_from_package(@pkgfile)[:name], tpkg.metadata['testpkg'].first[:name])
       assert_equal(1, tpkg.metadata['testpkg2'].length)
       assert_equal(Tpkg::metadata_from_package(pkgfile2)[:name], tpkg.metadata['testpkg2'].first[:name])
       pkgs = tpkg.metadata.collect {|m| m[1]}.flatten
       assert_equal(2, pkgs.length)
     end
-      
+    
     # Test when the package directory isn't at the root of the web
     # server hierarchy
     Dir.mkdir(File.join(@pkgdir, 'testdir'))
-    # We don't generate metadata.xml anymore
-#    FileUtils.mv(File.join(@pkgdir, 'metadata.xml'), File.join(@pkgdir, 'testdir', 'metadata.xml'))
     FileUtils.mv(File.join(@pkgdir, 'metadata.yml'), File.join(@pkgdir, 'testdir', 'metadata.yml'))
     
     Dir.mktmpdir('testbase') do |testbase|
@@ -201,8 +213,17 @@ class TpkgMetadataTests < Test::Unit::TestCase
     
     s.shutdown
     t.kill
+    
+    # No exception thrown if source is a non-existent directory
+    # FIXME: check stderr for warning
+    tpkg = Tpkg.new(:base => testbase, :sources => ['/path/does/not/exist'])
+    assert_nothing_raised { tpkg.prep_metadata }
+    # No exception thrown if source is a relative URI
+    # FIXME: check stderr for warning
+    tpkg = Tpkg.new(:base => testbase, :sources => ['relative/uri'])
+    assert_nothing_raised { tpkg.prep_metadata }
   end
-
+  
   def test_load_available_packages
     # Add another package in the package directory to make the test a
     # little more realistic
