@@ -4,6 +4,7 @@
 
 require "./#{File.dirname(__FILE__)}/tpkgtest"
 require 'webrick'
+require 'pathname'
 
 # Give ourself access to some Tpkg variables
 class Tpkg
@@ -142,12 +143,37 @@ class TpkgMetadataTests < Test::Unit::TestCase
     Tpkg::extract_metadata(@pkgdir)
     
     # Source as filename
-    tpkg = Tpkg.new(:base => testbase, :sources => [pkgfile])
-    assert_nothing_raised { tpkg.prep_metadata }
+    Dir.mktmpdir('testbase') do |testbase|
+      tpkg = Tpkg.new(:base => testbase, :sources => [@pkgfile])
+      assert_nothing_raised { tpkg.prep_metadata }
+      assert_equal(1, tpkg.metadata['testpkg'].length)
+      # The metadata in the package is XML as produced by make_package.  The
+      # metadata extracted by prep_metadata came from the metadata.yml file
+      # produced by extract_metadata.  Someday we should implement a
+      # reasonable == in the Metadata class, but in the meantime check that
+      # they look similar by checking the name element.
+      assert_equal(Tpkg::metadata_from_package(@pkgfile)[:name],
+                   tpkg.metadata['testpkg'].first[:name])
+    end
     
     # Source as directory
-    tpkg = Tpkg.new(:base => testbase, :sources => [@pkgdir])
-    assert_nothing_raised { tpkg.prep_metadata }
+    Dir.mktmpdir('testbase') do |testbase|
+      tpkg = Tpkg.new(:base => testbase, :sources => [@pkgdir])
+      assert_nothing_raised { tpkg.prep_metadata }
+      assert_equal(1, tpkg.metadata['testpkg'].length)
+      assert_equal(Tpkg::metadata_from_package(@pkgfile)[:name],
+                   tpkg.metadata['testpkg'].first[:name])
+    end
+    
+    # Source as relative directory
+    Dir.mktmpdir('testbase') do |testbase|
+      tpkg = Tpkg.new(:base => testbase,
+                      :sources => [Pathname.new(@pkgdir).relative_path_from(Pathname.getwd).to_s])
+      assert_nothing_raised { tpkg.prep_metadata }
+      assert_equal(1, tpkg.metadata['testpkg'].length)
+      assert_equal(Tpkg::metadata_from_package(@pkgfile)[:name],
+                   tpkg.metadata['testpkg'].first[:name])
+    end
     
     # Source as URI
     
@@ -164,15 +190,6 @@ class TpkgMetadataTests < Test::Unit::TestCase
       
       assert_nothing_raised { tpkg.prep_metadata }
       assert_equal(1, tpkg.metadata['testpkg'].length)
-      # The two XML documents ought to be identical, but the one that gets
-      # extracted, packed into metadata.xml and then unpacked into
-      # @metadata is missing the XML headers (XML version and DTD).
-      # Someday we should fix that, in the meantime check that they look
-      # similar by checking the name element.
-      puts "metadata_from_package:"
-      p Tpkg::metadata_from_package(@pkgfile)
-      puts "tpkg.metadata:"
-      p tpkg.metadata['testpkg'].first
       assert_equal(Tpkg::metadata_from_package(@pkgfile)[:name], tpkg.metadata['testpkg'].first[:name])
       assert_equal(1, tpkg.metadata['testpkg2'].length)
       assert_equal(Tpkg::metadata_from_package(pkgfile2)[:name], tpkg.metadata['testpkg2'].first[:name])
@@ -216,12 +233,18 @@ class TpkgMetadataTests < Test::Unit::TestCase
     
     # No exception thrown if source is a non-existent directory
     # FIXME: check stderr for warning
-    tpkg = Tpkg.new(:base => testbase, :sources => ['/path/does/not/exist'])
-    assert_nothing_raised { tpkg.prep_metadata }
+    Dir.mktmpdir('testbase') do |testbase|
+      tpkg = Tpkg.new(:base => testbase, :sources => ['/path/does/not/exist'])
+      assert_nothing_raised { tpkg.prep_metadata }
+      assert_equal(0, tpkg.metadata.length)
+    end
     # No exception thrown if source is a relative URI
     # FIXME: check stderr for warning
-    tpkg = Tpkg.new(:base => testbase, :sources => ['relative/uri'])
-    assert_nothing_raised { tpkg.prep_metadata }
+    Dir.mktmpdir('testbase') do |testbase|
+      tpkg = Tpkg.new(:base => testbase, :sources => ['relative/uri'])
+      assert_nothing_raised { tpkg.prep_metadata }
+      assert_equal(0, tpkg.metadata.length)
+    end
   end
   
   def test_load_available_packages
