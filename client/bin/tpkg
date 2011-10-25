@@ -262,7 +262,7 @@ end
 opts.on('--force', 'Force the execution of a given task') do |opt|
   @force = opt
 end
-opts.on('-o', '--out', '=DIR', 'Output directory for the -m option') do |opt|
+opts.on('-o', '--out', '=DIR', 'Output directory for the --make option') do |opt|
   @other_options[:out] = opt
 end
 opts.on('--use-ssh-key [FILE]', 'Use ssh key for deploying instead of password') do |opt|
