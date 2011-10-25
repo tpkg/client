@@ -265,6 +265,9 @@ end
 opts.on('-o', '--out', '=DIR', 'Output directory for the --make option') do |opt|
   @other_options[:out] = opt
 end
+opts.on('--skip-remove-stop', 'Do not run init script stop on package removal') do |opt|
+  @other_options[:skip_remove_stop] = opt
+end
 opts.on('--use-ssh-key [FILE]', 'Use ssh key for deploying instead of password') do |opt|
   @deploy_options["use-ssh-key"] = true
   @deploy_options["ssh-key"] = opt

@@ -689,6 +689,48 @@ EOF
     # FIXME
   end
   
+  def test_skip_remove_stop
+    # Make a test package with an init script
+    pkg = nil
+    tmpfile = Tempfile.new('tpkgtest_script')
+    Dir.mktmpdir('srcdir') do |srcdir|
+      FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
+      FileUtils.mkdir_p(File.join(srcdir, 'reloc'))
+      initscript = File.join(srcdir, 'reloc', 'myinit')
+      File.open(initscript, 'w') do |file|
+        file.puts('#!/bin/sh')
+        file.puts('case "$1" in')
+        file.puts("'stop')")
+        file.puts("  echo 'test_skip_remove_stop' > #{tmpfile.path}")
+        file.puts('  ;;')
+        file.puts('esac')
+      end
+      File.chmod(0755, initscript)
+      pkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'initpkg' }, :source_directory => srcdir, :files => { 'myinit' => { 'init' => {} } }, :remove => ['operatingsystem', 'architecture', 'posix_acl', 'windows_acl'])
+    end
+    
+    # Removing the package without skip_remove_stop should run the init script
+    # with a "stop" argument on package removal
+    Dir.mktmpdir('testroot') do |testroot|
+      tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [pkg])
+      tpkg.install([pkg], PASSPHRASE)
+      tpkg.remove(['initpkg'])
+      assert_equal("test_skip_remove_stop\n", File.read(tmpfile.path))
+    end
+    
+    # Clear out the temp file to reset
+    File.open(tmpfile.path, 'w') {}
+    
+    # Removing the package with skip_remove_stop should not run the init
+    # script on package removal
+    Dir.mktmpdir('testroot') do |testroot|
+      tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [pkg])
+      tpkg.install([pkg], PASSPHRASE)
+      tpkg.remove(['initpkg'], :skip_remove_stop => true)
+      assert_equal("", File.read(tmpfile.path))
+    end
+  end
+  
   def teardown
     FileUtils.rm_rf(@tempoutdir)
   end

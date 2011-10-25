@@ -4066,7 +4066,7 @@ class Tpkg
     end
     
     # Stop the services if there's init script
-    if !options[:upgrade]
+    if !options[:upgrade] && !options[:skip_remove_stop]
       packages_to_remove.each do |pkg|
        init_scripts_metadata = init_scripts(pkg[:metadata])
        if init_scripts_metadata && !init_scripts_metadata.empty?
