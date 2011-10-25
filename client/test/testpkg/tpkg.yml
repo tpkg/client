@@ -1,0 +1,28 @@
+name: testpkg
+version: 1.0
+package_version: 1
+maintainer: Maintainer
+operatingsystem: OS
+architecture: Architecture
+description: Description
+bugreporting: Bugreporting info
+files:
+  file_defaults:
+    posix:
+      owner: root
+      group: 0
+      perms: 0444
+  files:
+    - path: encfile
+      encrypt: {}
+      posix:
+        perms: 0400
+    - path: precryptfile
+      encrypt:
+        precrypt: true
+      posix:
+        perms: 0400
+    - path: acltest
+      posix_acl: TODO
+      windows_acl: TODO
+

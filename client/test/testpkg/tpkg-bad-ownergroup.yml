@@ -1,0 +1,18 @@
+name: testpkg
+version: 1.0
+package_version: 1
+maintainer: Maintainer
+operatingsystem: OS
+architecture: Architecture
+description: Description
+bugreporting: Bugreporting info
+files:
+  file_defaults:
+    posix:
+      owner: baduser
+      group: badgroup
+      perms: 0444
+  files:
+    - path: file
+      crontab: {}
+
