@@ -88,6 +88,7 @@
 .RB [ --force ]
 .RB [ --out | \-o
 .IR DIR ]
+.RB [ --skip-remove-stop ]
 .RB [ --use-ssh-key ]
 .RB [ --deploy-as
 .IR USERNAME ]
@@ -283,6 +284,11 @@ Force the execution of a given task.
 .TP
 .BR --out | \-o
 Output directory for the -m and --download option.
+.TP
+.B --skip-remove-stop
+tpkg normally runs any init scripts in the target packages with a "stop"
+argument on package removal. This option prevents that behavior. The init
+script might be known to be broken, etc.
 .TP
 .BI --use-ssh-key " [KEY]"
 Eliminate the prompt for an SSH password when deploying.  Specifying a
