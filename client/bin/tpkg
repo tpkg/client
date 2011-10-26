@@ -72,6 +72,7 @@ def parse_config_files
         key, value = line.split(/\s*=\s*/, 2)
         if key == 'base'
           settings[:base] = value
+          puts "Loaded base #{value} from #{configfile}" if @debug
         elsif key == 'source'
           settings[:sources] << value
           puts "Loaded source #{value} from #{configfile}" if @debug
@@ -434,7 +435,7 @@ def instantiate_tpkg
       # if they don't realize there's a config file lying
       # around
       @tpkg_options[:base] = settings[:base]
-      warn "Using base #{@tpkg_options[:base]} from #{configfile}" if !@quiet
+      warn "Using base #{@tpkg_options[:base]} from config file" if !@quiet
     else
       warn "Ignoring 'base' option in config file" if @debug
     end
