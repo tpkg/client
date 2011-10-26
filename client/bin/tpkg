@@ -250,7 +250,7 @@ opts.on('--qf', '=FILE', 'List the package that owns a file') do |opt|
   @action = :query_who_owns_file
   @action_value = opt
 end
-opts.on('--qv', '=NAME', 'List available packages') do |opt|
+opts.on('--qv', '=NAME', 'List available packages matching given name') do |opt|
   @action = :query_available
   @action_value = opt
 end
@@ -261,7 +261,7 @@ opts.on('--qr', '=NAME', 'List installed packages that require package') do |opt
   @action = :query_requires
   @action_value = opt
 end
-opts.on('--qd', '=NAME', 'List the packages that package depends on') do |opt|
+opts.on('--qd', '=NAME', 'List the packages on which the given package depends') do |opt|
   @action = :query_depends
   @action_value = opt
 end
