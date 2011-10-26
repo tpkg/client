@@ -20,14 +20,15 @@ require 'tpkg'
 @prompt = true
 @quiet = false
 @sudo = true
-@lockforce = false
 @force = false
 @deploy = false
 @deploy_params = ARGV   # hold parameters for how to invoke tpkg on the machines we're deploying to
 @deploy_options = {}    # options for how to run the deployer
-@servers = nil
+@servers = []
+@groups = nil
 @worker_count = 10
 @rerun_with_sudo = false
+@sources = []
 @tpkg_options = {}	# options for instantiating Tpkg object
 @init_options = {}      # options for how to run init scripts
 @other_options = {}     
@@ -36,7 +37,7 @@ require 'tpkg'
 
 def rerun_with_sudo_if_necessary
   if Process.euid != 0 && @sudo
-    warn "Executing with sudo"
+    warn "Executing with sudo" if !@quiet
     # Depending on how sudo is configured it might remove TPKG_HOME from the
     # environment.  As such we set the base as a command line option to ensure
     # it survives the sudo process.
@@ -46,6 +47,46 @@ def rerun_with_sudo_if_necessary
       exec('sudo', $0, *ARGV)
     end
   end
+end
+
+# This method can only be safely called after command line option parsing is
+# complete
+@config_file_settings = nil
+def parse_config_files
+  if @config_file_settings
+    return @config_file_settings
+  end
+  
+  # FIXME: Move config file parsing to tpkg.rb
+  # http://sourceforge.net/apps/trac/tpkg/ticket/28
+  fsroot = @tpkg_options[:file_system_root] ? @tpkg_options[:file_system_root] : ''
+  settings = {:sources => []}
+  [File.join(fsroot, Tpkg::DEFAULT_CONFIGDIR, 'tpkg.conf'),
+   File.join(fsroot, ENV['HOME'], ".tpkg.conf")].each do |configfile|
+    if File.exist?(configfile)
+      IO.foreach(configfile) do |line|
+        line.chomp!
+        next if (line =~ /^\s*$/);  # Skip blank lines
+        next if (line =~ /^\s*#/);  # Skip comments
+        line.strip!  # Remove leading/trailing whitespace
+        key, value = line.split(/\s*=\s*/, 2)
+        if key == 'base'
+          settings[:base] = value
+        elsif key == 'source'
+          settings[:sources] << value
+          puts "Loaded source #{value} from #{configfile}" if @debug
+        elsif key == 'report_server'
+          settings[:report_server] = value
+          puts "Loaded report server #{value} from #{configfile}" if @debug
+        elsif key == 'host_group_script'
+          settings[:host_group_script] = value
+          puts "Loaded host group script #{value} from #{configfile}" if @debug
+        end
+      end
+    end
+  end
+  
+  @config_file_settings = settings
 end
 
 opts = OptionParser.new(nil, 24, '  ')
@@ -72,9 +113,25 @@ opts.on('--downgrade', '=PACKAGES', 'Downgrade one or more packages', Array) do 
   @action_value = opt
 end
 opts.on('--servers', '-s', '=SERVERS', Array, 'Servers on which to apply actions, defaults to local') do |opt|
-  @servers = opt
+  @servers.concat(opt)
   @deploy = true
+  # FIXME: this won't remove options that the user specified as an
+  # abbreviation.  I.e. if the option is --servers and the user specified
+  # --serv (which OptionParser will accept as long as it is unambiguous) this
+  # won't detect and remove it.
   @deploy_params = @deploy_params - ['--servers', '-s', @servers.join(","), "--servers=#{@servers.join(',')}"]
+end
+opts.on('--groups', '-g', '=GROUP', Array, 'Group of server on which to apply actions') do |opt|
+  # We'll finish processing this later.  To expand the groups we need the name
+  # of the host_group_script from the config file, but we can't safely call
+  # parse_config_files until we're done processing command line options.
+  @groups = opt
+  @deploy = true
+  # FIXME: this won't remove options that the user specified as an
+  # abbreviation.  I.e. if the option is --servers and the user specified
+  # --serv (which OptionParser will accept as long as it is unambiguous) this
+  # won't detect and remove it.
+  @deploy_params = @deploy_params - ['--groups', '-g', @groups.join(","), "--servers=#{@groups.join(',')}"]
 end
 opts.on('--ua', 'Upgrade all packages') do |opt|
   @rerun_with_sudo = true
@@ -214,6 +271,10 @@ end
 
 opts.on('--dw', '=INTEGER', 'Number of workers for deploying') do |opt|
   @worker_count = opt.to_i
+  # FIXME: this won't remove options that the user specified as an
+  # abbreviation.  I.e. if the option is --servers and the user specified
+  # --serv (which OptionParser will accept as long as it is unambiguous) this
+  # won't detect and remove it.
   @deploy_params = @deploy_params - ['--dw', @worker_count, "--dw=#{opt}"]
 end
 opts.on('--qX', '=FILENAME', 'Display tpkg.xml or tpkg.yml of the given package') do |opt|
@@ -237,7 +298,7 @@ opts.on('--extract', '-x', '=DIRECTORY', 'Extract the metadata for a directory o
   @action_value = opt
 end
 opts.on('--source', '=NAME', 'Sources where packages are located', Array) do |opt|
-  @tpkg_options[:sources] = opt
+  @sources = opt
 end
 opts.on('--download', '=PACKAGES', 'Download one or more packages', Array) do |opt|
   @action = :download
@@ -254,7 +315,7 @@ opts.on('--no-sudo', 'No calls to sudo for operations that might need root') do 
   @sudo = opt
 end
 opts.on('--lock-force', 'Force the removal of an existing lockfile') do |opt|
-  @lockforce = opt
+  @tpkg_options[:lockforce] = opt
 end
 opts.on('--force-replace', 'Replace conflicting pkgs with the new one(s)') do |opt|
   @other_options[:force_replace] = opt
@@ -271,10 +332,18 @@ end
 opts.on('--use-ssh-key [FILE]', 'Use ssh key for deploying instead of password') do |opt|
   @deploy_options["use-ssh-key"] = true
   @deploy_options["ssh-key"] = opt
+  # FIXME: this won't remove options that the user specified as an
+  # abbreviation.  I.e. if the option is --servers and the user specified
+  # --serv (which OptionParser will accept as long as it is unambiguous) this
+  # won't detect and remove it.
   @deploy_params = @deploy_params - ['--use-ssh-key', opt, "--use-ssh-key=#{opt}"]
 end
 opts.on('--deploy-as', '=USERNAME', 'What username to use for deploying to remote server') do |opt|
   @deploy_options["deploy-as"] = opt
+  # FIXME: this won't remove options that the user specified as an
+  # abbreviation.  I.e. if the option is --servers and the user specified
+  # --serv (which OptionParser will accept as long as it is unambiguous) this
+  # won't detect and remove it.
   @deploy_params = @deploy_params - ['--deploy-as']
 end
 opts.on('--compress', '=[TYPE]', 'Compress files when making packages') do |opt|
@@ -314,14 +383,34 @@ if !@action
   exit
 end
 
+if @groups
+  settings = parse_config_files
+  if settings[:host_group_script]
+    if !File.executable?(settings[:host_group_script])
+      warn "Warning: host group script #{settings[:host_group_script]} is not executable, execution will likely fail"
+    end
+    servers = []
+    @groups.each do |group|
+      IO.popen(settings[:host_group_script]) do |pipe|
+        pipe.each_line do |line|
+          servers << line.chomp
+        end
+      end
+    end
+    servers.uniq!
+    puts "Expanded groups into #{servers.length} servers" if @debug
+    @servers.concat(servers)
+  else
+    abort "No host_group_script defined in config files, can't expand groups"
+  end
+end
+
 #
 # Figure out base directory, sources and other configuration
 #
 
-def instantiate_tpkg(options = {})
-  base = options[:base]
-  sources = options[:sources] || []
-  report_server = nil
+def instantiate_tpkg
+  settings = parse_config_files
   
   # base can come from four possible places.  They take precedence in this
   # order:
@@ -329,53 +418,39 @@ def instantiate_tpkg(options = {})
   # - TPKG_HOME environment variable
   # - config file
   # - Tpkg::DEFAULT_BASE
-  
   if ENV['TPKG_HOME']
-    if !base
-      base = ENV['TPKG_HOME']
+    if !@tpkg_options[:base]
+      @tpkg_options[:base] = ENV['TPKG_HOME']
       # Warn the user, as this could potentially be confusing
       # if they don't realize there's an environment variable set.
-      warn "Using base '#{base}' base from $TPKG_HOME"
+      warn "Using base '#{@tpkg_options[:base]}' base from $TPKG_HOME" if !@quiet
     else
-      warn "Ignoring TPKG_HOME" if @debug
+      warn "Ignoring $TPKG_HOME" if @debug
     end
   end
-  
-  # FIXME: Move config file parsing to tpkg.rb
-  # http://sourceforge.net/apps/trac/tpkg/ticket/28
-  fsroot = options[:file_system_root] ? options[:file_system_root] : ''
-  [File.join(fsroot, Tpkg::DEFAULT_CONFIGDIR, 'tpkg.conf'), File.join(fsroot, ENV['HOME'], ".tpkg.conf")].each do |configfile|
-    if File.exist?(configfile)
-      IO.foreach(configfile) do |line|
-        line.chomp!
-        next if (line =~ /^\s*$/);  # Skip blank lines
-        next if (line =~ /^\s*#/);  # Skip comments
-        line.strip!  # Remove leading/trailing whitespace
-        key, value = line.split(/\s*=\s*/, 2)
-        if key == 'base'
-          if !base
-            # Warn the user, as this could potentially be confusing
-            # if they don't realize there's a config file lying
-            # around
-            base = value
-            warn "Using base #{base} from #{configfile}"
-          else
-            warn "Ignoring 'base' option in #{@configfile}" if @debug
-          end
-        elsif key == 'source'
-          sources << value
-          puts "Loaded source #{value} from #{configfile}" if (@debug)
-        elsif key == 'report_server'
-          report_server = value
-          puts "Loaded report server #{report_server} from #{configfile}" if (@debug)
-        end
-      end
+  if settings[:base]
+    if !@tpkg_options[:base]
+      # Warn the user, as this could potentially be confusing
+      # if they don't realize there's a config file lying
+      # around
+      @tpkg_options[:base] = settings[:base]
+      warn "Using base #{@tpkg_options[:base]} from #{configfile}" if !@quiet
+    else
+      warn "Ignoring 'base' option in config file" if @debug
     end
   end
-  
-  if !base
-    base = Tpkg::DEFAULT_BASE
+  if !@tpkg_options[:base]
+    @tpkg_options[:base] = Tpkg::DEFAULT_BASE
   end
+  
+  # Sources can come from the command line and config files.  We use the
+  # combined set of sources.
+  @sources.concat(settings[:sources])
+  @tpkg_options[:sources] = @sources
+  
+  @tpkg_options[:report_server] = settings[:report_server]
+  @tpkg_options[:sudo] = @sudo
+  @tpkg_options[:force] = @force
   
   if !@sudo
     curruid = Process.euid
@@ -393,15 +468,7 @@ def instantiate_tpkg(options = {})
     end
   end
   
-  # FIXME: This is ugly.  We would set the appropriate things in options and
-  # call Tpkg.new(options)
-  tpkg = Tpkg.new(:file_system_root => options[:file_system_root],
-                  :base => base,
-                  :sources => sources,
-                  :report_server => report_server,
-                  :lockforce => @lockforce,
-                  :force => @force,
-                  :sudo => @sudo)
+  tpkg = Tpkg.new(@tpkg_options)
 end
 
 passphrase_callback = lambda do | package |
@@ -468,16 +535,16 @@ when :make
 when :extract
   Tpkg::extract_metadata(@action_value)
 when :install
-  tpkg = instantiate_tpkg(@tpkg_options)
+  tpkg = instantiate_tpkg
   ret_val = tpkg.install(@action_value, passphrase_callback, @other_options)
 when :upgrade
-  tpkg = instantiate_tpkg(@tpkg_options)
+  tpkg = instantiate_tpkg
   ret_val = tpkg.upgrade(@action_value, passphrase_callback, @other_options)
 when :remove
-  tpkg = instantiate_tpkg(@tpkg_options)
+  tpkg = instantiate_tpkg
   ret_val = tpkg.remove(@action_value, @other_options)
 when :download
-  tpkg = instantiate_tpkg(@tpkg_options)
+  tpkg = instantiate_tpkg
   ret_val = tpkg.download_pkgs(@action_value, @other_options)
 when :verify
   result = nil
@@ -486,7 +553,7 @@ when :verify
     Tpkg::verify_package_checksum(@action_value)
   # Verify an installed pkg
   else
-    tpkg = instantiate_tpkg(@tpkg_options)
+    tpkg = instantiate_tpkg
     results = tpkg.verify_file_metadata([@action_value])
     if results.length == 0
       puts "No package found"
@@ -503,13 +570,13 @@ when :verify
     puts "Package verification failed" unless success 
   end
 when :execute_init
-  tpkg = instantiate_tpkg(@tpkg_options)
+  tpkg = instantiate_tpkg
   if @init_options[:cmd].nil?
     raise "You didn't specify what init command to run"
   end
   ret_val = tpkg.execute_init(@init_options)
 when :query_installed
-  tpkg = instantiate_tpkg(@tpkg_options)
+  tpkg = instantiate_tpkg
   queryreq = nil
   matches = []
   if @action_value
@@ -538,7 +605,7 @@ when :query_info
   if File.exist?(@action_value)
     metadatas = [Tpkg::metadata_from_package(@action_value)]
   else
-    tpkg = instantiate_tpkg(@tpkg_options)
+    tpkg = instantiate_tpkg
     metadatas = []
     requirements = []
     packages = {}
@@ -572,7 +639,7 @@ when :query_info
     puts "================================================================================"
   end
 when :query_list_files
-  tpkg = instantiate_tpkg(@tpkg_options)
+  tpkg = instantiate_tpkg
   pkgfiles = nil
   if File.exist?(@action_value)
     fipfile = Tpkg::files_in_package(@action_value)
@@ -602,7 +669,7 @@ when :query_list_files
     end
   end
 when :query_who_owns_file
-  tpkg = instantiate_tpkg(@tpkg_options)
+  tpkg = instantiate_tpkg
   tpkg.files_for_installed_packages.each do |pkgfile, fip|
     fip[:normalized].each do |file|
       if file == File.expand_path(@action_value)
@@ -611,7 +678,7 @@ when :query_who_owns_file
     end
   end
 when :query_available
-  tpkg = instantiate_tpkg(@tpkg_options)
+  tpkg = instantiate_tpkg
   queryreq = nil
   if @action_value
     queryreq = Tpkg::parse_request(@action_value)
@@ -622,7 +689,7 @@ when :query_available
     puts "#{pkg[:metadata][:filename]} (#{pkg[:source]})"
   end
 when :query_requires
-  tpkg = instantiate_tpkg(@tpkg_options)
+  tpkg = instantiate_tpkg
 
   # parse the request
   requirements = [] 
@@ -652,7 +719,7 @@ when :query_requires
     end
   end
 when :query_local_depends
-  tpkg = instantiate_tpkg(@tpkg_options)
+  tpkg = instantiate_tpkg
   queryreq = Tpkg::parse_request(@action_value)
   instpkgs = tpkg.installed_packages_that_meet_requirement(queryreq)
   instpkgs.each do | pkg |
@@ -668,7 +735,7 @@ when :query_local_depends
     end
   end
 when :query_depends
-  tpkg = instantiate_tpkg(@tpkg_options)
+  tpkg = instantiate_tpkg
   requirements = []
   packages = {}
   tpkg.parse_requests([@action_value], requirements, packages)
@@ -692,7 +759,7 @@ when :query_depends
     end
   end
 when :query_tpkg_metadata
-  tpkg = instantiate_tpkg(@tpkg_options)
+  tpkg = instantiate_tpkg
   if File.exist?(@action_value)
     puts Tpkg::extract_tpkg_metadata_file(@action_value)
   elsif File.exists?(File.join(tpkg.installed_directory, @action_value))
@@ -710,12 +777,12 @@ when :query_conf
   # without recreating all of our logic about deciding which config files to
   # read, which order to read them in, what environment variables override the
   # config files, etc.
-  tpkg = instantiate_tpkg(@tpkg_options)
+  tpkg = instantiate_tpkg
   puts "Base: #{tpkg.base}"
   puts "Sources: #{tpkg.sources.inspect}"
   puts "Report server: #{tpkg.report_server}"
 when :query_history
-  tpkg = instantiate_tpkg(@tpkg_options)
+  tpkg = instantiate_tpkg
   tpkg.installation_history
 when :query_version
   puts Tpkg::VERSION

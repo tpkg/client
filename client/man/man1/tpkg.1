@@ -10,6 +10,8 @@
 .B tpkg
 .RB [ --servers | \-s
 .IR SERVERS ]
+.RB [ --group | \-g
+.IR GROUP ]
 .RB [ --make | \-m
 .IR DIRECTORY ]
 .RB [ --extract | \-x
@@ -115,6 +117,11 @@ that contains the list of servers (newline as the delimiter)
 .B Tpkg
 will connect to each server via ssh and perform the requested operation.
 SSH and sudo password prompts will be handled.
+.TP
+.BI --group|-g " GROUP"
+Specifies a group of servers to operate against in deployment mode. Server
+names are obtained by running the host_group_script from tpkg.conf with the
+group names as arguments.
 .TP
 .BI --make|\-m " DIRECTORY"
 Make a package from the specified directory.  The directory must contain
@@ -345,6 +352,11 @@ The URL for a
 .B tpkg
 reporting server.  If this is defined then all package install/upgrade/removal
 operations will be reported to the server.
+.TP
+.BI "host_group_script = " FILENAME
+The filename for a script which takes one or more host group names as
+arguments and outputs the names of the hosts in those groups one per line on
+stdout.  Used with the --group option.
 .RE
 .TP
 .B /etc/tpkg/ca.pem
