@@ -13,7 +13,7 @@ class TpkgMakeTests < Test::Unit::TestCase
     @tar = Tpkg::find_tar
     
     @pkgdir = Dir.mktmpdir('pkgdir')
-    system("#{@tar} -C #{TESTPKGDIR} --exclude .svn --exclude tpkg-*.xml -cf - . | #{@tar} -C #{@pkgdir} -xf -")
+    system("#{@tar} -C #{TESTPKGDIR} --exclude .svn --exclude tpkg-*.xml --exclude tpkg*.yml -cf - . | #{@tar} -C #{@pkgdir} -xf -")
     # Set special permissions on a file so that we can verify they are
     # preserved
     File.chmod(0400, File.join(@pkgdir, 'reloc', 'file'))
