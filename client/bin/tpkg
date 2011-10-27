@@ -550,7 +550,7 @@ when :download
 when :verify
   result = nil
   # Verify a given .tpkg file
-  if File.exist?(@action_value)
+  if File.file?(@action_value)
     Tpkg::verify_package_checksum(@action_value)
   # Verify an installed pkg
   else
@@ -603,7 +603,7 @@ when :query_installed
   end
 when :query_info
   metadatas = nil
-  if File.exist?(@action_value)
+  if File.file?(@action_value)
     metadatas = [Tpkg::metadata_from_package(@action_value)]
   else
     tpkg = instantiate_tpkg
@@ -642,7 +642,7 @@ when :query_info
 when :query_list_files
   tpkg = instantiate_tpkg
   pkgfiles = nil
-  if File.exist?(@action_value)
+  if File.file?(@action_value)
     fipfile = Tpkg::files_in_package(@action_value)
     tpkg.normalize_paths(fipfile)
     puts "#{@action_value}:"
@@ -761,9 +761,9 @@ when :query_depends
   end
 when :query_tpkg_metadata
   tpkg = instantiate_tpkg
-  if File.exist?(@action_value)
+  if File.file?(@action_value)
     puts Tpkg::extract_tpkg_metadata_file(@action_value)
-  elsif File.exists?(File.join(tpkg.installed_directory, @action_value))
+  elsif File.file?(File.join(tpkg.installed_directory, @action_value))
     puts Tpkg::extract_tpkg_metadata_file(File.join(tpkg.installed_directory, @action_value))
   else
     puts "File #{@action_value} doesn't exist."
