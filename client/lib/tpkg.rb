@@ -3668,7 +3668,7 @@ class Tpkg
             puts "Running '/opt/local/bin/port install #{pkgname}' to install native package" if @@debug
             system("/opt/local/bin/port install #{pkgname}")
           else
-            # Fink support would be nice
+            # Fink, Homebrew support would be nice
             raise "No supported native package tool available on #{Tpkg::get_os}"
           end
         else
