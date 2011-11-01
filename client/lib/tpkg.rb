@@ -1891,6 +1891,10 @@ class Tpkg
     end
     pkgs
   end
+  
+  # Returns an array (possibly empty) of the packages that meet the given
+  # requirement.  If the given requirement is nil or not specified then all
+  # installed packages are returned.
   def installed_packages_that_meet_requirement(req=nil)
     pkgs = []
     if req && req[:type] == :native
@@ -3911,8 +3915,8 @@ class Tpkg
         end
 
         if prompt_for_conflicting_files(pkgfile, CHECK_UPGRADE)
-          # If the old and new packages have overlapping externals flag them
-          # to be skipped so that the external isn't removed and then
+          # If the old and new packages have overlapping externals then flag
+          # them to be skipped so that the external isn't removed and then
           # immediately re-added
           oldpkgs = installed_packages_that_meet_requirement({:name => pkg[:metadata][:name], :type => :tpkg})
           externals_to_skip = []
@@ -3920,7 +3924,7 @@ class Tpkg
             if oldpkgs.all? {|oldpkg| oldpkg[:metadata][:externals] && oldpkg[:metadata][:externals].include?(external)}
               externals_to_skip << external
             end
-          end if pkg[:metadata][:externals]
+          end if pkg[:metadata][:externals] && !oldpkgs.empty?
 
           # Remove the old package if we haven't done so
           unless oldpkgs.nil? or oldpkgs.empty? or removed_pkgs.include?(pkg[:metadata][:name])
