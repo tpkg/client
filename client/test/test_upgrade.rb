@@ -1,8 +1,12 @@
 #
-# Test tpkg's ability to upgrade packages#
+# Test tpkg's ability to upgrade packages
 #
 
 require "./#{File.dirname(__FILE__)}/tpkgtest"
+
+# Note that all first-time installs in this file are done using the upgrade
+# method to ensure that it works in that capacity.  (Elsewhere in the test
+# suite first-time installs are done with the install method.)
 
 class TpkgUpgradeTests < Test::Unit::TestCase
   include TpkgTests
@@ -32,7 +36,7 @@ class TpkgUpgradeTests < Test::Unit::TestCase
       end
     end
 
-    # Create pkg c-1.2-3 and c-2-3-1
+    # Create pkg c-1.2-3 and c-2.3-1
     Dir.mktmpdir('srcdir') do |srcdir|
       FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
       FileUtils.mkdir(File.join(srcdir, 'reloc'))
@@ -47,7 +51,7 @@ class TpkgUpgradeTests < Test::Unit::TestCase
     @testbase = File.join(@testroot, 'home', 'tpkg')
     FileUtils.mkdir_p(@testbase)
     @tpkg = Tpkg.new(:file_system_root => @testroot, :base => File.join('home', 'tpkg'), :sources => @pkgfiles)
-    @tpkg.install(['a=1.0', 'b=1.0'], PASSPHRASE)
+    @tpkg.upgrade(['a=1.0', 'b=1.0'], PASSPHRASE)
   end
 
   # pkg ordera-1 and orderb-1 are installed. Package orderb depends on ordera.
@@ -84,7 +88,7 @@ class TpkgUpgradeTests < Test::Unit::TestCase
     end
 
     tpkg = Tpkg.new(:file_system_root => @testroot, :base => File.join('home', 'tpkg'), :sources => pkgfiles)
-    tpkg.install(['ordera=1.0', 'orderb=1.0'], PASSPHRASE)
+    tpkg.upgrade(['ordera=1.0', 'orderb=1.0'], PASSPHRASE)
 
     assert_nothing_raised { tpkg.upgrade(['orderb']) }
     
@@ -130,8 +134,8 @@ class TpkgUpgradeTests < Test::Unit::TestCase
 
     # These test cases are for: Can't upgrade if package has higher version
     # number but lower package version number
-    # install  c-1.2.3
-    assert_nothing_raised{@tpkg.install(['c=1.2'], PASSPHRASE)}
+    # install  c-1.2-3
+    assert_nothing_raised{@tpkg.upgrade(['c=1.2'], PASSPHRASE)}
     metadata = @tpkg.metadata_for_installed_packages
     assert_equal(3, metadata.length)
     # upgrade to c-2.3-1
@@ -215,7 +219,7 @@ class TpkgUpgradeTests < Test::Unit::TestCase
     end
     File.chmod(0755, extscript1)
     # And run the test
-    assert_nothing_raised { @tpkg.install([oldpkg], PASSPHRASE) }
+    assert_nothing_raised { @tpkg.upgrade([oldpkg], PASSPHRASE) }
     assert_equal('', IO.read(exttmpfile1.path))
     assert_nothing_raised { @tpkg.upgrade([newpkg], PASSPHRASE) }
     assert_equal("install\n#{extdata1}", IO.read(exttmpfile1.path))
@@ -263,7 +267,7 @@ class TpkgUpgradeTests < Test::Unit::TestCase
     File.chmod(0755, extscript1)
     File.chmod(0755, extscript2)
     # And run the test
-    assert_nothing_raised { @tpkg.install([oldpkg], PASSPHRASE) }
+    assert_nothing_raised { @tpkg.upgrade([oldpkg], PASSPHRASE) }
     assert_equal("install\n#{extdata1}", IO.read(exttmpfile1.path))
     assert_equal('', IO.read(exttmpfile2.path))
     assert_nothing_raised { @tpkg.upgrade([newpkg], PASSPHRASE) }
@@ -304,7 +308,7 @@ class TpkgUpgradeTests < Test::Unit::TestCase
     end
     File.chmod(0755, extscript1)
     # And run the test
-    assert_nothing_raised { @tpkg.install([oldpkg], PASSPHRASE) }
+    assert_nothing_raised { @tpkg.upgrade([oldpkg], PASSPHRASE) }
     assert_equal("install\n#{extdata1}", IO.read(exttmpfile1.path))
     assert_nothing_raised { @tpkg.upgrade([newpkg], PASSPHRASE) }
     assert_equal("install\n#{extdata1}remove\n#{extdata1}install\n#{extdata2}", IO.read(exttmpfile1.path))
@@ -312,8 +316,8 @@ class TpkgUpgradeTests < Test::Unit::TestCase
     FileUtils.rm_f(newpkg)
   end
  
-  # Install pkgA and pkgB, both of version 1.0. pkgB depends on pkgA, min and max version 1.0.
-  # Try to upgrade pkgA to 2.0. This should not be allow.
+  # Install pkgA and pkgB, both of version 1.0. pkgB depends on pkgA, min and
+  # max version 1.0. Try to upgrade pkgA to 2.0. This should not be allowed.
   def test_upgrade_with_strict_dependency
     pkgfiles = []
     Dir.mktmpdir('srcdir') do |srcdir|
@@ -325,7 +329,7 @@ class TpkgUpgradeTests < Test::Unit::TestCase
     end
 
     tpkg = Tpkg.new(:file_system_root => @testroot, :base => File.join('home', 'tpkg'), :sources => pkgfiles)
-    tpkg.install(['stricta=1.0', 'strictb=1.0'], PASSPHRASE)
+    tpkg.upgrade(['stricta=1.0', 'strictb=1.0'], PASSPHRASE)
     metadata = @tpkg.metadata_for_installed_packages
 
     # Should not be able to upgrade stricta to 2.0
@@ -362,7 +366,7 @@ class TpkgUpgradeTests < Test::Unit::TestCase
     end
     
     tpkg = Tpkg.new(:file_system_root => @testroot, :base => File.join('home', 'tpkg'), :sources => pkgfiles)
-    tpkg.install(['deprollb=1.0'], PASSPHRASE)
+    tpkg.upgrade(['deprollb=1.0'], PASSPHRASE)
     metadata = @tpkg.metadata_for_installed_packages
     
     tpkg.upgrade(['deprollb'])
