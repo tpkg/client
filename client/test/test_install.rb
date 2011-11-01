@@ -17,12 +17,7 @@ class TpkgInstallTests < Test::Unit::TestCase
     @testroot = Dir.mktmpdir('testroot')
   end
   
-  def test_install
-    # The install method does little to nothing itself, it farms everything
-    # out to various helper methods that we unit test in the other files of
-    # this test suite.  So just do a basic install or two and verify that
-    # the whole thing seems to work together
-    
+  def test_install_by_filename
     testbase = File.join(@testroot, 'home', 'tpkg')
     FileUtils.mkdir_p(testbase)
     tpkg = Tpkg.new(:file_system_root => @testroot, :base => File.join('home', 'tpkg'), :sources => [@pkgfile])
@@ -34,9 +29,23 @@ class TpkgInstallTests < Test::Unit::TestCase
     assert_equal(IO.read(File.join(TESTPKGDIR, 'reloc', 'file')), IO.read(File.join(testbase, 'file')))
     assert(File.exist?(File.join(testbase, 'encfile')))
     assert_equal(IO.read(File.join(TESTPKGDIR, 'reloc', 'encfile')), IO.read(File.join(testbase, 'encfile')))
+  end
+  
+  def test_install_by_pkg_name
+    testbase = File.join(@testroot, 'home', 'tpkg')
+    FileUtils.mkdir_p(testbase)
+    tpkg = Tpkg.new(:file_system_root => @testroot, :base => File.join('home', 'tpkg'), :sources => [@pkgfile])
+    
+    assert_nothing_raised { tpkg.install(['testpkg'], PASSPHRASE) }
+    
+    # Check that the files from the package ended up in the right place
+    assert(File.exist?(File.join(testbase, 'file')))
+    assert_equal(IO.read(File.join(TESTPKGDIR, 'reloc', 'file')), IO.read(File.join(testbase, 'file')))
+    assert(File.exist?(File.join(testbase, 'encfile')))
+    assert_equal(IO.read(File.join(TESTPKGDIR, 'reloc', 'encfile')), IO.read(File.join(testbase, 'encfile')))
     
   end
-
+  
   # Test that if packages have dependencies on each others, then they
   # should installed in the correct order
   def test_install_order
@@ -70,8 +79,8 @@ class TpkgInstallTests < Test::Unit::TestCase
       end
     end
 
-    @tpkg = Tpkg.new(:file_system_root => @testroot, :base => File.join('home', 'tpkg'), :sources => @pkgfiles)
-    @tpkg.install(['a'], PASSPHRASE)
+    tpkg = Tpkg.new(:file_system_root => @testroot, :base => File.join('home', 'tpkg'), :sources => @pkgfiles)
+    tpkg.install(['a'], PASSPHRASE)
 
     actime = File.new(File.join(File.join(@testroot,'home','tpkg', 'a'))).ctime
     bctime = File.new(File.join(File.join(@testroot,'home','tpkg', 'b'))).ctime
@@ -108,6 +117,61 @@ class TpkgInstallTests < Test::Unit::TestCase
     end
     
     pkgfiles.each { |pkgfile| FileUtils.rm_f(pkgfile) }
+  end
+  
+  def test_install_with_externals
+    externalspkg = nil
+    extname1 = 'testext1'
+    extdata1 = "This is a test of an external hook\nwith multiple lines\nof data"
+    extname2 = 'testext2'
+    extdata2 = "This is a test of a different external hook\nwith multiple lines\nof different data"
+    Dir.mktmpdir('srcdir') do |srcdir|
+      FileUtils.cp(
+        File.join(TESTPKGDIR, 'tpkg-nofiles.xml'),
+        File.join(srcdir, 'tpkg.xml'))
+      externalspkg = make_package(
+        :change => { 'name' => 'externalpkg', 'version' => '1' },
+        :externals => { extname1 => {'data' => extdata1},
+                        extname2 => {'data' => extdata2} },
+        :source_directory => srcdir,
+        :remove => ['operatingsystem', 'architecture'])
+    end
+    Dir.mktmpdir('testroot') do |testroot|
+      # Make external scripts which write the data they receive to temporary
+      # files, so that we can verify the external scripts received the data
+      # properly.
+      exttmpfile1 = Tempfile.new('tpkgtest_external')
+      exttmpfile2 = Tempfile.new('tpkgtest_external')
+      externalsdir = File.join(testroot, 'usr', 'lib', 'tpkg', 'externals')
+      FileUtils.mkdir_p(externalsdir)
+      extscript1 = File.join(externalsdir, extname1)
+      extscript2 = File.join(externalsdir, extname2)
+      File.open(extscript1, 'w') do |file|
+        file.puts('#!/bin/sh')
+        # Operation (install/remove)
+        file.puts("echo $2 >> #{exttmpfile1.path}")
+        # Data
+        file.puts("cat >> #{exttmpfile1.path}")
+      end
+      File.open(extscript2, 'w') do |file|
+        file.puts('#!/bin/sh')
+        # Operation (install/remove)
+        file.puts("echo $2 >> #{exttmpfile2.path}")
+        # Data
+        file.puts("cat >> #{exttmpfile2.path}")
+      end
+      File.chmod(0755, extscript1)
+      File.chmod(0755, extscript2)
+      # And run the test
+      tpkg = Tpkg.new(
+        :file_system_root => testroot,
+        :base => File.join('home', 'tpkg'),
+        :sources => [externalspkg])
+      assert_nothing_raised { tpkg.install([externalspkg], PASSPHRASE) }
+      assert_equal("install\n#{extdata1}", IO.read(exttmpfile1.path))
+      assert_equal("install\n#{extdata2}", IO.read(exttmpfile2.path))
+    end
+    FileUtils.rm_f(externalspkg)
   end
   
   def test_stub_native_pkg
