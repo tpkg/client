@@ -75,7 +75,7 @@ end
 
 module TpkgTests
   # Directory with test package contents
-  TESTPKGDIR = File.join(File.dirname(__FILE__), 'testpkg')
+  TESTPKGDIR = File.expand_path('testpkg', File.dirname(__FILE__))
   # Passphrase used for encrypting/decrypting packages
   PASSPHRASE = 'password'
 
