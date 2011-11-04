@@ -4,7 +4,7 @@
 # Test tpkg's compression feature
 #
 
-require "./#{File.dirname(__FILE__)}/tpkgtest"
+require File.expand_path('tpkgtest', File.dirname(__FILE__))
 
 class TpkgCompressTests < Test::Unit::TestCase
   include TpkgTests

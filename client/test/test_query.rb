@@ -4,7 +4,7 @@
 # Test tpkg's query features
 #
 
-require "./#{File.dirname(__FILE__)}/tpkgtest"
+require File.expand_path('tpkgtest', File.dirname(__FILE__))
 
 class TpkgQueryTests < Test::Unit::TestCase
   include TpkgTests

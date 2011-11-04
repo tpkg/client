@@ -4,7 +4,7 @@
 # Test tpkg's ability to install packages
 #
 
-require "./#{File.dirname(__FILE__)}/tpkgtest"
+require File.expand_path('tpkgtest', File.dirname(__FILE__))
 
 class TpkgInstallTests < Test::Unit::TestCase
   include TpkgTests

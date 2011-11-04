@@ -2,7 +2,7 @@
 # Test tpkg's ability to resolve dependencies
 #
 
-require "./#{File.dirname(__FILE__)}/tpkgtest"
+require File.expand_path('tpkgtest', File.dirname(__FILE__))
 
 class TpkgConflictTests < Test::Unit::TestCase
   include TpkgTests

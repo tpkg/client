@@ -2,7 +2,7 @@
 # Tests for various methods that don't fit in anywhere else
 #
 
-require "./#{File.dirname(__FILE__)}/tpkgtest"
+require File.expand_path('tpkgtest', File.dirname(__FILE__))
 require 'etc'
 require 'webrick'
 require 'webrick/https'

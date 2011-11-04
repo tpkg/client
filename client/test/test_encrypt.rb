@@ -8,7 +8,7 @@
 # the method to decrypt it or vice-versa.
 #
 
-require "./#{File.dirname(__FILE__)}/tpkgtest"
+require File.expand_path('tpkgtest', File.dirname(__FILE__))
 
 class TpkgEncryptTests < Test::Unit::TestCase
   include TpkgTests

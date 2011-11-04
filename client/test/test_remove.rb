@@ -2,7 +2,7 @@
 # Test tpkg's ability to remove packages
 #
 
-require "./#{File.dirname(__FILE__)}/tpkgtest"
+require File.expand_path('tpkgtest', File.dirname(__FILE__))
 
 class TpkgRemoveTests < Test::Unit::TestCase
   include TpkgTests

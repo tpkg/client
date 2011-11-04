@@ -4,7 +4,7 @@
 # Test tpkg's ability to lock/unlock the package repository
 #
 
-require "./#{File.dirname(__FILE__)}/tpkgtest"
+require File.expand_path('tpkgtest', File.dirname(__FILE__))
 
 class TpkgLockTests < Test::Unit::TestCase
   include TpkgTests

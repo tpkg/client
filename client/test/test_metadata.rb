@@ -2,7 +2,7 @@
 # Test tpkg's ability to handle package metadata
 #
 
-require "./#{File.dirname(__FILE__)}/tpkgtest"
+require File.expand_path('tpkgtest', File.dirname(__FILE__))
 require 'webrick'
 require 'pathname'
 

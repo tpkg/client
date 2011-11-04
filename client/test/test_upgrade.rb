@@ -2,7 +2,7 @@
 # Test tpkg's ability to upgrade packages
 #
 
-require "./#{File.dirname(__FILE__)}/tpkgtest"
+require File.expand_path('tpkgtest', File.dirname(__FILE__))
 
 # Note that all first-time installs in this file are done using the upgrade
 # method to ensure that it works in that capacity.  (Elsewhere in the test

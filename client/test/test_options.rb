@@ -2,7 +2,7 @@
 # Test tpkg command line options
 #
 
-require "./#{File.dirname(__FILE__)}/tpkgtest"
+require File.expand_path('tpkgtest', File.dirname(__FILE__))
 require 'open3'
 require 'rbconfig'
 

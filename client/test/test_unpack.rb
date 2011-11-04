@@ -2,7 +2,7 @@
 # Test tpkg's ability to unpack packages
 #
 
-require "./#{File.dirname(__FILE__)}/tpkgtest"
+require File.expand_path('tpkgtest', File.dirname(__FILE__))
 require 'find'
 
 # Give ourself access to some Tpkg variables
