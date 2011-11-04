@@ -347,8 +347,15 @@ opts.on('--deploy-as', '=USERNAME', 'What username to use for deploying to remot
   # won't detect and remove it.
   @deploy_params = @deploy_params - ['--deploy-as']
 end
-opts.on('--compress', '=[TYPE]', 'Compress files when making packages') do |opt|
-  if opt == "no"
+acceptable_compress_arguments = ['gzip', 'bz2', 'no']
+opts.on('--compress [TYPE]',
+        acceptable_compress_arguments,
+        "Compress files when making packages " +
+        "(#{acceptable_compress_arguments.join(',')})") do |opt|
+  # Acceptable 
+  if opt == nil  # No argument specified by user
+    @compress = true
+  elsif opt == "no"
     @compress= false
   else
     @compress = opt
@@ -369,7 +376,14 @@ opts.on_tail("-h", "--help", "Show this message") do
   exit
 end
 
-leftovers = opts.parse(ARGV)
+leftovers = nil
+begin
+  leftovers = opts.parse(ARGV)
+rescue OptionParser::ParseError => e
+  $stderr.puts "Error parsing arguments, try --help"
+  $stderr.puts e.message
+  exit 1
+end
 
 # Rerun with sudo if necessary, unless it's a deploy, then
 # we don't need to run with sudo on this machine. It will run with sudo

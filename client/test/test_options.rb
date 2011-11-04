@@ -192,6 +192,42 @@ class TpkgOptionTests < Test::Unit::TestCase
     assert_not_equal("Base: #{File.join(@testroot, Tpkg::DEFAULT_BASE)}\n", baseline)
   end
   
+  def test_compress
+    Dir.mktmpdir('pkgdir') do |pkgdir|
+      FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(pkgdir, 'tpkg.xml'))
+      
+      parentdir = File.dirname(File.dirname(__FILE__))
+      
+      # The argument to the --compress switch should be optional
+      Dir.mktmpdir('outdir') do |outdir|
+        system("#{RUBY} #{File.join(parentdir, 'bin', 'tpkg')} --compress --make #{pkgdir} --out #{outdir}")
+        pkgfile = Dir.glob(File.join(outdir, '*.tpkg')).first
+        assert(['bz2', 'gzip'].include?(Tpkg::get_compression(pkgfile)))
+      end
+      
+      Dir.mktmpdir('outdir') do |outdir|
+        system("#{RUBY} #{File.join(parentdir, 'bin', 'tpkg')} --compress gzip --make #{pkgdir} --out #{outdir}")
+        pkgfile = Dir.glob(File.join(outdir, '*.tpkg')).first
+        assert_equal('gzip', Tpkg::get_compression(pkgfile))
+      end
+      
+      Dir.mktmpdir('outdir') do |outdir|
+        system("#{RUBY} #{File.join(parentdir, 'bin', 'tpkg')} --compress bz2 --make #{pkgdir} --out #{outdir}")
+        pkgfile = Dir.glob(File.join(outdir, '*.tpkg')).first
+        assert_equal('bz2', Tpkg::get_compression(pkgfile))
+      end
+      
+      # Invalid argument rejected
+      Dir.mktmpdir('outdir') do |outdir|
+        system("#{RUBY} #{File.join(parentdir, 'bin', 'tpkg')} --compress bogus --make #{pkgdir} --out #{outdir}")
+        # tpkg should have bailed with an error
+        assert_not_equal(0, $?.exitstatus)
+        # And not created anything in the output directory
+        assert(2, Dir.entries(outdir).length)
+      end
+    end
+  end
+  
   def teardown
     FileUtils.rm_rf(@testroot)
   end
