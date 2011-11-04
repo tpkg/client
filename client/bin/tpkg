@@ -4,8 +4,11 @@
 # License: MIT (http://www.opensource.org/licenses/mit-license.php)
 ##############################################################################
 
-# Ensure we can find tpkg.rb
-$:.unshift File.join(File.dirname(__FILE__), "..", "lib")
+# When run from the source repository or from an unpacked copy of the
+# distribution we want to find the local library, even if there's a copy
+# installed on the system.  The installed copy is likely older, and the API
+# may be out of sync with this executable.
+$:.unshift(File.expand_path('../lib', File.dirname(__FILE__)))
 
 require 'optparse'
 require 'tpkg'

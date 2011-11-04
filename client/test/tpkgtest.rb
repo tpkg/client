@@ -2,7 +2,10 @@
 # Module of code shared by all of the tpkg test cases
 #
 
-$:.unshift(File.join(File.dirname(File.dirname(__FILE__)), 'lib'))
+# Ensure that we're pulling in the local copy of the tpkg libraries, it
+# doesn't do us any good to test copies that are already installed on the
+# system.
+$:.unshift(File.expand_path('../lib', File.dirname(__FILE__)))
 require 'test/unit'
 require 'fileutils'
 require 'tpkg'
