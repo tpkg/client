@@ -16,10 +16,17 @@ ARCH=`tpkg --qenv | grep 'Architecture' | awk '{print $NF}'`
 
 if echo $OS | egrep 'RedHat|CentOS'
 then
-	rpm --quiet -q gcc bzip2-devel || sudo yum install gcc bzip2-devel
+	# There are some modules that will silently not get built if bzip
+	# and gdbm are not installed.  There are probably other similar
+	# modules, those are just two I've stumbled across so far where
+	# other programs needed python to have those modules.
+	for rpm in gcc bzip2-devel gdbm-devel
+	do
+		rpm --quiet -q $rpm || sudo yum install $rpm
+	done
 fi
 
-for ver in 2.7.1 3.2
+for ver in 2.7.2 3.2.2
 do
 	rm -rf Python-$ver
 	tar jxvf Python-$ver.tar.bz2
