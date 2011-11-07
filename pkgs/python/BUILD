@@ -45,6 +45,8 @@ do
 dependencies:
 - name: bzip2
   native: true
+- name: gdbm
+  native: true
 EOF
 	# Install
 	mkdir $pkgdir/root
