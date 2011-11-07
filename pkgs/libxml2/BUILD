@@ -23,7 +23,8 @@ done
 rm -rf $PKG-$VER
 tar zxvf $PKG-$VER.tar.gz
 cd $PKG-$VER
-# The build process sets rpath based on where it finds python, but not -L.  Odd.
+# The build process sets rpath based on where it finds python, but does
+# not set -L.  Odd.
 LDFLAGS="-L/opt/tpkg/lib" ./configure --prefix=/opt/tpkg --mandir=/opt/tpkg/man
 make
 pkgdir=`mktemp -d -t tpkg.XXXXXX`
