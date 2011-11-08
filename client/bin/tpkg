@@ -435,7 +435,7 @@ def instantiate_tpkg
   # - command line option
   # - TPKG_HOME environment variable
   # - config file
-  # - Tpkg::DEFAULT_BASE
+  # - Tpkg::DEFAULT_BASE constant defined in tpkg.rb
   if ENV['TPKG_HOME']
     if !@tpkg_options[:base]
       @tpkg_options[:base] = ENV['TPKG_HOME']
@@ -478,11 +478,11 @@ def instantiate_tpkg
       # modified by other users who properly run --no-sudo as a regular user.
       raise "--no-sudo cannot be used as 'root' user or via sudo"
     end
-    baseuid = File.stat(base).uid
+    baseuid = File.stat(@tpkg_options[:base]).uid
     # We want to ensure that all --no-sudo usage within a given base directory
     # is done under the same account.
     if baseuid != curruid
-      raise "Base dir #{base} owned by UID #{baseuid}, not your UID #{curruid}"
+      raise "Base dir #{@tpkg_options[:base]} owned by UID #{baseuid}, not your UID #{curruid}"
     end
   end
   
