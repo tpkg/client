@@ -1,4 +1,3 @@
-# FIXME: should rename this to test_switches, they're properly called switches not options
 #
 # Test tpkg command line options
 #
@@ -571,7 +570,7 @@ class TpkgOptionTests < Test::Unit::TestCase
   end
   
   def test_base
-    # Test the --base option
+    # Test the --base switch
     output = nil
     Dir.mktmpdir('clibase') do |clibase|
       # The File.join(blah) is roughly equivalent to '../bin/tpkg'
@@ -640,7 +639,7 @@ class TpkgOptionTests < Test::Unit::TestCase
   end
   
   def test_test_root
-    # Test the --test-root option
+    # Test the --test-root switch
     output = nil
     
     # With --test-root the base directory will be /<testroot>/opt/tpkg
