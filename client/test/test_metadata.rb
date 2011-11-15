@@ -46,6 +46,7 @@ class TpkgMetadataTests < Test::Unit::TestCase
   # test_metadata_from_package and then this converted to test
   # metadata_xml_to_hash directly.
   def test_metadata_xml_to_hash
+    # FIXME: test allowed_versions
     pkgfile = make_package(:output_directory => @tempoutdir, :dependencies => {'testpkg2' => {'minimum_version' => '1.0', 'maximum_version' => '3.0', 'minimum_package_version' => '1.5', 'maximum_package_version' => '2.5'}, 'testpkg3' => {}})
     metadata = nil
     assert_nothing_raised { metadata = Tpkg::metadata_from_package(pkgfile)}

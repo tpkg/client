@@ -775,6 +775,14 @@ class Tpkg
           same_min_ver_req = true
         end
       end
+      if req[:version_greater_than]
+        pkgver = Version.new(metadata[:version])
+        reqver = Version.new(req[:version_greater_than])
+        if pkgver <= reqver
+          puts "Package fails version_greater_than (#{pkgver} <= #{reqver})" if @@debug
+          result = false
+        end
+      end
       if req[:maximum_version]
         pkgver = Version.new(metadata[:version])
         reqver = Version.new(req[:maximum_version])
@@ -785,6 +793,14 @@ class Tpkg
           same_max_ver_req = true
         end
       end
+      if req[:version_less_than]
+        pkgver = Version.new(metadata[:version])
+        reqver = Version.new(req[:version_less_than])
+        if pkgver >= reqver
+          puts "Package fails version_less_than (#{pkgver} >= #{reqver})" if @@debug
+          result = false
+        end
+      end
       if same_min_ver_req && req[:minimum_package_version]
         pkgver = Version.new(metadata[:package_version])
         reqver = Version.new(req[:minimum_package_version])
@@ -793,11 +809,27 @@ class Tpkg
           result = false
         end
       end
+      if same_min_ver_req && req[:package_version_greater_than]
+        pkgver = Version.new(metadata[:package_version])
+        reqver = Version.new(req[:package_version_greater_than])
+        if pkgver <= reqver
+          puts "Package fails package_version_greater_than (#{pkgver} <= #{reqver})" if @@debug
+          result = false
+        end
+      end
       if same_max_ver_req && req[:maximum_package_version]
         pkgver = Version.new(metadata[:package_version])
         reqver = Version.new(req[:maximum_package_version])
         if pkgver > reqver
           puts "Package fails maximum_package_version (#{pkgver} > #{reqver})" if @@debug
+          result = false
+        end
+      end
+      if same_max_ver_req && req[:package_version_less_than]
+        pkgver = Version.new(metadata[:package_version])
+        reqver = Version.new(req[:package_version_less_than])
+        if pkgver >= reqver
+          puts "Package fails package_version_less_than (#{pkgver} >= #{reqver})" if @@debug
           result = false
         end
       end
@@ -1008,37 +1040,100 @@ class Tpkg
   # foo
   # foo=1.0
   # foo=1.0=1
-  # foo-1.0-1.tpkg	
-  def self.parse_request(request, installed_dir = nil)
-    # FIXME: Add support for <, <=, >, >=
+  # foo>1.0
+  # foo<=1.0=2
+  # foo<=1.0>=3
+  # foo=1.0<=6
+  # foo-1.0-1.tpkg
+  def self.parse_request(request)
     req = {}
-    parts = request.split('=')
-
+    # Note that the ordering in the regex is important.  <= and >= have to
+    # appear before others so that they match rather than two separate matches
+    # for the '>' and '=' characters.  I.e. '1>=2'.split(/(>=|>|=)/) ==
+    # ['1', '>=', '2'] but '1>=2'.split(/(>|=|>=)/) == ['1', '>', '=', '2']
+    parts = request.split(/(<=|>=|<|>|=)/)
+    
     # upgrade/remove/query options could take package filenames
     # We're assuming that the filename ends in .tpkg and has a version number that starts
     # with a digit. For example: foo-1.0.tpkg, foo-bar-1.0-1.tpkg
     if request =~ /\.tpkg$/
       req = {:filename => request, :name => request.split(/-\d/)[0]}
-    elsif parts.length > 2 && parts[-2] =~ /^[\d\.]/ && parts[-1] =~ /^[\d\.]/
-      package_version = parts.pop
-      version = parts.pop
-      req[:name] = parts.join('-')
-      req[:minimum_version] = version
-      req[:maximum_version] = version
-      req[:minimum_package_version] = package_version
-      req[:maximum_package_version] = package_version
-    elsif parts.length > 1 && parts[-1] =~ /^[\d\.]/
-      version = parts.pop
-      req[:name] = parts.join('-')
-      req[:minimum_version] = version
-      req[:maximum_version] = version
     else
-      req[:name] = parts.join('-')
+      if parts.length > 4 && parts[-3] =~ /^[\d\.]/ && parts[-1] =~ /^[\d\.]/
+        package_version = parts.pop
+        package_version_sign = parts.pop
+        version = parts.pop
+        version_sign = parts.pop
+        
+        case version_sign
+        when '<'
+          # E.g. foo<1.0
+          req[:version_less_than] = version
+        when '<='
+          # E.g. foo<=1.0
+          req[:maximum_version] = version
+        when '='
+          # E.g. foo=1.0
+          req[:minimum_version] = version
+          req[:maximum_version] = version
+        when '>'
+          # E.g. foo>1.0
+          req[:version_greater_than] = version
+        when '>='
+          # E.g. foo>=1.0
+          req[:minimum_version] = version
+        end
+        
+        case package_version_sign
+        when '<'
+          # E.g. foo=1.0<2.0
+          req[:package_version_less_than] = package_version
+        when '<='
+          # E.g. foo=1.0<=2.0
+          req[:maximum_package_version] = package_version
+        when '='
+          # E.g. foo=1.0=2.0
+          req[:minimum_package_version] = package_version
+          req[:maximum_package_version] = package_version
+        when '>'
+          # E.g. foo=1.0>2.0
+          req[:package_version_greater_than] = package_version
+        when '>='
+          # E.g. foo=1.0>=2.0
+          req[:minimum_package_version] = package_version
+        end
+      elsif parts.length > 1 && parts[-1] =~ /^[\d\.]/
+        version = parts.pop
+        version_sign = parts.pop
+        if version_sign == '=' && version.include?('*')
+          req[:allowed_versions] = version
+        else
+          case version_sign
+          when '<'
+            # E.g. foo<1.0
+            req[:version_less_than] = version
+          when '<='
+            # E.g. foo<=1.0
+            req[:maximum_version] = version
+          when '='
+            # E.g. foo=1.0
+            req[:minimum_version] = version
+            req[:maximum_version] = version
+          when '>'
+            # E.g. foo>1.0
+            req[:version_greater_than] = version
+          when '>='
+            # E.g. foo>=1.0
+            req[:minimum_version] = version
+          end
+        end
+      end
+      req[:name] = parts.join('')
     end
     req[:type] = :tpkg
     req
   end
-
+  
   # deploy_options is used for configuration the deployer. It is a map of option_names => option_values. Possible
   # options are: use-ssh-key, deploy-as, worker-count, abort-on-fail
   #
@@ -3282,7 +3377,8 @@ class Tpkg
   #   requirements << { :name => 'bar' }, packages['bar'] = { :source => 'http://server/pkgs/bar-2.3.pkg' }
   #   requirements << { :name => 'blat', :minimum_version => '0.5', :maximum_version => '0.5' }, packages['blat'] populated with available packages meeting that requirement
   # Note: the requirements and packages arguments are modified by this method
-  def parse_requests(requests, requirements, packages)
+  # FIXME: This method has a terrible API, can we fix it?
+  def parse_requests(requests, requirements, packages, options = {})
     newreqs = []
     
     requests.each do |request|
@@ -3328,14 +3424,16 @@ class Tpkg
       else # basic package specs ('foo' or 'foo=1.0')
         puts "parse_requests request looks like package spec" if @@debug
 
-        # Tpkg::parse_request is a class method and doesn't know where packages are installed.
-        # So we have to tell it ourselves.
-        req = Tpkg::parse_request(request, @installed_directory)
+        req = Tpkg::parse_request(request)
         newreqs << req
 
         puts "Initializing the list of possible packages for this req" if @@debug
         if !packages[req[:name]]
-          packages[req[:name]] = available_packages_that_meet_requirement(req)
+          if !options[:installed_only]
+            packages[req[:name]] = available_packages_that_meet_requirement(req)
+          else
+            packages[req[:name]] = installed_packages_that_meet_requirement(req)
+          end
         end
       end
     end
@@ -3984,7 +4082,7 @@ class Tpkg
       requests.uniq! if requests.is_a?(Array)
       packages_to_remove = []
       requests.each do |request|
-        req = Tpkg::parse_request(request, @installed_directory)
+        req = Tpkg::parse_request(request)
         packages_to_remove.concat(installed_packages_that_meet_requirement(req))
       end
     else

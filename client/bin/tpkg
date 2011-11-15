@@ -230,7 +230,7 @@ opts.on('--init-cmd', '=CMD', 'Invoke specified init script command') do |opt|
   @rerun_with_sudo = true
   @init_options[:cmd] = opt
 end
-opts.on('--query', '-q', '=NAMES', 'List installed packages', Array) do |opt|
+opts.on('--query', '-q', '=NAMES', 'Check if a package is installed', Array) do |opt|
   # People mistype -qa instead of --qa frequently
   if opt == ['a']
     warn "NOTE: tpkg -qa queries for a pkg named 'a', you probably want --qa for all pkgs"
@@ -241,11 +241,11 @@ end
 opts.on('--qa', 'List all installed packages') do |opt|
   @action = :query_installed
 end
-opts.on('--qi', '=NAME', 'Info for packages') do |opt|
+opts.on('--qi', '=NAME', 'Display the info for a package') do |opt|
   @action = :query_info
   @action_value = opt
 end
-opts.on('--ql', '=NAME', 'List files in installed packages') do |opt|
+opts.on('--ql', '=NAME', 'List the files in a package') do |opt|
   @action = :query_list_files
   @action_value = opt
 end
@@ -268,10 +268,10 @@ opts.on('--qd', '=NAME', 'List the packages on which the given package depends')
   @action = :query_depends
   @action_value = opt
 end
-opts.on('--qld', '=NAME', 'Similar to --qd, but only look at local packages') do |opt|
-  @action = :query_local_depends
-  @action_value = opt
-end
+# opts.on('--qld', '=NAME', 'Similar to --qd, but only look at local packages') do |opt|
+#   @action = :query_local_depends
+#   @action_value = opt
+# end
 
 opts.on('--dw', '=INTEGER', 'Number of workers for deploying') do |opt|
   @worker_count = opt.to_i
@@ -595,92 +595,117 @@ when :execute_init
   ret_val = tpkg.execute_init(@init_options)
 when :query_installed
   tpkg = instantiate_tpkg
-  queryreq = nil
   matches = []
   if @action_value
-    @action_value.each do | value |
-      queryreq = Tpkg::parse_request(value, tpkg.installed_directory)
-      match = tpkg.installed_packages_that_meet_requirement(queryreq)
-
+    # The --query switch is set to accept multiple values (the "Array"
+    # parameter in the opts.on line for --query) so users can do things like
+    # "tpkg -q foo,bar" to check multiple packages at once.  As such
+    # @action_value is an Array for this switch.
+    requirements = []
+    packages = {}
+    tpkg.parse_requests(@action_value, requirements, packages,
+      :installed_only => true)
+    if packages.values.all? {|pkg| pkg.empty?}
       # If the user requested specific packages and we found no matches
       # then exit with a non-zero value to indicate failure.  This allows
       # command-line syntax like "tpkg -q foo || tpkg -i foo" to ensure
       # that a package is installed.
-      ret_val = 1 if match.empty?
-      matches |= match
+      ret_val = 1
+      puts "No packages matching '#{@action_value}' installed" if !@quiet
+    else
+      packages.each do | name, pkgs |
+        pkgs.each do | pkg |
+          matches << pkg
+        end
+      end
     end
   else
-    matches = tpkg.installed_packages_that_meet_requirement(queryreq)
+    # --qa is implemented by setting @action to :query_installed and
+    # @action_value to nil
+    matches = tpkg.installed_packages_that_meet_requirement
   end
-
   if !@quiet
     matches.sort(&Tpkg::SORT_PACKAGES).each do |pkg|
       puts pkg[:metadata][:filename]
     end
   end
 when :query_info
-  metadatas = nil
-  if File.file?(@action_value)
-    metadatas = [Tpkg::metadata_from_package(@action_value)]
-  else
-    tpkg = instantiate_tpkg
-    metadatas = []
-    requirements = []
-    packages = {}
-    tpkg.parse_requests([@action_value], requirements, packages)
-    packages.each do | name, pkgs |
-      pkgs.each do | pkg |
-        metadatas << pkg[:metadata]
-      end
+  tpkg = instantiate_tpkg
+  requirements = []
+  packages = {}
+  tpkg.parse_requests([@action_value], requirements, packages,
+    :installed_only => true)
+  metadatas = []
+  packages.each do | name, pkgs |
+    pkgs.each do | pkg |
+      metadatas << pkg[:metadata]
     end
   end
+  output_strings = []
   already_displayed = {}
   metadatas.each do |metadata|
     next if already_displayed[metadata[:filename]]
     already_displayed[metadata[:filename]] = true
+    output_string = ''
     [:name, :version, :package_version, :operatingsystem, :architecture, :maintainer, :description, :bugreporting].each do |field|
       metadata[field] = 'any' if field == :operatingsystem && metadata[field].nil?
       metadata[field] = 'any' if field == :architecture && metadata[field].nil?
       if metadata[field]
         if metadata[field].kind_of?(Array)
-          puts "#{field}: #{metadata[field].join(',')}"
+          output_string << "#{field}: #{metadata[field].join(',')}\n"
         else
-          puts "#{field}: #{metadata[field]}"
+          output_string << "#{field}: #{metadata[field]}\n"
         end
       end
     end
-    tpkg_version = metadata[:tpkg_version] || "< 1.26.1"
-    puts "This package was built with tpkg version #{tpkg_version}."
-    if metadata[:dependencies] 
-      puts "This package depends on other packages, use --qd/--qld to view the dependencies."
+    if metadata[:dependencies]
+      output_string << "(This package depends on other packages, use --qd to view the dependencies)\n"
     end
-    puts "================================================================================"
+    # Older versions of tpkg did not insert a tpkg_version field into the
+    # package metadata when building packages
+    tpkg_version = metadata[:tpkg_version] || "< 1.26.1"
+    output_string << "(This package was built with tpkg version #{tpkg_version})\n"
+    output_strings << output_string
+  end
+  print output_strings.join("================================================================================\n")
+  if already_displayed.empty?
+    ret_val = 1
+    # --qi --quiet doesn't seem like a meaningful combination, so I'm not
+    # suppressing this for @quiet
+    puts "No packages matching '#{@action_value}' installed"
   end
 when :query_list_files
   tpkg = instantiate_tpkg
-  pkgfiles = nil
-  if File.file?(@action_value)
-    fipfile = Tpkg::files_in_package(@action_value)
-    tpkg.normalize_paths(fipfile)
-    puts "#{@action_value}:"
-    fipfile[:normalized].each { |file| puts file }
+  requirements = []
+  packages = {}
+  tpkg.parse_requests([@action_value], requirements, packages,
+    :installed_only => true)
+  if packages.values.all? {|pkg| pkg.empty?}
+    ret_val = 1
+    # --ql --quiet doesn't seem like a meaningful combination, so I'm not
+    # suppressing this for @quiet
+    puts "No packages matching '#{@action_value}' installed"
   else
-    pkgfiles = []
-    metadatas = []
-    requirements = []
-    packages = {}
-
-    queryreq = Tpkg::parse_request(@action_value)
-    instpkgs = tpkg.installed_packages_that_meet_requirement(queryreq)
-    if instpkgs.nil? or instpkgs.empty?
-      ret_val = 1
-      puts "Could not find any installed packages that meet the request \"#{@action_value}\""
+    # For this switch we need separate handling for installed and uninstalled
+    # packages.  For installed packages we know where their relocatable files
+    # ended up and can give the user regular paths.  For uninstalled packaages
+    # we don't know what base will be used when the package is installed, so
+    # we need to indicate to the user that their are relocatable files and
+    # just display their path relative to the eventual base directory.
+    ci_pkgfiles = []
+    packages.each do | name, pkgs |
+      pkgs.each do | pkg |
+        if pkg[:source] == :currently_installed
+          ci_pkgfiles << pkg[:metadata][:filename]
+        else
+          puts "#{pkg[:source]}:"
+          fip = Tpkg.files_in_package(pkg[:source])
+          fip[:root].each { |file| puts file }
+          fip[:reloc].each { |file| puts '<relocatable>/' + file }
+        end
+      end
     end
-    instpkgs.each do | pkg |
-      pkgfiles << pkg[:metadata][:filename] 
-    end
-
-    files = tpkg.files_for_installed_packages(pkgfiles)
+    files = tpkg.files_for_installed_packages(ci_pkgfiles)
     files.each do |pkgfile, fip|
       puts "#{pkgfile}:"
       fip[:normalized].each { |file| puts file }
@@ -688,12 +713,21 @@ when :query_list_files
   end
 when :query_who_owns_file
   tpkg = instantiate_tpkg
+  owned = false
+  expanded_file = File.expand_path(@action_value)
   tpkg.files_for_installed_packages.each do |pkgfile, fip|
     fip[:normalized].each do |file|
-      if file == File.expand_path(@action_value)
+      if file == expanded_file
         puts "#{file}: #{pkgfile}"
+        owned = true
       end
     end
+  end
+  if !owned
+    ret_val = 1
+    # --qf --quiet doesn't seem like a meaningful combination, so I'm not
+    # suppressing this for @quiet
+    puts "No package owns file '#{@action_value}'"
   end
 when :query_available
   tpkg = instantiate_tpkg
@@ -708,82 +742,162 @@ when :query_available
   end
 when :query_requires
   tpkg = instantiate_tpkg
-
-  # parse the request
+  
+  # Parse the request
   requirements = [] 
   packages = {}
-  tpkg.parse_requests([@action_value], requirements, packages)
-
-  # get dependencies of all installed packages
+  tpkg.parse_requests([@action_value], requirements, packages,
+    :installed_only => true)
+  
+  # Note that we don't stop here in the case of this switch, but continue to
+  # check if anything depends on the package the user asked about.  There
+  # shouldn't be a situation where there's another package installed that
+  # depends on the package the user is asking about, but the user's package is
+  # not installed.  I.e. if foo depends on bar but only foo is installed and
+  # the user asks what depends on bar, the answer is still foo.  That
+  # information might be useful to the user, even though that situation should
+  # have been avoided in the first place.  Broken dependency trees due to
+  # manually messing with the repo, using --force, etc. can happen and the
+  # user may be using the --qr option just because they're trying to sort out
+  # a mess.
+  if packages.values.all? {|pkg| pkg.empty?}
+    ret_val = 1
+    # --qr --quiet doesn't seem like a meaningful combination, so I'm not
+    # suppressing this for @quiet
+    puts "No packages matching '#{@action_value}' installed"
+  end
+  
+  # Get dependencies of all installed packages
   dependencies = {}
   tpkg.metadata_for_installed_packages.each do |metadata|
     dependencies[metadata[:filename]] = metadata[:dependencies]
   end
-
-  # check to see if the any required dependencies match with what the
-  # user specified in the request
+  
+  # Check to see if any dependencies match with what the user specified in the
+  # request
+  requirees = {}
   packages.each do |name, pkgs|
     pkgs.each do |pkg|
       next if pkg[:source] != :currently_installed
-      puts "The following package(s) require #{pkg[:metadata][:filename]}:"
       dependencies.each do | requiree, deps |
         next if deps.nil?
         deps.each do | dep | 
           if Tpkg::package_meets_requirement?(pkg, dep)
-            puts "  #{requiree}"
+            pkgfilename = pkg[:metadata][:filename]
+            if !requirees[pkgfilename]
+              requirees[pkgfilename] = []
+            end
+            requirees[pkgfilename] << requiree
           end
         end
       end
     end
   end
-when :query_local_depends
-  tpkg = instantiate_tpkg
-  queryreq = Tpkg::parse_request(@action_value)
-  instpkgs = tpkg.installed_packages_that_meet_requirement(queryreq)
-  instpkgs.each do | pkg |
-    puts pkg[:metadata][:filename] + ':'
-    if pkg[:metadata][:dependencies]
-      pkg[:metadata][:dependencies].each do |req|
-        puts "  Requires #{req[:name]}"
-        req.each do |field, value|
-          next if field == :name
-          puts "    #{field}: #{value}"
-         end
-       end
+  
+  if !requirees.empty?
+    requirees.keys.sort.each do |pkgfilename|
+      puts "The following package(s) require #{pkgfilename}:"
+      # uniq probably isn't necessary, but it can't hurt
+      requirees[pkgfilename].sort.uniq.each do |requiree|
+        puts "  #{requiree}"
+      end
     end
+  else
+    ret_val = 1
+    # --qr --quiet doesn't seem like a meaningful combination, so I'm not
+    # suppressing this for @quiet
+    puts "No other package depends on '#{@action_value}'"
   end
+# when :query_local_depends
+#   tpkg = instantiate_tpkg
+#   queryreq = Tpkg::parse_request(@action_value)
+#   instpkgs = tpkg.installed_packages_that_meet_requirement(queryreq)
+#   instpkgs.each do | pkg |
+#     puts pkg[:metadata][:filename] + ':'
+#     if pkg[:metadata][:dependencies]
+#       pkg[:metadata][:dependencies].each do |req|
+#         puts "  Requires #{req[:name]}"
+#         req.each do |field, value|
+#           next if field == :name
+#           puts "    #{field}: #{value}"
+#          end
+#        end
+#     end
+#   end
 when :query_depends
   tpkg = instantiate_tpkg
+  
   requirements = []
   packages = {}
-  tpkg.parse_requests([@action_value], requirements, packages)
-  packages.each do |name, pkgs|
-    already_displayed = {}
-    pkgs.each do |pkg|
-      # parse_requests returns both installed and available packages.
-      # The same package may show up in both, skip any duplicates.
-      next if already_displayed[pkg[:filename]]
-      already_displayed[pkg[:metadata][:filename]] = true
-      puts pkg[:metadata][:filename] + ':'
-      if pkg[:metadata][:dependencies]
-        pkg[:metadata][:dependencies].each do |req|
-          puts "  Requires #{req[:name]}"
-          req.each do |field, value|
-            next if field == :name
-            puts "    #{field}: #{value}"
+  tpkg.parse_requests([@action_value], requirements, packages,
+    :installed_only => true)
+  
+  if packages.values.all? {|pkg| pkg.empty?}
+    ret_val = 1
+    # --qd --quiet doesn't seem like a meaningful combination, so I'm not
+    # suppressing this for @quiet
+    puts "No packages matching '#{@action_value}' installed"
+  else
+    depends = {}
+    packages.each do |name, pkgs|
+      pkgs.each do |pkg|
+        if pkg[:metadata][:dependencies]
+          pkgfilename = pkg[:metadata][:filename]
+          if !depends[pkgfilename]
+            depends[pkgfilename] = []
+          end
+          pkg[:metadata][:dependencies].each do |req|
+            depends[pkgfilename] << req
           end
         end
       end
+    end
+    
+    if !depends.empty?
+      outputs = []
+      depends.keys.sort.each do |pkgfilename|
+        output = "Package #{pkgfilename} depends on:\n"
+        # uniq probably isn't necessary, but it can't hurt
+        outs = []
+        depends[pkgfilename].sort{|a,b| a[:name]<=>b[:name]}.uniq.each do |req|
+          out = "  name: #{req[:name]}\n"
+          req.each do |field, value|
+            next if field == 'name'
+            out << "  #{field}: #{value}\n"
+          end
+          outs << out
+        end
+        outputs << output + outs.join("\n")
+      end
+      print outputs.join("\n")
+    else
+      puts "Package '#{@action_value}' does not depend on other packages"
     end
   end
 when :query_tpkg_metadata
   tpkg = instantiate_tpkg
-  if File.file?(@action_value)
-    puts Tpkg::extract_tpkg_metadata_file(@action_value)
-  elsif File.file?(File.join(tpkg.installed_directory, @action_value))
-    puts Tpkg::extract_tpkg_metadata_file(File.join(tpkg.installed_directory, @action_value))
+  requirements = []
+  packages = {}
+  tpkg.parse_requests([@action_value], requirements, packages,
+    :installed_only => true)
+  
+  if packages.values.all? {|pkg| pkg.empty?}
+    ret_val = 1
+    # --qX --quiet doesn't seem like a meaningful combination, so I'm not
+    # suppressing this for @quiet
+    puts "No packages matching '#{@action_value}' installed"
   else
-    puts "File #{@action_value} doesn't exist."
+    packages.each do | name, pkgs |
+      pkgs.each do | pkg |
+        pkgfile = nil
+        if pkg[:source] == :currently_installed
+          pkgfile = File.join(tpkg.installed_directory, pkg[:metadata][:filename])
+        else
+          pkgfile = pkg[:source]
+        end
+        puts Tpkg::extract_tpkg_metadata_file(pkgfile)
+      end
+    end
   end
 when :query_env
   puts "Operating System: #{Tpkg::get_os}"

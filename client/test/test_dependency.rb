@@ -47,68 +47,294 @@ class TpkgDependencyTests < Test::Unit::TestCase
     # Test version handling
     #
     
-    pkgfile = make_package(:output_directory => @tempoutdir, :remove => ['operatingsystem', 'architecture'])
+    pkgfile = make_package(:change => {'package_version' => '5.0.0'}, :output_directory => @tempoutdir, :remove => ['operatingsystem', 'architecture'])
     metadata = Tpkg::metadata_from_package(pkgfile)
     pkg = { :metadata => metadata, :source => pkgfile }
     req = { :name => 'testpkg' }
     
-    # Below minimum version w/o package version
-    req[:minimum_version] = '2.0'
-    req[:maximum_version] = '3.0'
-    req.delete(:minimum_package_version)
-    req.delete(:maximum_package_version)
-    assert(!Tpkg::package_meets_requirement?(pkg, req))
-    # Below minimum version w/ package version
-    req[:minimum_package_version] = '1.0'
-    req[:maximum_package_version] = '2.0'
-    assert(!Tpkg::package_meets_requirement?(pkg, req))
-    # At minimum version w/o package version
-    req[:minimum_version] = '1.0'
-    req[:maximum_version] = '2.0'
-    req.delete(:minimum_package_version)
-    req.delete(:maximum_package_version)
-    assert(Tpkg::package_meets_requirement?(pkg, req))
-    # At minimum version w/ package version
-    req[:minimum_package_version] = '1.0'
-    req[:maximum_package_version] = '2.0'
-    assert(Tpkg::package_meets_requirement?(pkg, req))
-    # In middle of range w/o package version
-    req[:minimum_version] = '0.5'
-    req[:maximum_version] = '2.0'
-    req.delete(:minimum_package_version)
-    req.delete(:maximum_package_version)
-    assert(Tpkg::package_meets_requirement?(pkg, req))
-    # In middle of range w/ package version
-    req[:minimum_version] = '0.5'
-    req[:maximum_version] = '2.0'
-    req[:minimum_package_version] = '0.5'
-    req[:maximum_package_version] = '2.0'
-    assert(Tpkg::package_meets_requirement?(pkg, req))
-    # At maximum version w/o package version
-    req[:minimum_version] = '0.5'
-    req[:maximum_version] = '1.0'
-    req.delete(:minimum_package_version)
-    req.delete(:maximum_package_version)
-    assert(Tpkg::package_meets_requirement?(pkg, req))
-    # At maximum version w/ package version
-    req[:minimum_version] = '0.5'
-    req[:maximum_version] = '1.0'
-    req[:minimum_package_version] = '0.5'
-    req[:maximum_package_version] = '1.0'
-    assert(Tpkg::package_meets_requirement?(pkg, req))
-    # Above maximum version w/o package version
-    req[:minimum_version] = '0.1'
-    req[:maximum_version] = '0.5'
-    req.delete(:minimum_package_version)
-    req.delete(:maximum_package_version)
-    assert(!Tpkg::package_meets_requirement?(pkg, req))
-    # Above minimum version w/ package version
-    req[:minimum_package_version] = '1.0'
-    req[:maximum_package_version] = '2.0'
-    assert(!Tpkg::package_meets_requirement?(pkg, req))
-
+    #
+    # First up a bunch of iterations testing combinations of min/max versions
+    # alone, and with both min/max and greater/less than package versions.
+    #
+    # Apologies that this code is long and perhaps somewhat cryptic.  I tried
+    # to reduce duplication and at the same time retain some cut-n-paste
+    # consistency, but a fresh set of eyes might come up with something
+    # cleaner.
+    #
+    # Just a reminder, pkgfile has version 1.0 and package version 5.0.0
+    #
+    
+    # >=     <=     >=?    <=?
+    [['2.0', '3.0', false, true], # version below range
+     ['1.0', '2.0', true, true],  # version at bottom of range
+     ['0.5', '2.0', true, true],  # version in middle of range
+     ['0.5', '1.0', true, true],  # version at top of range
+     ['0.1', '0.5', true, false]].each do |testver|  # version above range
+      minver, maxver, minresult, maxresult = testver
+      
+      # Minimum version only
+      req = { :name => 'testpkg' }
+      req[:minimum_version] = minver
+      assert_equal(
+        minresult,
+        Tpkg::package_meets_requirement?(pkg, req),
+        "ver >= #{minver}")
+      # >=     <=     >=?    <=?
+      [['6.0', '7.0', false, true], # version below range
+       ['5.0', '6.0', true, true],  # version at bottom of range
+       ['4.5', '6.0', true, true],  # version in middle of range
+       ['4.5', '5.0', true, true],  # version at top of range
+       ['4.0', '4.5', true, false]].each do |testpackver|  # version above range
+        minpackver, maxpackver, minpackresult, maxpackresult = testpackver
+        
+        # Minimum package version only
+        req = { :name => 'testpkg' }
+        req[:minimum_version] = minver
+        req[:minimum_package_version] = minpackver
+        assert_equal(
+          # We can cheat and use .to_f rather than Version with our test
+          # versions since we know they're valid floating point numbers.  It
+          # doesn't work in the general case.  I.e. tpkg itself can't take the
+          # same shortcut.
+          (metadata[:version].to_f != minver.to_f && minresult) ||
+          (metadata[:version].to_f == minver.to_f && minresult && minpackresult),
+          Tpkg::package_meets_requirement?(pkg, req),
+          "ver >= #{minver}, packver >= #{minpackver}")
+      end
+      # >      <      >?     <?
+      [['6.0', '7.0', false, true], # version below range
+       ['5.0', '6.0', false, true], # version just below range
+       ['4.5', '6.0', true, true],  # version in middle of range
+       ['4.5', '5.0', true, false], # version just above range
+       ['3.0', '4.0', true, false]].each do |testpackver|  # version above range
+        gtpackver, ltpackver, gtpackverresult, ltpackverresult = testpackver
+        
+        # Just :package_version_greater_than
+        req = { :name => 'testpkg' }
+        req[:minimum_version] = minver
+        req[:package_version_greater_than] = gtpackver
+        assert_equal(
+          (metadata[:version].to_f != minver.to_f && minresult) ||
+          (metadata[:version].to_f == minver.to_f && minresult && gtpackverresult),
+          Tpkg::package_meets_requirement?(pkg, req),
+          "ver >= #{minver}, packver > #{gtpackver}")
+      end
+      
+      # Maximum version only
+      req = { :name => 'testpkg' }
+      req[:maximum_version] = maxver
+      assert_equal(
+        maxresult,
+        Tpkg::package_meets_requirement?(pkg, req),
+        "ver <= #{maxver}")
+      [['6.0', '7.0', false, true], # version below range
+       ['5.0', '6.0', true, true],  # version at bottom of range
+       ['4.5', '6.0', true, true],  # version in middle of range
+       ['4.5', '5.0', true, true],  # version at top of range
+       ['4.0', '4.5', true, false]].each do |testpackver|  # version above range
+       minpackver, maxpackver, minpackresult, maxpackresult = testpackver
+       
+       # Maximum package version only
+       req = { :name => 'testpkg' }
+       req[:maximum_version] = maxver
+       req[:maximum_package_version] = maxpackver
+       assert_equal(
+         (metadata[:version].to_f != maxver.to_f && maxresult) ||
+         (metadata[:version].to_f == maxver.to_f && maxresult && maxpackresult),
+         Tpkg::package_meets_requirement?(pkg, req),
+         "ver <= #{maxver}, packver <= #{maxpackver}")
+      end
+      [['6.0', '7.0', false, true], # version below range
+       ['5.0', '6.0', false, true], # version just below range
+       ['4.5', '6.0', true, true],  # version in middle of range
+       ['4.5', '5.0', true, false], # version just above range
+       ['3.0', '4.0', true, false]].each do |testpackver|  # version above range
+        gtpackver, ltpackver, gtpackverresult, ltpackverresult = testpackver
+        
+        # Just :package_version_less_than
+        req = { :name => 'testpkg' }
+        req[:maximum_version] = maxver
+        req[:package_version_less_than] = ltpackver
+        assert_equal(
+          (metadata[:version].to_f != maxver.to_f && maxresult) ||
+          (metadata[:version].to_f == maxver.to_f && maxresult && ltpackverresult),
+          Tpkg::package_meets_requirement?(pkg, req),
+          "ver <= #{maxver}, packver < #{ltpackver}")
+      end
+      
+      # Minimum and maximum version
+      req = { :name => 'testpkg' }
+      req[:minimum_version] = minver
+      req[:maximum_version] = maxver
+      assert_equal(
+        minresult && maxresult,
+        Tpkg::package_meets_requirement?(pkg, req),
+        "ver >= #{minver}, <= #{maxver}")
+      [['6.0', '7.0', false, true], # version below range
+       ['5.0', '6.0', true, true],  # version at bottom of range
+       ['4.5', '6.0', true, true],  # version in middle of range
+       ['4.5', '5.0', true, true],  # version at top of range
+       ['4.0', '4.5', true, false]].each do |testpackver|  # version above range
+       minpackver, maxpackver, minpackresult, maxpackresult = testpackver
+       
+       # Minimum package version only
+       req = { :name => 'testpkg' }
+       req[:minimum_version] = minver
+       req[:maximum_version] = maxver
+       req[:minimum_package_version] = minpackver
+       assert_equal(
+         (metadata[:version].to_f != minver.to_f && minresult && maxresult) ||
+         (metadata[:version].to_f == minver.to_f && minresult && maxresult && minpackresult),
+         Tpkg::package_meets_requirement?(pkg, req),
+         "ver >= #{minver}, <= #{maxver}, packver >= #{minpackver}")
+       # Maximum package version only
+       req = { :name => 'testpkg' }
+       req[:minimum_version] = minver
+       req[:maximum_version] = maxver
+       req[:maximum_package_version] = maxpackver
+       assert_equal(
+         (metadata[:version].to_f != maxver.to_f && minresult && maxresult) ||
+         (metadata[:version].to_f == maxver.to_f && minresult && maxresult && maxpackresult),
+         Tpkg::package_meets_requirement?(pkg, req),
+         "ver >= #{minver}, <= #{maxver}, packver <= #{maxpackver}")
+       # Minimum and maximum package version
+       req = { :name => 'testpkg' }
+       req[:minimum_version] = minver
+       req[:maximum_version] = maxver
+       req[:minimum_package_version] = minpackver
+       req[:maximum_package_version] = maxpackver
+       assert_equal(
+         (metadata[:version].to_f != minver.to_f && metadata[:version].to_f != maxver.to_f && minresult && maxresult) ||
+         (metadata[:version].to_f == minver.to_f && metadata[:version].to_f != maxver.to_f && minresult && maxresult && minpackresult) ||
+         (metadata[:version].to_f != minver.to_f && metadata[:version].to_f == maxver.to_f && minresult && maxresult && maxpackresult) ||
+         (metadata[:version].to_f == minver.to_f && metadata[:version].to_f == maxver.to_f && minresult && maxresult && minpackresult && maxpackresult),
+         Tpkg::package_meets_requirement?(pkg, req),
+         "ver >= #{minver}, <= #{maxver}, packver >= #{minpackver}, <= #{maxpackver}")
+      end
+      [['6.0', '7.0', false, true], # version below range
+       ['5.0', '6.0', false, true], # version just below range
+       ['4.5', '6.0', true, true],  # version in middle of range
+       ['4.5', '5.0', true, false], # version just above range
+       ['3.0', '4.0', true, false]].each do |testpackver|  # version above range
+        gtpackver, ltpackver, gtpackverresult, ltpackverresult = testpackver
+        
+        # Just :package_version_greater_than
+        req = { :name => 'testpkg' }
+        req[:minimum_version] = minver
+        req[:maximum_version] = maxver
+        req[:package_version_greater_than] = gtpackver
+        assert_equal(
+          (metadata[:version].to_f != minver.to_f && minresult && maxresult) ||
+          (metadata[:version].to_f == minver.to_f && minresult && maxresult && gtpackverresult),
+          Tpkg::package_meets_requirement?(pkg, req),
+          "ver >= #{minver}, <= #{maxver}, packver > #{gtpackver}")
+        # Just :package_version_less_than
+        req = { :name => 'testpkg' }
+        req[:minimum_version] = minver
+        req[:maximum_version] = maxver
+        req[:package_version_less_than] = ltpackver
+        assert_equal(
+          (metadata[:version].to_f != maxver.to_f && minresult && maxresult) ||
+          (metadata[:version].to_f == maxver.to_f && minresult && maxresult && ltpackverresult),
+          Tpkg::package_meets_requirement?(pkg, req),
+          "ver >= #{minver}, <= #{maxver}, packver < #{ltpackver}")
+        # :package_version_greater_than and :package_version_less_than
+        req = { :name => 'testpkg' }
+        req[:minimum_version] = minver
+        req[:maximum_version] = maxver
+        req[:package_version_greater_than] = gtpackver
+        req[:package_version_less_than] = ltpackver
+        assert_equal(
+          (metadata[:version].to_f != minver.to_f && metadata[:version].to_f != maxver.to_f && minresult && maxresult) ||
+          (metadata[:version].to_f == minver.to_f && metadata[:version].to_f != maxver.to_f && minresult && maxresult && gtpackverresult) ||
+          (metadata[:version].to_f != minver.to_f && metadata[:version].to_f == maxver.to_f && minresult && maxresult && ltpackverresult) ||
+          (metadata[:version].to_f == minver.to_f && metadata[:version].to_f == maxver.to_f && minresult && maxresult && gtpackverresult && ltpackverresult),
+          Tpkg::package_meets_requirement?(pkg, req),
+          "ver >= #{minver}, <= #{maxver}, packver > #{gtpackver}, < #{ltpackver}")
+      end
+    end
+    
+    #
+    # Tests for allowed_versions
+    #
+    
+    # 5.* included since it matches the package version but not the version,
+    # in case there's any mistake about applying the pattern to the wrong
+    # version.
+    [['0.*', false],
+     ['1.*', true],
+     ['1.1.*', false],
+     ['2.*', false],
+     ['5.*', false]].each do |allowedver|
+      ver, verresult = allowedver
+      req = { :name => 'testpkg' }
+      req[:allowed_versions] = ver
+      assert_equal(
+        verresult,
+        Tpkg::package_meets_requirement?(pkg, req),
+        "allowed ver #{ver}")
+      
+      # 1.* included since it matches the version but not the package version,
+      # in case there's any mistake about applying the pattern to the wrong
+      # version.
+      [['1.*', false],
+       ['4.*', false],
+       ['5.*', true],
+       ['5.1.*', false],
+       ['6.*', false]].each do |allowedpackver|
+        packver, packverresult = allowedpackver
+        req = { :name => 'testpkg' }
+        req[:allowed_versions] = "#{ver}-#{packver}"
+        assert_equal(
+          verresult && packverresult,
+          Tpkg::package_meets_requirement?(pkg, req),
+          "allowed ver #{ver}, allowed package ver #{packver}")
+      end
+    end
+    
+    #
+    # Tests for version_greater_than and version_less_than functionality
+    #
+    
+    # >      <      >?     <?
+    [['0.1', '0.5', true, false],
+     ['1.0', '2.0', false, true],
+     ['0.5', '2.0', true, true],
+     ['0.5', '1.0', true, false],
+     ['2.0', '3.0', false, true]].each do |testver|
+      gtver, ltver, gtverresult, ltverresult = testver
+      
+      # Just :version_greater_than
+      req = { :name => 'testpkg' }
+      req[:version_greater_than] = gtver
+      assert_equal(
+        gtverresult,
+        Tpkg::package_meets_requirement?(pkg, req),
+        "ver > #{gtver}")
+      
+      # Just :version_less_than
+      req.delete(:version_greater_than)
+      req[:version_less_than] = ltver
+      req.delete(:package_version_greater_than)
+      req.delete(:package_version_less_than)
+      assert_equal(
+        ltverresult,
+        Tpkg::package_meets_requirement?(pkg, req),
+        "version less than #{ltver}")
+      
+      # Both :version_greater_than and :version_less_than
+      req[:version_greater_than] = gtver
+      req[:version_less_than] = ltver
+      req.delete(:package_version_greater_than)
+      req.delete(:package_version_less_than)
+      assert_equal(
+        gtverresult && ltverresult,
+        Tpkg::package_meets_requirement?(pkg, req),
+        "version greater than #{gtver}, less than #{ltver}")
+    end
+    
     FileUtils.rm_f(pkgfile)
-
+    
     # More complicated test for: Can't upgrade if package has higher version
     # number but lower package version number
     pkgfile = make_package(:output_directory => @tempoutdir, :change => {'version' => '2.3', 'package_version' => '2' }, :remove => ['operatingsystem', 'architecture'])
@@ -289,6 +515,9 @@ class TpkgDependencyTests < Test::Unit::TestCase
       # available_packages_that_meet_requirement.  I'm too lazy to find where
       # the wildcard support is implemented, but it isn't in
       # available_packages_that_meet_requirement.
+      # Followup: It's implemented in package_meets_requirement?
+      # Followup 2:  And now test_package_meets_requirement has tests for
+      #              allowed_versions, so these can probably go away.
       
       # Should only match package of version 2 and NO package version
       req[:allowed_versions] = '2'
@@ -566,21 +795,128 @@ class TpkgDependencyTests < Test::Unit::TestCase
     end
   end
   def test_parse_request
+    req = Tpkg::parse_request('a-2.0-1.tpkg')
+    assert_equal(3, req.length)
+    assert_equal('a', req[:name])
+    assert_equal('a-2.0-1.tpkg', req[:filename])
+    assert_equal(:tpkg, req[:type])
+    req = Tpkg::parse_request('a-b-c-2.0-1.tpkg')
+    assert_equal(3, req.length)
+    assert_equal('a-b-c', req[:name])
+    assert_equal('a-b-c-2.0-1.tpkg', req[:filename])
+    assert_equal(:tpkg, req[:type])
+    
     req = Tpkg::parse_request('a')
     assert_equal(2, req.length)
     assert_equal('a', req[:name])
     assert_equal(:tpkg, req[:type])
     
-    req = Tpkg::parse_request('a=1.0')
-    assert_equal(4, req.length)
-    assert_equal('a', req[:name])
+    # req = Tpkg::parse_request('a=1.0')
+    # assert_equal(4, req.length)
+    # assert_equal('a', req[:name])
+    # assert_equal('1.0', req[:minimum_version])
+    # assert_equal('1.0', req[:maximum_version])
+    # assert_equal(:tpkg, req[:type])
+    
+    # req = Tpkg::parse_request('a=1.0=1')
+    # assert_equal(6, req.length)
+    # assert_equal('a', req[:name])
+    # assert_equal('1.0', req[:minimum_version])
+    # assert_equal('1.0', req[:maximum_version])
+    # assert_equal('1', req[:minimum_package_version])
+    # assert_equal('1', req[:maximum_package_version])
+    # assert_equal(:tpkg, req[:type])
+    
+    ['<', '<=', '=', '>=', '>'].each do |verequal|
+      req = Tpkg::parse_request("a#{verequal}1.0")
+      assert_equal('a', req[:name])
+      baseparts = 2  # req[:name] and req[:type]
+      verparts = nil
+      if verequal == '>='
+        verparts = 1
+        assert_equal('1.0', req[:minimum_version])
+      elsif verequal == '>'
+        verparts = 1
+        assert_equal('1.0', req[:version_greater_than])
+      elsif verequal == '='
+        verparts = 2
+        assert_equal('1.0', req[:minimum_version])
+        assert_equal('1.0', req[:maximum_version])
+      elsif verequal == '<'
+        verparts = 1
+        assert_equal('1.0', req[:version_less_than])
+      elsif verequal == '<='
+        verparts = 1
+        assert_equal('1.0', req[:maximum_version])
+      end
+      assert_equal(:tpkg, req[:type])
+      assert_equal(baseparts+verparts, req.length)
+      ['<', '<=', '=', '>=', '>'].each do |packverequal|
+        req = Tpkg::parse_request("a#{verequal}1.0#{packverequal}1")
+        assert_equal('a', req[:name])
+        if verequal == '>='
+          assert_equal('1.0', req[:minimum_version])
+        elsif verequal == '>'
+          assert_equal('1.0', req[:version_greater_than])
+        elsif verequal == '='
+          assert_equal('1.0', req[:minimum_version])
+          assert_equal('1.0', req[:maximum_version])
+        elsif verequal == '<'
+          assert_equal('1.0', req[:version_less_than])
+        elsif verequal == '<='
+          assert_equal('1.0', req[:maximum_version])
+        end
+        packverparts = nil
+        if packverequal == '>='
+          packverparts = 1
+          assert_equal('1', req[:minimum_package_version])
+        elsif packverequal == '>'
+          packverparts = 1
+          assert_equal('1', req[:package_version_greater_than])
+        elsif packverequal == '='
+          packverparts = 2
+          assert_equal('1', req[:minimum_package_version])
+          assert_equal('1', req[:maximum_package_version])
+        elsif packverequal == '<'
+          packverparts = 1
+          assert_equal('1', req[:package_version_less_than])
+        elsif packverequal == '<='
+          packverparts = 1
+          assert_equal('1', req[:maximum_package_version])
+        end
+        assert_equal(:tpkg, req[:type])
+        assert_equal(baseparts+verparts+packverparts, req.length)
+      end
+    end
+    
+    # parse_request should take the last two = components off the end of the
+    # string.  I don't think it is too likely that package names will contain
+    # =, but better safe than sorry.
+    req = Tpkg::parse_request('a=b=c=1.0=1')
+    assert_equal(6, req.length)
+    assert_equal('a=b=c', req[:name])
     assert_equal('1.0', req[:minimum_version])
     assert_equal('1.0', req[:maximum_version])
+    assert_equal('1', req[:minimum_package_version])
+    assert_equal('1', req[:maximum_package_version])
     assert_equal(:tpkg, req[:type])
     
-    req = Tpkg::parse_request('a=1.0=1')
-    assert_equal(6, req.length)
+    req = Tpkg::parse_request('a=1.*')
+    assert_equal(3, req.length, req.inspect)
     assert_equal('a', req[:name])
+    assert_equal('1.*', req[:allowed_versions])
+    assert_equal(:tpkg, req[:type])
+    
+    req = Tpkg::parse_request('a=1.0-1.2.*')
+    assert_equal(3, req.length, req.inspect)
+    assert_equal('a', req[:name])
+    assert_equal('1.0-1.2.*', req[:allowed_versions])
+    assert_equal(:tpkg, req[:type])
+    
+    # Test package with special character like "++"
+    req = Tpkg::parse_request('a++=1.0=1')
+    assert_equal(6, req.length)
+    assert_equal('a++', req[:name])
     assert_equal('1.0', req[:minimum_version])
     assert_equal('1.0', req[:maximum_version])
     assert_equal('1', req[:minimum_package_version])
@@ -588,90 +924,120 @@ class TpkgDependencyTests < Test::Unit::TestCase
     assert_equal(:tpkg, req[:type])
   end
   def test_parse_requests
-    Dir.mktmpdir('testbase') do |testbase|
-      tpkg = Tpkg.new(:base => testbase, :sources => @pkgfiles)
-      requirements = []
-      packages = {}
-      
+    [{:installed_only => true}, {:installed_only => false}, {}].each do |options|
       # Test various package spec requests
-      tpkg.parse_requests(['a'], requirements, packages)
-      assert_equal(1, requirements.length)
-      assert_equal(2, requirements.first.length)
-      assert_equal('a', requirements.first[:name])
-      assert_equal(:tpkg, requirements.first[:type])
-      assert_equal(1, packages['a'].length)
-      requirements.clear
-      packages.clear
+      Dir.mktmpdir('testbase') do |testbase|
+        tpkg = Tpkg.new(:base => testbase, :sources => @pkgfiles)
+        requirements = []
+        packages = {}
+        tpkg.parse_requests(['a'], requirements, packages, options)
+        assert_equal(1, requirements.length, options.inspect)
+        assert_equal(2, requirements.first.length, options.inspect)
+        assert_equal('a', requirements.first[:name], options.inspect)
+        assert_equal(:tpkg, requirements.first[:type], options.inspect)
+        if options[:installed_only] == true
+          assert_equal(0, packages['a'].length, options.inspect)
+        else
+          assert_equal(1, packages['a'].length, options.inspect)
+        end
+      end
       
-      tpkg.parse_requests(['a=1.0'], requirements, packages)
-      assert_equal(1, requirements.length)
-      assert_equal(4, requirements.first.length)
-      assert_equal('a', requirements.first[:name])
-      assert_equal('1.0', requirements.first[:minimum_version])
-      assert_equal('1.0', requirements.first[:maximum_version])
-      assert_equal(:tpkg, requirements.first[:type])
-      assert_equal(1, packages['a'].length)
-      requirements.clear
-      packages.clear
+      Dir.mktmpdir('testbase') do |testbase|
+        tpkg = Tpkg.new(:base => testbase, :sources => @pkgfiles)
+        requirements = []
+        packages = {}
+        tpkg.parse_requests(['a=1.0'], requirements, packages, options)
+        assert_equal(1, requirements.length, options.inspect)
+        assert_equal(4, requirements.first.length, options.inspect)
+        assert_equal('a', requirements.first[:name], options.inspect)
+        assert_equal('1.0', requirements.first[:minimum_version], options.inspect)
+        assert_equal('1.0', requirements.first[:maximum_version], options.inspect)
+        assert_equal(:tpkg, requirements.first[:type], options.inspect)
+        if options[:installed_only] == true
+          assert_equal(0, packages['a'].length, options.inspect)
+        else
+          assert_equal(1, packages['a'].length, options.inspect)
+        end
+      end
       
-      tpkg.parse_requests(['a=1.0=1'], requirements, packages)
-      assert_equal(1, requirements.length)
-      assert_equal(6, requirements.first.length)
-      assert_equal('a', requirements.first[:name])
-      assert_equal('1.0', requirements.first[:minimum_version])
-      assert_equal('1.0', requirements.first[:maximum_version])
-      assert_equal('1', requirements.first[:minimum_package_version])
-      assert_equal('1', requirements.first[:maximum_package_version])
-      assert_equal(:tpkg, requirements.first[:type])
-      assert_equal(1, packages['a'].length)
-      requirements.clear
-      packages.clear
+      Dir.mktmpdir('testbase') do |testbase|
+        tpkg = Tpkg.new(:base => testbase, :sources => @pkgfiles)
+        requirements = []
+        packages = {}
+        tpkg.parse_requests(['a=1.0=1'], requirements, packages, options)
+        assert_equal(1, requirements.length, options.inspect)
+        assert_equal(6, requirements.first.length, options.inspect)
+        assert_equal('a', requirements.first[:name], options.inspect)
+        assert_equal('1.0', requirements.first[:minimum_version], options.inspect)
+        assert_equal('1.0', requirements.first[:maximum_version], options.inspect)
+        assert_equal('1', requirements.first[:minimum_package_version], options.inspect)
+        assert_equal('1', requirements.first[:maximum_package_version], options.inspect)
+        assert_equal(:tpkg, requirements.first[:type], options.inspect)
+        if options[:installed_only] == true
+          assert_equal(0, packages['a'].length, options.inspect)
+        else
+          assert_equal(1, packages['a'].length, options.inspect)
+        end
+      end
       
       # Test with a given filename (full path to the actual package)  rather than a package spec
-      apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '2.0' }, :remove => ['operatingsystem', 'architecture'])
-      tpkg.parse_requests([apkg], requirements, packages)
-      assert_equal(1, requirements.length)
-      assert_equal(2, requirements.first.length)   # should this be 6?
-      assert_equal('a', requirements.first[:name])
-      assert_equal(:tpkg, requirements.first[:type])
-      assert_equal(1, packages['a'].length)
-      requirements.clear
-      packages.clear
-      FileUtils.rm_f(apkg)
+      Dir.mktmpdir('testbase') do |testbase|
+        tpkg = Tpkg.new(:base => testbase, :sources => @pkgfiles)
+        apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '2.0' }, :remove => ['operatingsystem', 'architecture'])
+        requirements = []
+        packages = {}
+        tpkg.parse_requests([apkg], requirements, packages, options)
+        assert_equal(1, requirements.length, options.inspect)
+        assert_equal(2, requirements.first.length, options.inspect)   # should this be 6?
+        assert_equal('a', requirements.first[:name], options.inspect)
+        assert_equal(:tpkg, requirements.first[:type], options.inspect)
+        assert_equal(1, packages['a'].length, options.inspect)
+        FileUtils.rm_f(apkg)
+      end
       
       # Test with a filename of a package that has been installed rather than a package spec
-      apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '2.0' }, :remove => ['operatingsystem', 'architecture'])
-      tpkg.install([apkg], PASSPHRASE)
-      FileUtils.rm_f(apkg)
-      tpkg.parse_requests([File.basename(apkg)], requirements, packages)
-      assert_equal(1, requirements.length)
-      assert_equal(3, requirements.first.length)  # name, filename, type
-      assert_equal('a', requirements.first[:name])
-      assert_equal(File.basename(apkg), requirements.first[:filename])
-      assert_equal(:tpkg, requirements.first[:type])
-      assert_equal(1, packages['a'].length)
-      requirements.clear
-      packages.clear
+      Dir.mktmpdir('testbase') do |testbase|
+        tpkg = Tpkg.new(:base => testbase, :sources => @pkgfiles)
+        apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '2.0' }, :remove => ['operatingsystem', 'architecture'])
+        tpkg.install([apkg], PASSPHRASE)
+        FileUtils.rm_f(apkg)
+        requirements = []
+        packages = {}
+        tpkg.parse_requests([File.basename(apkg)], requirements, packages, options)
+        assert_equal(1, requirements.length, options.inspect)
+        assert_equal(3, requirements.first.length, options.inspect)  # name, filename, type
+        assert_equal('a', requirements.first[:name], options.inspect)
+        assert_equal(File.basename(apkg), requirements.first[:filename], options.inspect)
+        assert_equal(:tpkg, requirements.first[:type], options.inspect)
+        assert_equal(1, packages['a'].length, options.inspect)
+      end
       
       # Test package with special character like "++"
-      apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a++', 'version' => '2.0' }, :remove => ['operatingsystem', 'architecture'])
-      tpkg = Tpkg.new(:base => testbase, :sources => (@pkgfiles << apkg))
-      tpkg.parse_requests([apkg], requirements, packages)
-      assert_equal(1, requirements.length)
-      assert_equal(2, requirements.first.length)  
-      assert_equal('a++', requirements.first[:name])
-      assert_equal(:tpkg, requirements.first[:type])
-      assert_equal(1, packages['a++'].length)
-      
-      requirements.clear
-      packages.clear
-      
-      tpkg.parse_requests(["a++"], requirements, packages)
-      assert_equal(1, requirements.length)
-      assert_equal(2, requirements.first.length)  
-      assert_equal('a++', requirements.first[:name])
-      assert_equal(:tpkg, requirements.first[:type])
-      assert_equal(1, packages['a++'].length)
+      Dir.mktmpdir('testbase') do |testbase|
+        apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a++', 'version' => '2.0' }, :remove => ['operatingsystem', 'architecture'])
+        tpkg = Tpkg.new(:base => testbase, :sources => @pkgfiles + [apkg])
+        requirements = []
+        packages = {}
+        tpkg.parse_requests([apkg], requirements, packages, options)
+        assert_equal(1, requirements.length, options.inspect)
+        assert_equal(2, requirements.first.length, options.inspect)
+        assert_equal('a++', requirements.first[:name], options.inspect)
+        assert_equal(:tpkg, requirements.first[:type], options.inspect)
+        assert_equal(1, packages['a++'].length, options.inspect)
+        
+        requirements = []
+        packages = {}
+        tpkg.parse_requests(["a++"], requirements, packages, options)
+        assert_equal(1, requirements.length, options.inspect)
+        assert_equal(2, requirements.first.length, options.inspect)
+        assert_equal('a++', requirements.first[:name], options.inspect)
+        assert_equal(:tpkg, requirements.first[:type], options.inspect)
+        if options[:installed_only] == true
+          assert_equal(0, packages['a++'].length, options.inspect)
+        else
+          assert_equal(1, packages['a++'].length, options.inspect)
+        end
+      end
     end
   end
   

@@ -209,7 +209,7 @@ scripts.
 Use with the --exec-init option to specify what init action to run.
 .TP
 .BI --query|\-q " NAMES"
-Check if the specified packages is installed.
+Check if the specified packages are installed.
 .B Tpkg
 exit value will also indicate whether the package was found, so in
 combination with --quiet this can be useful in scripts.
@@ -218,10 +218,12 @@ combination with --quiet this can be useful in scripts.
 List all installed packages.
 .TP
 .BI --qi " NAME"
-Display info for the specified package.
+Display info for the specified package.  Accepts the name of an installed
+package or the filename of an uninstalled package.
 .TP
 .BI --ql " NAME"
-List the files in the specified package.
+List the files in the specified package.  Accepts the name of an installed
+package or the filename of an uninstalled package.
 .TP
 .BI --qf " FILE"
 List the package that owns the specified file.
@@ -236,17 +238,16 @@ List all available packages.
 List installed packages that depend on the specified package.
 .TP
 .BI --qd " NAME"
-List the packages that the specified package depends on.
-.TP
-.BI --qld " NAME"
-Similar to --qd, but only look at local packages.
+List the packages that the specified package depends on.  Accepts the name of
+an installed package or the filename of an uninstalled package.
 .TP
 .BI --dw " INTEGER"
 The number of workers to use when deploying.  Defaults to 10. Only meaningful
 when used with the servers option.
 .TP
 .BI --qX " NAME"
-Display the tpkg.xml for the specified package.
+Display the tpkg.xml for the specified package.  Accepts the name of an
+installed package or the filename of an uninstalled package.
 .TP
 .BI --history
 Display package installation history
