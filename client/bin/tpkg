@@ -253,7 +253,7 @@ opts.on('--qf', '=FILE', 'List the package that owns a file') do |opt|
   @action = :query_who_owns_file
   @action_value = opt
 end
-opts.on('--qv', '=NAME', 'List available packages matching given name') do |opt|
+opts.on('--qv', '=NAME', 'Check if a package is available to install', Array) do |opt|
   @action = :query_available
   @action_value = opt
 end
@@ -611,18 +611,20 @@ when :query_installed
       # command-line syntax like "tpkg -q foo || tpkg -i foo" to ensure
       # that a package is installed.
       ret_val = 1
-      puts "No packages matching '#{@action_value}' installed" if !@quiet
+      $stderr.puts "No packages matching '#{@action_value}' installed" if !@quiet
     else
       packages.each do | name, pkgs |
-        pkgs.each do | pkg |
-          matches << pkg
-        end
+        matches.concat(pkgs)
       end
     end
   else
     # --qa is implemented by setting @action to :query_installed and
     # @action_value to nil
     matches = tpkg.installed_packages_that_meet_requirement
+    if matches.empty?
+      ret_val = 1
+      $stderr.puts "No packages installed" if !@quiet
+    end
   end
   if !@quiet
     matches.sort(&Tpkg::SORT_PACKAGES).each do |pkg|
@@ -672,7 +674,7 @@ when :query_info
     ret_val = 1
     # --qi --quiet doesn't seem like a meaningful combination, so I'm not
     # suppressing this for @quiet
-    puts "No packages matching '#{@action_value}' installed"
+    $stderr.puts "No packages matching '#{@action_value}' installed"
   end
 when :query_list_files
   tpkg = instantiate_tpkg
@@ -684,7 +686,7 @@ when :query_list_files
     ret_val = 1
     # --ql --quiet doesn't seem like a meaningful combination, so I'm not
     # suppressing this for @quiet
-    puts "No packages matching '#{@action_value}' installed"
+    $stderr.puts "No packages matching '#{@action_value}' installed"
   else
     # For this switch we need separate handling for installed and uninstalled
     # packages.  For installed packages we know where their relocatable files
@@ -727,18 +729,59 @@ when :query_who_owns_file
     ret_val = 1
     # --qf --quiet doesn't seem like a meaningful combination, so I'm not
     # suppressing this for @quiet
-    puts "No package owns file '#{@action_value}'"
+    $stderr.puts "No package owns file '#{@action_value}'"
   end
 when :query_available
   tpkg = instantiate_tpkg
-  queryreq = nil
+  availpkgs = []
   if @action_value
-    queryreq = Tpkg::parse_request(@action_value)
+    # The --qv switch is set to accept multiple values (the "Array"
+    # parameter in the opts.on line for --qv) so users can do things like
+    # "tpkg --qv foo,bar" to check multiple packages at once.  As such
+    # @action_value is an Array for this switch.
+    requirements = []
+    packages = {}
+    tpkg.parse_requests(@action_value, requirements, packages)
+    packages.each do | name, pkgs |
+      availpkgs.concat(pkgs)
+    end
+  else
+    # --qva is implemented by setting @action to :query_available and
+    # @action_value to nil
+    availpkgs.concat(tpkg.available_packages_that_meet_requirement)
   end
-  tpkg.available_packages_that_meet_requirement(queryreq).each do |pkg|
-    next if pkg[:source] == :native_installed
-    next if pkg[:source] == :native_available
-    puts "#{pkg[:metadata][:filename]} (#{pkg[:source]})"
+  available = availpkgs.select do |pkg|
+    pkg[:source] != :native_installed &&
+    pkg[:source] != :native_available &&
+    # The tpkg library treats currently installed packages as "available"
+    # because they are available to meet a user's requirement.  I.e. if the
+    # user asks to install ruby and a ruby package is already installed that
+    # satisfies the user's requirement even if there's no ruby package in any
+    # of the sources.  But for these query options I think the reasonable
+    # interpretation is that the user would like to know if there's a package
+    # in a source that could be installed.  For example, if the user queries
+    # for the availability of ruby and we show it as available because it is
+    # installed, but then they go to another machine with the same sources
+    # defined and try to install ruby and it fails because there is no ruby in
+    # any of the sources I think the user is likely to find that unexpected
+    # and annoying.
+    pkg[:source] != :currently_installed
+  end
+  if available.empty?
+    ret_val = 1
+    if !@quiet
+      if @action_value
+        $stderr.puts "No packages matching '#{@action_value}' available"
+      else
+        $stderr.puts "No packages available"
+      end
+    end
+  else
+    if !@quiet
+      available.sort(&Tpkg::SORT_PACKAGES).each do |pkg|
+        puts "#{pkg[:metadata][:filename]} (#{pkg[:source]})"
+      end
+    end
   end
 when :query_requires
   tpkg = instantiate_tpkg
@@ -764,7 +807,7 @@ when :query_requires
     ret_val = 1
     # --qr --quiet doesn't seem like a meaningful combination, so I'm not
     # suppressing this for @quiet
-    puts "No packages matching '#{@action_value}' installed"
+    $stderr.puts "No packages matching '#{@action_value}' installed"
   end
   
   # Get dependencies of all installed packages
@@ -803,9 +846,6 @@ when :query_requires
       end
     end
   else
-    ret_val = 1
-    # --qr --quiet doesn't seem like a meaningful combination, so I'm not
-    # suppressing this for @quiet
     puts "No other package depends on '#{@action_value}'"
   end
 # when :query_local_depends
@@ -836,7 +876,7 @@ when :query_depends
     ret_val = 1
     # --qd --quiet doesn't seem like a meaningful combination, so I'm not
     # suppressing this for @quiet
-    puts "No packages matching '#{@action_value}' installed"
+    $stderr.puts "No packages matching '#{@action_value}' installed"
   else
     depends = {}
     packages.each do |name, pkgs|
@@ -885,7 +925,7 @@ when :query_tpkg_metadata
     ret_val = 1
     # --qX --quiet doesn't seem like a meaningful combination, so I'm not
     # suppressing this for @quiet
-    puts "No packages matching '#{@action_value}' installed"
+    $stderr.puts "No packages matching '#{@action_value}' installed"
   else
     packages.each do | name, pkgs |
       pkgs.each do | pkg |
