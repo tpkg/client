@@ -353,7 +353,7 @@ class TpkgOptionTests < Test::Unit::TestCase
       assert_equal(0, status.exitstatus, "--qf, installed, exitstatus")
     end
   end
-  def test_qv
+  def test_qs
     metadata = Tpkg::metadata_from_package(@pkgfile)
     
     Dir.mktmpdir('testroot') do |testroot|
@@ -366,68 +366,68 @@ class TpkgOptionTests < Test::Unit::TestCase
       # Query for an available package
       [File.basename(@pkgfile), metadata[:name]].each do |query|
         status = Open4.popen4(
-          "#{RUBY} #{TPKG_EXECUTABLE} --qv #{query} " +
+          "#{RUBY} #{TPKG_EXECUTABLE} --qs #{query} " +
           "--source #{[@pkgfile,pkgfile2].join(',')} " +
           "--test-root #{testroot}") do |pid, stdin, stdout, stderr|
           stdin.close
           assert_equal(
             "#{File.basename(@pkgfile)} (#{@pkgfile})\n", stdout.read,
-            "--qv #{query}, not installed, stdout")
+            "--qs #{query}, not installed, stdout")
           assert_equal(
             '', stderr.read,
-            "--qv #{query}, not installed, stderr")
+            "--qs #{query}, not installed, stderr")
         end
         assert_equal(
           0, status.exitstatus,
-          "--qv #{query}, not installed, exitstatus")
+          "--qs #{query}, not installed, exitstatus")
         # Same query with --quiet should be quiet
         status = Open4.popen4(
-          "#{RUBY} #{TPKG_EXECUTABLE} --qv #{query} " +
+          "#{RUBY} #{TPKG_EXECUTABLE} --qs #{query} " +
           "--source #{[@pkgfile,pkgfile2].join(',')} " +
           "--quiet --test-root #{testroot}") do |pid, stdin, stdout, stderr|
           stdin.close
           assert_equal(
             '', stdout.read,
-            "--qv #{query} --quiet, not installed, stdout")
+            "--qs #{query} --quiet, not installed, stdout")
             assert_equal(
               '', stderr.read,
-              "--qv #{query} --quiet, not installed, stderr")
+              "--qs #{query} --quiet, not installed, stderr")
         end
         assert_equal(
           0, status.exitstatus,
-          "--qv #{query} --quiet, not installed, exitstatus")
+          "--qs #{query} --quiet, not installed, exitstatus")
       end
       # Query for an unavailable package
       ['bogus-1.0-1.tpkg', 'bogus'].each do |query|
         status = Open4.popen4(
-          "#{RUBY} #{TPKG_EXECUTABLE} --qv #{query} " +
+          "#{RUBY} #{TPKG_EXECUTABLE} --qs #{query} " +
           "--source #{[@pkgfile,pkgfile2].join(',')} " +
           "--test-root #{testroot}") do |pid, stdin, stdout, stderr|
           stdin.close
           assert_equal(
             '', stdout.read,
-            "--qv #{query}, not installed, stdout")
+            "--qs #{query}, not installed, stdout")
           assert_equal(
             "No packages matching '#{query}' available\n",
-            stderr.read, "--qv #{query}, not installed, stderr")
+            stderr.read, "--qs #{query}, not installed, stderr")
         end
-        assert_equal(1, status.exitstatus, "--qv #{query}, not installed, exitstatus")
+        assert_equal(1, status.exitstatus, "--qs #{query}, not installed, exitstatus")
         # Same query with --quiet should be quiet
         status = Open4.popen4(
-          "#{RUBY} #{TPKG_EXECUTABLE} --qv #{query} " +
+          "#{RUBY} #{TPKG_EXECUTABLE} --qs #{query} " +
           "--source #{[@pkgfile,pkgfile2].join(',')} " +
           "--quiet --test-root #{testroot}") do |pid, stdin, stdout, stderr|
           stdin.close
           assert_equal(
             '', stdout.read,
-            "--qv #{query} --quiet, not installed, stdout")
+            "--qs #{query} --quiet, not installed, stdout")
           assert_equal(
             '', stderr.read,
-            "--qv #{query} --quiet, not installed, stderr")
+            "--qs #{query} --quiet, not installed, stderr")
         end
         assert_equal(
           1, status.exitstatus,
-          "--qv #{query} --quiet, not installed, exitstatus")
+          "--qs #{query} --quiet, not installed, exitstatus")
       end
       
       # Install package and try again
@@ -440,110 +440,110 @@ class TpkgOptionTests < Test::Unit::TestCase
       # Query package that's installed (should still be available)
       [File.basename(@pkgfile), metadata[:name]].each do |query|
         status = Open4.popen4(
-          "#{RUBY} #{TPKG_EXECUTABLE} --qv #{query} " +
+          "#{RUBY} #{TPKG_EXECUTABLE} --qs #{query} " +
           "--source #{[@pkgfile,pkgfile2].join(',')} " +
           "--test-root #{testroot}") do |pid, stdin, stdout, stderr|
           stdin.close
           assert_equal(
             "#{File.basename(@pkgfile)} (#{@pkgfile})\n", stdout.read,
-            "--qv #{query}, installed, stdout")
+            "--qs #{query}, installed, stdout")
           assert_equal(
             '', stderr.read,
-            "--qv #{query}, installed, stderr")
+            "--qs #{query}, installed, stderr")
         end
         assert_equal(
           0, status.exitstatus,
-          "--qv #{query}, installed, exitstatus")
+          "--qs #{query}, installed, exitstatus")
         # Same query with --quiet should be quiet
         status = Open4.popen4(
-          "#{RUBY} #{TPKG_EXECUTABLE} --qv #{query} " +
+          "#{RUBY} #{TPKG_EXECUTABLE} --qs #{query} " +
           "--source #{[@pkgfile,pkgfile2].join(',')} " +
           "--quiet --test-root #{testroot}") do |pid, stdin, stdout, stderr|
           stdin.close
           assert_equal(
             '', stdout.read,
-            "--qv #{query} --quiet, installed, stdout")
+            "--qs #{query} --quiet, installed, stdout")
             assert_equal(
               '', stderr.read,
-              "--qv #{query} --quiet, installed, stderr")
+              "--qs #{query} --quiet, installed, stderr")
         end
         assert_equal(
           0, status.exitstatus,
-          "--qv #{query} --quiet, installed, exitstatus")
+          "--qs #{query} --quiet, installed, exitstatus")
       end
       
       # Query package that's available but not installed
       [File.basename(pkgfile2), metadata2[:name]].each do |query|
         status = Open4.popen4(
-          "#{RUBY} #{TPKG_EXECUTABLE} --qv #{query} " +
+          "#{RUBY} #{TPKG_EXECUTABLE} --qs #{query} " +
           "--source #{[@pkgfile,pkgfile2].join(',')} " +
           "--test-root #{testroot}") do |pid, stdin, stdout, stderr|
           stdin.close
           assert_equal(
             "#{File.basename(pkgfile2)} (#{pkgfile2})\n",
-            stdout.read, "--qv #{query}, installed, stdout")
+            stdout.read, "--qs #{query}, installed, stdout")
           assert_equal(
             '',
-            stderr.read, "--qv #{query}, installed, stderr")
+            stderr.read, "--qs #{query}, installed, stderr")
         end
         assert_equal(
           0, status.exitstatus,
-          "--qv #{query}, installed, exitstatus")
+          "--qs #{query}, installed, exitstatus")
         # Same query with --quiet should be quiet
         status = Open4.popen4(
-          "#{RUBY} #{TPKG_EXECUTABLE} --qv #{query} " +
+          "#{RUBY} #{TPKG_EXECUTABLE} --qs #{query} " +
           "--source #{[@pkgfile,pkgfile2].join(',')} " +
           "--quiet --test-root #{testroot}") do |pid, stdin, stdout, stderr|
           stdin.close
           assert_equal(
             '', stdout.read,
-            "--qv #{query} --quiet, installed, stdout")
+            "--qs #{query} --quiet, installed, stdout")
           assert_equal(
             '', stderr.read,
-            "--qv #{query} --quiet, installed, stderr")
+            "--qs #{query} --quiet, installed, stderr")
         end
         assert_equal(
           0, status.exitstatus,
-          "--qv #{query} --quiet, installed, exitstatus")
+          "--qs #{query} --quiet, installed, exitstatus")
       end
       
       # Query package that's installed but no longer available
       [File.basename(@pkgfile), metadata[:name]].each do |query|
         status = Open4.popen4(
-          "#{RUBY} #{TPKG_EXECUTABLE} --qv #{query} " +
+          "#{RUBY} #{TPKG_EXECUTABLE} --qs #{query} " +
           "--source #{[pkgfile2].join(',')} " +
           "--test-root #{testroot}") do |pid, stdin, stdout, stderr|
           stdin.close
           assert_equal(
             '', stdout.read,
-            "--qv #{query}, installed but not available, stdout")
+            "--qs #{query}, installed but not available, stdout")
           assert_equal(
             "No packages matching '#{query}' available\n", stderr.read,
-            "--qv #{query}, installed but not available, stderr")
+            "--qs #{query}, installed but not available, stderr")
         end
         assert_equal(
           1, status.exitstatus,
-          "--qv #{query}, installed but not available, exitstatus")
+          "--qs #{query}, installed but not available, exitstatus")
         # Same query with --quiet should be quiet
         status = Open4.popen4(
-          "#{RUBY} #{TPKG_EXECUTABLE} --qv #{query} " +
+          "#{RUBY} #{TPKG_EXECUTABLE} --qs #{query} " +
           "--source #{[pkgfile2].join(',')} " +
           "--quiet --test-root #{testroot}") do |pid, stdin, stdout, stderr|
           stdin.close
           assert_equal(
             '', stdout.read,
-            "--qv #{query} --quiet, installed but not available, stdout")
+            "--qs #{query} --quiet, installed but not available, stdout")
           assert_equal(
             '', stderr.read,
-            "--qv #{query} --quiet, installed but not available, stderr")
+            "--qs #{query} --quiet, installed but not available, stderr")
         end
         assert_equal(
           1, status.exitstatus,
-          "--qv #{query} --quiet, installed but not available, exitstatus")
+          "--qs #{query} --quiet, installed but not available, exitstatus")
       end
     end
   end
-  def test_qva
+  def test_qas
     metadata = Tpkg::metadata_from_package(@pkgfile)
     
     Dir.mktmpdir('testroot') do |testroot|
@@ -559,57 +559,57 @@ class TpkgOptionTests < Test::Unit::TestCase
       
       # Query with no package installed or available
       status = Open4.popen4(
-        "#{RUBY} #{TPKG_EXECUTABLE} --qva " +
+        "#{RUBY} #{TPKG_EXECUTABLE} --qas " +
         "--test-root #{testroot}") do |pid, stdin, stdout, stderr|
         stdin.close
         assert_equal(
-          '', stdout.read, "--qva, not installed or available, stdout")
+          '', stdout.read, "--qas, not installed or available, stdout")
         assert_equal(
           "No packages available\n", stderr.read,
-          "--qva, not installed or available, stderr")
+          "--qas, not installed or available, stderr")
       end
       assert_equal(
         1, status.exitstatus,
-        "--qva, not installed or available, exitstatus")
+        "--qas, not installed or available, exitstatus")
       # Same query with --quiet should be quiet
       status = Open4.popen4(
-        "#{RUBY} #{TPKG_EXECUTABLE} --qva --quiet " +
+        "#{RUBY} #{TPKG_EXECUTABLE} --qas --quiet " +
         "--test-root #{testroot}") do |pid, stdin, stdout, stderr|
         stdin.close
         assert_equal(
           '', stdout.read,
-          "--qva --quiet, not installed or available, stdout")
+          "--qas --quiet, not installed or available, stdout")
         assert_equal(
           '', stderr.read,
-          "--qva --quiet, not installed or available, stderr")
+          "--qas --quiet, not installed or available, stderr")
       end
       assert_equal(
         1, status.exitstatus,
-        "--qva --quiet, not installed or available, exitstatus")
+        "--qas --quiet, not installed or available, exitstatus")
       
       # Query with no package installed
       status = Open4.popen4(
-        "#{RUBY} #{TPKG_EXECUTABLE} --qva " +
+        "#{RUBY} #{TPKG_EXECUTABLE} --qas " +
         "--source #{[@pkgfile,pkgfile2,pkgfile3].join(',')} " +
         "--test-root #{testroot}") do |pid, stdin, stdout, stderr|
         stdin.close
         assert_equal(
           [pkgfile2, @pkgfile, pkgfile3].collect {|p| "#{File.basename(p)} (#{p})"}.join("\n") + "\n",
-          stdout.read, "--qva, not installed, stdout")
-        assert_equal('', stderr.read, "--qva, not installed, stderr")
+          stdout.read, "--qas, not installed, stdout")
+        assert_equal('', stderr.read, "--qas, not installed, stderr")
       end
-      assert_equal(0, status.exitstatus, "--qva, not installed, exitstatus")
+      assert_equal(0, status.exitstatus, "--qas, not installed, exitstatus")
       # Same query with --quiet should be quiet
       status = Open4.popen4(
-        "#{RUBY} #{TPKG_EXECUTABLE} --qva " +
+        "#{RUBY} #{TPKG_EXECUTABLE} --qas " +
         "--source #{[@pkgfile,pkgfile2,pkgfile3].join(',')} " +
         "--quiet --test-root #{testroot}") do |pid, stdin, stdout, stderr|
         stdin.close
-        assert_equal('', stdout.read, "--qva --quiet, not installed, stdout")
-        assert_equal('', stderr.read, "--qva --quiet, not installed, stderr")
+        assert_equal('', stdout.read, "--qas --quiet, not installed, stdout")
+        assert_equal('', stderr.read, "--qas --quiet, not installed, stderr")
       end
       assert_equal(
-        0, status.exitstatus, "--qva --quiet, not installed, exitstatus")
+        0, status.exitstatus, "--qas --quiet, not installed, exitstatus")
       
       # Install package and try again
       tpkg = Tpkg.new(:file_system_root => testroot, :sources => [@pkgfile])
@@ -620,86 +620,86 @@ class TpkgOptionTests < Test::Unit::TestCase
       
       # Installed packages should still show up as available
       status = Open4.popen4(
-        "#{RUBY} #{TPKG_EXECUTABLE} --qva " +
+        "#{RUBY} #{TPKG_EXECUTABLE} --qas " +
         "--source #{[@pkgfile,pkgfile2,pkgfile3].join(',')} " +
         "--test-root #{testroot}") do |pid, stdin, stdout, stderr|
         stdin.close
         assert_equal(
           [pkgfile2, @pkgfile, pkgfile3].collect {
             |p| "#{File.basename(p)} (#{p})"}.join("\n") + "\n",
-          stdout.read, "--qva, installed, stdout")
-        assert_equal('', stderr.read, "--qva, installed, stderr")
+          stdout.read, "--qas, installed, stdout")
+        assert_equal('', stderr.read, "--qas, installed, stderr")
       end
-      assert_equal(0, status.exitstatus, "--qva, installed, exitstatus")
+      assert_equal(0, status.exitstatus, "--qas, installed, exitstatus")
       # Same query with --quiet should be quiet
       status = Open4.popen4(
-        "#{RUBY} #{TPKG_EXECUTABLE} --qva " +
+        "#{RUBY} #{TPKG_EXECUTABLE} --qas " +
         "--source #{[@pkgfile,pkgfile2,pkgfile3].join(',')} --quiet " +
         "--test-root #{testroot}") do |pid, stdin, stdout, stderr|
         stdin.close
-        assert_equal('', stdout.read, "--qva --quiet, installed, stdout")
-        assert_equal('', stderr.read, "--qva --quiet, installed, stderr")
+        assert_equal('', stdout.read, "--qas --quiet, installed, stdout")
+        assert_equal('', stderr.read, "--qas --quiet, installed, stderr")
       end
       assert_equal(
-        0, status.exitstatus, "--qva --quiet, installed, exitstatus")
+        0, status.exitstatus, "--qas --quiet, installed, exitstatus")
       
       # A package that's installed but no longer available should not show up
       # as available
       status = Open4.popen4(
-        "#{RUBY} #{TPKG_EXECUTABLE} --qva " +
+        "#{RUBY} #{TPKG_EXECUTABLE} --qas " +
         "--source #{[pkgfile2,pkgfile3].join(',')} " +
         "--test-root #{testroot}") do |pid, stdin, stdout, stderr|
         stdin.close
         assert_equal(
           [pkgfile2, pkgfile3].collect {
             |p| "#{File.basename(p)} (#{p})"}.join("\n") + "\n",
-          stdout.read, "--qva, installed, stdout")
-        assert_equal('', stderr.read, "--qva, installed, stderr")
+          stdout.read, "--qas, installed, stdout")
+        assert_equal('', stderr.read, "--qas, installed, stderr")
       end
       assert_equal(
-        0, status.exitstatus, "--qva, installed, exitstatus")
+        0, status.exitstatus, "--qas, installed, exitstatus")
       # Same query with --quiet should be quiet
       status = Open4.popen4(
-        "#{RUBY} #{TPKG_EXECUTABLE} --qva " +
+        "#{RUBY} #{TPKG_EXECUTABLE} --qas " +
         "--source #{[pkgfile2,pkgfile3].join(',')} --quiet " +
         "--test-root #{testroot}") do |pid, stdin, stdout, stderr|
         stdin.close
-        assert_equal('', stdout.read, "--qva --quiet, installed, stdout")
-        assert_equal('', stderr.read, "--qva --quiet, installed, stderr")
+        assert_equal('', stdout.read, "--qas --quiet, installed, stdout")
+        assert_equal('', stderr.read, "--qas --quiet, installed, stderr")
       end
       assert_equal(
-        0, status.exitstatus, "--qva --quiet, installed, exitstatus")
+        0, status.exitstatus, "--qas --quiet, installed, exitstatus")
         
       # No available packages should still be reported as such even if
       # packages are installed
       status = Open4.popen4(
-        "#{RUBY} #{TPKG_EXECUTABLE} --qva " +
+        "#{RUBY} #{TPKG_EXECUTABLE} --qas " +
         "--test-root #{testroot}") do |pid, stdin, stdout, stderr|
         stdin.close
         assert_equal(
-          '', stdout.read, "--qva, installed but not available, stdout")
+          '', stdout.read, "--qas, installed but not available, stdout")
         assert_equal(
           "No packages available\n",
-          stderr.read, "--qva, installed but not available, stderr")
+          stderr.read, "--qas, installed but not available, stderr")
       end
       assert_equal(
         1, status.exitstatus,
-        "--qva, installed but not available, exitstatus")
+        "--qas, installed but not available, exitstatus")
       # Same query with --quiet should be quiet
       status = Open4.popen4(
-        "#{RUBY} #{TPKG_EXECUTABLE} --qva --quiet " +
+        "#{RUBY} #{TPKG_EXECUTABLE} --qas --quiet " +
         "--test-root #{testroot}") do |pid, stdin, stdout, stderr|
         stdin.close
         assert_equal(
           '', stdout.read,
-          "--qva --quiet, installed but not available, stdout")
+          "--qas --quiet, installed but not available, stdout")
         assert_equal(
           '', stderr.read,
-          "--qva --quiet, installed but not available, stderr")
+          "--qas --quiet, installed but not available, stderr")
       end
       assert_equal(
         1, status.exitstatus,
-        "--qva --quiet, installed but not available, exitstatus")
+        "--qas --quiet, installed but not available, exitstatus")
     end
   end
   def test_qr

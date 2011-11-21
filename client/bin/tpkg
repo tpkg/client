@@ -253,11 +253,13 @@ opts.on('--qf', '=FILE', 'List the package that owns a file') do |opt|
   @action = :query_who_owns_file
   @action_value = opt
 end
-opts.on('--qv', '=NAME', 'Check if a package is available to install', Array) do |opt|
+# --qv is deprecated
+opts.on('--qs', '--qv', '=NAME', 'Check if a package is available to install', Array) do |opt|
   @action = :query_available
   @action_value = opt
 end
-opts.on('--qva', 'List all available packages') do |opt|
+# --qva is deprecated
+opts.on('--qas', '--qva', 'List all available packages') do |opt|
   @action = :query_available
 end
 opts.on('--qr', '=NAME', 'List installed packages that require package') do |opt|
@@ -735,9 +737,9 @@ when :query_available
   tpkg = instantiate_tpkg
   availpkgs = []
   if @action_value
-    # The --qv switch is set to accept multiple values (the "Array"
-    # parameter in the opts.on line for --qv) so users can do things like
-    # "tpkg --qv foo,bar" to check multiple packages at once.  As such
+    # The --qs switch is set to accept multiple values (the "Array"
+    # parameter in the opts.on line for --qs) so users can do things like
+    # "tpkg --qs foo,bar" to check multiple packages at once.  As such
     # @action_value is an Array for this switch.
     requirements = []
     packages = {}
@@ -746,7 +748,7 @@ when :query_available
       availpkgs.concat(pkgs)
     end
   else
-    # --qva is implemented by setting @action to :query_available and
+    # --qas is implemented by setting @action to :query_available and
     # @action_value to nil
     availpkgs.concat(tpkg.available_packages_that_meet_requirement)
   end

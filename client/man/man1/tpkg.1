@@ -64,9 +64,9 @@
 .IR NAME ]
 .RB [ --qf
 .IR FILE ]
-.RB [ --qv
+.RB [ --qs
 .IR NAME ]
-.RB [ --qva ]
+.RB [ --qas ]
 .RB [ --qr
 .IR NAME ]
 .RB [ --qd
@@ -228,12 +228,12 @@ package or the filename of an uninstalled package.
 .BI --qf " FILE"
 List the package that owns the specified file.
 .TP
-.BI --qv " NAME"
-List available packages that match the specified name and are installable on
-the current machine.
+.BI --qs " NAME"
+List packages on the server that match the specified name and are installable
+on the current machine.
 .TP
-.B --qva
-List all available packages.
+.B --qas
+List all packages on the server.
 .TP
 .BI --qr " NAME"
 List installed packages that depend on the specified package.
