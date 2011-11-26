@@ -164,6 +164,8 @@ class Tpkg
       File.chown(st.uid, st.gid, tmpfile.path)
     rescue Errno::EPERM
       raise if Process.euid == 0
+    rescue Errno::EINVAL
+      raise if RUBY_PLATFORM != 'i386-cygwin'
     end
     tmpfile.write(MAGIC)
     tmpfile.write(salt)
@@ -209,6 +211,8 @@ class Tpkg
       File.chown(st.uid, st.gid, tmpfile.path)
     rescue Errno::EPERM
       raise if Process.euid == 0
+    rescue Errno::EINVAL
+      raise if RUBY_PLATFORM != 'i386-cygwin'
     end
     content = file.read
     tmpfile.write(c.update(content) + c.final) unless content.empty?
@@ -2730,6 +2734,8 @@ class Tpkg
         end
       rescue Errno::EPERM
         raise if Process.euid == 0
+      rescue Errno::EINVAL
+        raise if RUBY_PLATFORM != 'i386-cygwin'
       end
       if File.symlink?(f)
         if default_perms
@@ -2754,7 +2760,13 @@ class Tpkg
       stat = info[:stat]
       file_path = info[:normalized]
       File.chmod(stat.mode, file_path)
-      File.chown(stat.uid, stat.gid, file_path)
+      begin
+        File.chown(stat.uid, stat.gid, file_path)
+      rescue Errno::EPERM
+        raise if Process.euid == 0
+      rescue Errno::EINVAL
+        raise if RUBY_PLATFORM != 'i386-cygwin'
+      end
     end
     
     # Handle any decryption, ownership/permissions, and other issues for specific files
@@ -2791,6 +2803,8 @@ class Tpkg
             end
           rescue Errno::EPERM
             raise if Process.euid == 0
+          rescue Errno::EINVAL
+            raise if RUBY_PLATFORM != 'i386-cygwin'
           end
         end
         if tpkgfile[:posix][:perms]
@@ -3047,6 +3061,8 @@ class Tpkg
         else
           raise e
         end
+      rescue Errno::EINVAL
+        raise if RUBY_PLATFORM != 'i386-cygwin'
       end
       # Insert the contents of the current crontab file
       File.open(destination[:file]) { |file| tmpfile.write(file.read) }
@@ -3139,6 +3155,8 @@ class Tpkg
         else
           raise
         end
+      rescue Errno::EINVAL
+        raise if RUBY_PLATFORM != 'i386-cygwin'
       end
       # Remove section associated with this package
       skip = false
