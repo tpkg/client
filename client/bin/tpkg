@@ -22,7 +22,14 @@ require 'tpkg'
 @debug = false
 @prompt = true
 @quiet = false
-@sudo = true
+@sudo = nil
+# Neither of the common Windows environments for running Ruby have
+# sudo, so turn it off by default on those platforms
+if RUBY_PLATFORM == 'i386-mingw32' || RUBY_PLATFORM == 'i386-cygwin'
+  @sudo = false
+else
+  @sudo = true
+end
 @force = false
 @deploy = false
 @deploy_params = ARGV   # hold parameters for how to invoke tpkg on the machines we're deploying to
@@ -480,11 +487,15 @@ def instantiate_tpkg
       # modified by other users who properly run --no-sudo as a regular user.
       raise "--no-sudo cannot be used as 'root' user or via sudo"
     end
-    baseuid = File.stat(@tpkg_options[:base]).uid
-    # We want to ensure that all --no-sudo usage within a given base directory
-    # is done under the same account.
-    if baseuid != curruid
-      raise "Base dir #{@tpkg_options[:base]} owned by UID #{baseuid}, not your UID #{curruid}"
+    fsroot = @tpkg_options[:file_system_root] ? @tpkg_options[:file_system_root] : ''
+    base = File.join(fsroot, @tpkg_options[:base])
+    if File.exist?(base)
+      baseuid = File.stat(base).uid
+      # We want to ensure that all --no-sudo usage within a given base directory
+      # is done under the same account.
+      if baseuid != curruid
+        raise "Base dir #{@tpkg_options[:base]} owned by UID #{baseuid}, not your UID #{curruid}"
+      end
     end
   end
   
