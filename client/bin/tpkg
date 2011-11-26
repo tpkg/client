@@ -324,7 +324,7 @@ end
 opts.on('--quiet', 'Reduce informative but non-essential output') do |opt|
   @quiet = opt
 end
-opts.on('--no-sudo', 'No calls to sudo for operations that might need root') do |opt|
+opts.on('--[no-]sudo', 'No calls to sudo for operations that might need root') do |opt|
   @sudo = opt
 end
 opts.on('--lock-force', 'Force the removal of an existing lockfile') do |opt|
