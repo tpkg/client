@@ -83,17 +83,33 @@ class Tpkg
         if !ENV['PATH']
           raise "tpkg cannot run because the PATH env variable is not set."
         end
-        ENV['PATH'].split(':').each do |path|
+        ENV['PATH'].split(File::PATH_SEPARATOR).each do |path|
           TARNAMES.each do |tarname|
-            if File.executable?(File.join(path, tarname))
-              IO.popen("#{File.join(path, tarname)} --version 2>/dev/null") do |pipe|
-                pipe.each_line do |line|
+            tarpath = nil
+            if RUBY_PLATFORM == 'i386-mingw32'
+              # Turns out that File.join is fairly pointless, at least as far
+              # as Windows compatibility.  Ruby always uses '/' as the path
+              # separator, even on Windows.  I.e. File::SEPARATOR is '/' on
+              # Windows (yes, really!).  File::ALT_SEPARATOR is '\' but
+              # File.join and its ilk will never use it.  The forward slash
+              # works fine for API-level file operations, Windows will accept
+              # either forward slashes or backslashes at the API level. But
+              # you can't execute a path with forward slashes, apparently due
+              # to some backwards-compatibility thing with cmd.exe. Sigh.
+              tarpath = path + '\\' + tarname + '.exe'
+            else
+              tarpath = File.join(path, tarname)
+            end
+            if File.executable?(tarpath)
+              Open3.popen3("#{tarpath} --version") do |stdin, stdout, stderr|
+                stdin.close
+                stdout.each_line do |line|
                   if line.include?('GNU tar')
                     @@tarinfo[:type] = 'gnu'
-                    @@tar = File.join(path, tarname)
+                    @@tar = tarpath
                   elsif line.include?('bsdtar')
                     @@tarinfo[:type] = 'bsd'
-                    @@tar = File.join(path, tarname)
+                    @@tar = tarpath
                   end
                   if line =~ /(?:(\d+)\.)?(?:(\d+)\.)?(\*|\d+)/
                     @@tarinfo[:version] = [$1, $2, $3].compact.join(".")
