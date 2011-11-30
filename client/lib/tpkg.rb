@@ -2448,6 +2448,7 @@ class Tpkg
       File.chmod(0644, tmpfile.path)
       File.rename(tmpfile.path, localpath)
     rescue
+      # FIXME: should include original exception message to help user debug
       raise "Unable to download and/or verify the package."
     end
 
@@ -4670,6 +4671,8 @@ class Tpkg
     original_dir = Dir.pwd
     
     workdir = Tpkg::tempdir("tpkg_download")
+    # FIXME: should use begin/ensure to make sure we chdir back when done
+    # But I also wonder why we have to chdir at all...
     Dir.chdir(workdir)
     parse_requests(requests, requirements, packages)
     packages = packages.values.flatten
