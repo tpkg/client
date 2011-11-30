@@ -245,29 +245,37 @@ opts.on('--query', '-q', '=NAMES', 'Check if a package is installed', Array) do 
   @action = :query_installed
   @action_value = opt
 end
+# --qv is deprecated
+opts.on('--qs', '--qv', '=NAME', 'Check if a package is available on server', Array) do |opt|
+  @action = :query_available
+  @action_value = opt
+end
 opts.on('--qa', 'List all installed packages') do |opt|
   @action = :query_installed
 end
+# --qva is deprecated
+opts.on('--qas', '--qva', 'List all packages on server') do |opt|
+  @action = :query_available
+end
 opts.on('--qi', '=NAME', 'Display the info for a package') do |opt|
   @action = :query_info
+  @action_value = opt
+end
+opts.on('--qis', '=NAME', 'Display the info for a package on the server') do |opt|
+  @action = :query_info_available
   @action_value = opt
 end
 opts.on('--ql', '=NAME', 'List the files in a package') do |opt|
   @action = :query_list_files
   @action_value = opt
 end
+opts.on('--qls', '=NAME', 'List the files in a package on the server') do |opt|
+  @action = :query_list_files_available
+  @action_value = opt
+end
 opts.on('--qf', '=FILE', 'List the package that owns a file') do |opt|
   @action = :query_who_owns_file
   @action_value = opt
-end
-# --qv is deprecated
-opts.on('--qs', '--qv', '=NAME', 'Check if a package is available to install', Array) do |opt|
-  @action = :query_available
-  @action_value = opt
-end
-# --qva is deprecated
-opts.on('--qas', '--qva', 'List all available packages') do |opt|
-  @action = :query_available
 end
 opts.on('--qr', '=NAME', 'List installed packages that require package') do |opt|
   @action = :query_requires
@@ -277,10 +285,10 @@ opts.on('--qd', '=NAME', 'List the packages on which the given package depends')
   @action = :query_depends
   @action_value = opt
 end
-# opts.on('--qld', '=NAME', 'Similar to --qd, but only look at local packages') do |opt|
-#   @action = :query_local_depends
-#   @action_value = opt
-# end
+opts.on('--qds', '=NAME', 'List pkgs on which given package on server depends') do |opt|
+  @action = :query_depends_available
+  @action_value = opt
+end
 
 opts.on('--dw', '=INTEGER', 'Number of workers for deploying') do |opt|
   @worker_count = opt.to_i
@@ -290,8 +298,12 @@ opts.on('--dw', '=INTEGER', 'Number of workers for deploying') do |opt|
   # won't detect and remove it.
   @deploy_params = @deploy_params - ['--dw', @worker_count, "--dw=#{opt}"]
 end
-opts.on('--qX', '=FILENAME', 'Display tpkg.xml or tpkg.yml of the given package') do |opt|
+opts.on('--qX', '=FILENAME', 'Display raw metadata (tpkg.yml) of the given package') do |opt|
   @action = :query_tpkg_metadata
+  @action_value = opt
+end
+opts.on('--qXs', '=FILENAME', 'Display raw metadata of given package on the server') do |opt|
+  @action = :query_tpkg_metadata_available
   @action_value = opt
 end
 opts.on('--history', 'Display package installation history') do |opt|
@@ -324,7 +336,7 @@ end
 opts.on('--quiet', 'Reduce informative but non-essential output') do |opt|
   @quiet = opt
 end
-opts.on('--[no-]sudo', 'No calls to sudo for operations that might need root') do |opt|
+opts.on('--no-sudo', 'No calls to sudo for operations that might need root') do |opt|
   @sudo = opt
 end
 opts.on('--lock-force', 'Force the removal of an existing lockfile') do |opt|
@@ -689,6 +701,55 @@ when :query_info
     # suppressing this for @quiet
     $stderr.puts "No packages matching '#{@action_value}' installed"
   end
+when :query_info_available
+  tpkg = instantiate_tpkg
+  requirements = []
+  packages = {}
+  tpkg.parse_requests([@action_value], requirements, packages)
+  availpkgs = []
+  packages.each do | name, pkgs |
+    availpkgs.concat(pkgs)
+  end
+  available = availpkgs.select do |pkg|
+    pkg[:source] != :native_installed &&
+    pkg[:source] != :native_available &&
+    pkg[:source] != :currently_installed
+  end
+  if available.empty?
+    ret_val = 1
+    # --qis --quiet doesn't seem like a meaningful combination, so I'm not
+    # suppressing this for @quiet
+    $stderr.puts "No packages matching '#{@action_value}' available"
+  else
+    metadatas = available.collect {|avail| avail[:metadata]}
+    output_strings = []
+    already_displayed = {}
+    metadatas.each do |metadata|
+      next if already_displayed[metadata[:filename]]
+      already_displayed[metadata[:filename]] = true
+      output_string = ''
+      [:name, :version, :package_version, :operatingsystem, :architecture, :maintainer, :description, :bugreporting].each do |field|
+        metadata[field] = 'any' if field == :operatingsystem && metadata[field].nil?
+        metadata[field] = 'any' if field == :architecture && metadata[field].nil?
+        if metadata[field]
+          if metadata[field].kind_of?(Array)
+            output_string << "#{field}: #{metadata[field].join(',')}\n"
+          else
+            output_string << "#{field}: #{metadata[field]}\n"
+          end
+        end
+      end
+      if metadata[:dependencies]
+        output_string << "(This package depends on other packages, use --qd to view the dependencies)\n"
+      end
+      # Older versions of tpkg did not insert a tpkg_version field into the
+      # package metadata when building packages
+      tpkg_version = metadata[:tpkg_version] || "< 1.26.1"
+      output_string << "(This package was built with tpkg version #{tpkg_version})\n"
+      output_strings << output_string
+    end
+    print output_strings.join("================================================================================\n")
+  end
 when :query_list_files
   tpkg = instantiate_tpkg
   requirements = []
@@ -725,6 +786,45 @@ when :query_list_files
       puts "#{pkgfile}:"
       fip[:normalized].each { |file| puts file }
     end
+  end
+when :query_list_files_available
+  tpkg = instantiate_tpkg
+  requirements = []
+  packages = {}
+  tpkg.parse_requests([@action_value], requirements, packages)
+  availpkgs = []
+  packages.each do | name, pkgs |
+    availpkgs.concat(pkgs)
+  end
+  available = availpkgs.select do |pkg|
+    pkg[:source] != :native_installed &&
+    pkg[:source] != :native_available &&
+    pkg[:source] != :currently_installed
+  end
+  if available.empty?
+    ret_val = 1
+    # --qls --quiet doesn't seem like a meaningful combination, so I'm not
+    # suppressing this for @quiet
+    $stderr.puts "No packages matching '#{@action_value}' available"
+  else
+    downloaddir = Tpkg::tempdir('download')
+    available.each do |pkg|
+      # FIXME: I've duplicated from the install and upgrade methods this logic
+      # to calculate pkgfile, it should be encapsulated in a method
+      pkgfile = nil
+      if File.file?(pkg[:source])
+        pkgfile = pkg[:source]
+      elsif File.directory?(pkg[:source])
+        pkgfile = File.join(pkg[:source], pkg[:metadata][:filename])
+      else
+        pkgfile = download(pkg[:source], pkg[:metadata][:filename], downloaddir)
+      end
+      puts "#{pkg[:metadata][:filename]}:"
+      fip = Tpkg.files_in_package(pkgfile)
+      fip[:root].each { |file| puts file }
+      fip[:reloc].each { |file| puts '<relocatable>/' + file }
+    end
+    FileUtils.rm_rf(downloaddir)
   end
 when :query_who_owns_file
   tpkg = instantiate_tpkg
@@ -861,22 +961,6 @@ when :query_requires
   else
     puts "No other package depends on '#{@action_value}'"
   end
-# when :query_local_depends
-#   tpkg = instantiate_tpkg
-#   queryreq = Tpkg::parse_request(@action_value)
-#   instpkgs = tpkg.installed_packages_that_meet_requirement(queryreq)
-#   instpkgs.each do | pkg |
-#     puts pkg[:metadata][:filename] + ':'
-#     if pkg[:metadata][:dependencies]
-#       pkg[:metadata][:dependencies].each do |req|
-#         puts "  Requires #{req[:name]}"
-#         req.each do |field, value|
-#           next if field == :name
-#           puts "    #{field}: #{value}"
-#          end
-#        end
-#     end
-#   end
 when :query_depends
   tpkg = instantiate_tpkg
   
@@ -927,6 +1011,61 @@ when :query_depends
       puts "Package '#{@action_value}' does not depend on other packages"
     end
   end
+when :query_depends_available
+  tpkg = instantiate_tpkg
+  requirements = []
+  packages = {}
+  tpkg.parse_requests([@action_value], requirements, packages)
+  availpkgs = []
+  packages.each do | name, pkgs |
+    availpkgs.concat(pkgs)
+  end
+  available = availpkgs.select do |pkg|
+    pkg[:source] != :native_installed &&
+    pkg[:source] != :native_available &&
+    pkg[:source] != :currently_installed
+  end
+  
+  if available.empty?
+    ret_val = 1
+    # --qds --quiet doesn't seem like a meaningful combination, so I'm not
+    # suppressing this for @quiet
+    $stderr.puts "No packages matching '#{@action_value}' available"
+  else
+    depends = {}
+    available.each do |pkg|
+      if pkg[:metadata][:dependencies]
+        pkgfilename = pkg[:metadata][:filename]
+        if !depends[pkgfilename]
+          depends[pkgfilename] = []
+        end
+        pkg[:metadata][:dependencies].each do |req|
+          depends[pkgfilename] << req
+        end
+      end
+    end
+    
+    if !depends.empty?
+      outputs = []
+      depends.keys.sort.each do |pkgfilename|
+        output = "Package #{pkgfilename} depends on:\n"
+        # uniq probably isn't necessary, but it can't hurt
+        outs = []
+        depends[pkgfilename].sort{|a,b| a[:name]<=>b[:name]}.uniq.each do |req|
+          out = "  name: #{req[:name]}\n"
+          req.each do |field, value|
+            next if field == 'name'
+            out << "  #{field}: #{value}\n"
+          end
+          outs << out
+        end
+        outputs << output + outs.join("\n")
+      end
+      print outputs.join("\n")
+    else
+      puts "Package '#{@action_value}' does not depend on other packages"
+    end
+  end
 when :query_tpkg_metadata
   tpkg = instantiate_tpkg
   requirements = []
@@ -951,6 +1090,43 @@ when :query_tpkg_metadata
         puts Tpkg::extract_tpkg_metadata_file(pkgfile)
       end
     end
+  end
+when :query_tpkg_metadata_available
+  tpkg = instantiate_tpkg
+  requirements = []
+  packages = {}
+  tpkg.parse_requests([@action_value], requirements, packages)
+  availpkgs = []
+  packages.each do | name, pkgs |
+    availpkgs.concat(pkgs)
+  end
+  available = availpkgs.select do |pkg|
+    pkg[:source] != :native_installed &&
+    pkg[:source] != :native_available &&
+    pkg[:source] != :currently_installed
+  end
+  
+  if available.empty?
+    ret_val = 1
+    # --qXs --quiet doesn't seem like a meaningful combination, so I'm not
+    # suppressing this for @quiet
+    $stderr.puts "No packages matching '#{@action_value}' available"
+  else
+    downloaddir = Tpkg::tempdir('download')
+    available.each do |pkg|
+      # FIXME: I've duplicated from the install and upgrade methods this logic
+      # to calculate pkgfile, it should be encapsulated in a method
+      pkgfile = nil
+      if File.file?(pkg[:source])
+        pkgfile = pkg[:source]
+      elsif File.directory?(pkg[:source])
+        pkgfile = File.join(pkg[:source], pkg[:metadata][:filename])
+      else
+        pkgfile = download(pkg[:source], pkg[:metadata][:filename], downloaddir)
+      end
+      puts Tpkg::extract_tpkg_metadata_file(pkgfile)
+    end
+    FileUtils.rm_rf(downloaddir)
   end
 when :query_env
   puts "Operating System: #{Tpkg::get_os}"

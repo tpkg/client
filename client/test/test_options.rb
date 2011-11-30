@@ -204,7 +204,7 @@ class TpkgOptionTests < Test::Unit::TestCase
       
       # FIXME: test when multiple versions of same package are installed
       
-      # Install a package and try again
+      # Install packages and try again
       tpkg = Tpkg.new(
         :file_system_root => testroot,
         :sources => [@pkgfile, pkgfile2, pkgfile3])
@@ -251,6 +251,201 @@ class TpkgOptionTests < Test::Unit::TestCase
         assert_match(/This package depends on other packages/,
           stdout.read, '--qi package with dependencies')
         assert_equal("", stderr.read, "--qi package with dependencies, stderr")
+      end
+    end
+  end
+  def test_qis
+    metadata = Tpkg::metadata_from_package(@pkgfile)
+    
+    Dir.mktmpdir('testroot') do |testroot|
+      # Make up more packages to install so we give --qis a fair test.
+      pkgfile2 = make_package(
+        :change => {
+          'name' => 'qispkg',
+          # Note spaces between commas here for just a bit of extra testing.
+          # See below when we match this out of the --qis output for further
+          # explanation
+          'operatingsystem' => "RedHat, CentOS, #{Tpkg::get_os}, FreeBSD, Solaris",
+          'architecture' => Facter['hardwaremodel'].value},
+        :output_directory => File.join(testroot, 'tmp'))
+      metadata2 = Tpkg::metadata_from_package(pkgfile2)
+      pkgfile3 = make_package(
+        :change => {'name' => 'qisdepspkg'},
+        :dependencies => {'qispkg' => {}},
+        :remove => ['operatingsystem', 'architecture'],
+        :output_directory => File.join(testroot, 'tmp'))
+      metadata3 = Tpkg::metadata_from_package(pkgfile3)
+      
+      # Query a package that is not available, should get nothing
+      [File.basename(@pkgfile), metadata[:name]].each do |query|
+        status = Open4.popen4(
+          "#{RUBY} #{TPKG_EXECUTABLE} --qis #{query} " +
+          "--test-root #{testroot}") do |pid, stdin, stdout, stderr|
+          stdin.close
+          assert_equal(
+            "", stdout.read,
+            "--qis #{query}, not available or installed, stdout")
+          assert_equal(
+            "No packages matching '#{query}' available\n", stderr.read,
+            "--qis #{query}, not available or installed, stderr")
+        end
+        assert_equal(
+          1, status.exitstatus,
+          "--qis #{query}, not available or installed, exitstatus")
+      end
+      
+      # Query packages that are available but not installed, should get data
+      [File.basename(@pkgfile), metadata[:name]].each do |query|
+        status = Open4.popen4(
+          "#{RUBY} #{TPKG_EXECUTABLE} --qis #{query} " +
+          "--source #{[@pkgfile,pkgfile2,pkgfile3].join(',')} " +
+          "--test-root #{testroot}") do |pid, stdin, stdout, stderr|
+          stdin.close
+          output = stdout.read
+          [:name, :version, :package_version,
+           :maintainer, :description, :bugreporting].each do |field|
+            assert_match(
+              /^#{field}: #{metadata[field]}$/, output,
+              "--qis #{query}, #{field}, available, not installed, stdout")
+          end
+          [:operatingsystem, :architecture].each do |field|
+            assert_match(
+              /^#{field}: any$/, output,
+              "--qis #{query}, #{field}, available, not installed, stdout")
+          end
+          assert_equal(
+            "", stderr.read,
+            "--qis #{query}, available, not installed, stderr")
+        end
+        assert_equal(
+          0, status.exitstatus,
+          "--qis #{query}, available, not installed, exitstatus")
+      end
+      {@pkgfile => metadata, pkgfile2 => metadata2}.each do |pfile, mdata|
+        [File.basename(pfile), mdata[:name]].each do |query|
+          status = Open4.popen4(
+            "#{RUBY} #{TPKG_EXECUTABLE} --qis #{query} " +
+            "--source #{[@pkgfile,pkgfile2,pkgfile3].join(',')} " +
+            "--test-root #{testroot}") do |pid, stdin, stdout, stderr|
+            stdin.close
+            output = stdout.read
+            [:name, :version, :package_version,
+             :maintainer, :description, :bugreporting].each do |field|
+              assert_match(
+                /^#{field}: #{mdata[field]}$/, output,
+                "--qis #{query}, #{field}, available, not installed")
+            end
+            if mdata[:name] == metadata[:name]
+              assert_match(/^operatingsystem: any$/, output,
+                "--qis #{query}, operatingsystem, available, not installed")
+              assert_match(/^architecture: any$/, output,
+                "--qis #{query}, architecture, available, not installed")
+            else  # qispkg
+              # Note that there are no spaces between the commas here, even
+              # though we used spaces between the commas when creating the
+              # package.  tpkg splits on commas into an array when parsing the
+              # metadata, and the tpkg executable joins the array members back
+              # together with a comma but no spaces when displaying --qi
+              assert_match(
+                /^operatingsystem: RedHat,CentOS,#{Tpkg::get_os},FreeBSD,Solaris$/,
+                output, "--qis #{query}, operatingsystem, installed")
+              assert_match(
+                /^architecture: #{Facter['hardwaremodel'].value}$/,
+                output, "--qis #{query}, architecture, installed")
+            end
+            assert_no_match(
+              /This package depends on other packages/, output,
+              '--qis package without dependencies')
+            assert_equal(
+              "", stderr.read,
+              "--qis package without dependencies, stderr")
+          end
+          assert_equal(
+            0, status.exitstatus,
+            "--qis #{query}, available, not installed, exitstatus")
+        end
+      end
+      status = Open4.popen4(
+        "#{RUBY} #{TPKG_EXECUTABLE} --qis #{File.basename(pkgfile3)} " +
+        "--source #{[@pkgfile,pkgfile2,pkgfile3].join(',')} " +
+        "--test-root #{testroot}") do |pid, stdin, stdout, stderr|
+        stdin.close
+        assert_match(
+          /This package depends on other packages/, stdout.read,
+          '--qis package with dependencies')
+        assert_equal(
+          "", stderr.read,
+          "--qis package with dependencies, stderr")
+      end
+      
+      # Install packages and try again
+      tpkg = Tpkg.new(
+        :file_system_root => testroot,
+        :sources => [@pkgfile, pkgfile2, pkgfile3])
+      tpkg.install([@pkgfile, pkgfile2, pkgfile3], PASSPHRASE)
+      
+      # TPKG_HOME ends up set in our environment due to use of the tpkg
+      # library
+      ENV.delete('TPKG_HOME')
+      
+      # Query a package that is installed but not available, should get
+      # nothing
+      [File.basename(@pkgfile), metadata[:name]].each do |query|
+        status = Open4.popen4(
+          "#{RUBY} #{TPKG_EXECUTABLE} --qis #{query} " +
+          "--test-root #{testroot}") do |pid, stdin, stdout, stderr|
+          stdin.close
+          assert_equal(
+            "", stdout.read,
+            "--qis #{query}, installed, not available, stdout")
+          assert_equal(
+            "No packages matching '#{query}' available\n", stderr.read,
+            "--qis #{query}, installed, not available, stderr")
+        end
+        assert_equal(
+          1, status.exitstatus,
+          "--qis #{query}, installed, not available, exitstatus")
+      end
+      
+      # Query a package that is installed and available, should get the data
+      # for the available package
+      # pkgfile2 and pkgfile4 have the same name but other differences
+      pkgfile4 = make_package(
+        :change => {
+          'name' => 'qispkg',
+          'version' => '42',
+          # Note spaces between commas here for just a bit of extra testing.
+          # See below when we match this out of the --qis output for further
+          # explanation
+          'operatingsystem' => "RedHat, CentOS, #{Tpkg::get_os}",
+          'architecture' => "#{Facter['hardwaremodel'].value}, bogusarch"},
+        :output_directory => File.join(testroot, 'tmp'))
+      metadata4 = Tpkg::metadata_from_package(pkgfile4)
+      [metadata2[:name]].each do |query|
+        status = Open4.popen4(
+          "#{RUBY} #{TPKG_EXECUTABLE} --qis #{query} " +
+          "--source #{[@pkgfile,pkgfile3,pkgfile4].join(',')} " +
+          "--test-root #{testroot}") do |pid, stdin, stdout, stderr|
+          stdin.close
+          output = stdout.read
+          assert_match(
+            /^version: #{metadata4['version']}$/, output,
+            "--qis #{query}, version, available and installed, stdout")
+          assert_match(
+            /^operatingsystem: RedHat,CentOS,#{Tpkg::get_os}$/,
+            output,
+            "--qis #{query}, operatingsystem, available and installed, stdout")
+          assert_match(
+            /^architecture: #{Facter['hardwaremodel'].value},bogusarch$/,
+            output,
+            "--qis #{query}, architecture, available and installed, stdout")
+          assert_equal(
+            "", stderr.read,
+            "--qis #{query}, available and installed, stderr")
+        end
+        assert_equal(
+          0, status.exitstatus,
+          "--qis #{query}, available and installed, exitstatus")
       end
     end
   end
@@ -322,6 +517,127 @@ class TpkgOptionTests < Test::Unit::TestCase
       end
     end
   end
+  def test_qls
+    metadata = Tpkg::metadata_from_package(@pkgfile)
+    
+    Dir.mktmpdir('testroot') do |testroot|
+      pkgfile2 = make_package(
+        :change => {'name' => 'qlspkg'},
+        :remove => ['operatingsystem', 'architecture'],
+        :output_directory => File.join(testroot, 'tmp'))
+      metadata2 = Tpkg::metadata_from_package(pkgfile2)
+      
+      # Query a package that is not available, should get nothing
+      [File.basename(@pkgfile), metadata[:name]].each do |query|
+        status = Open4.popen4(
+          "#{RUBY} #{TPKG_EXECUTABLE} --qls #{query} " +
+          "--test-root #{testroot}") do |pid, stdin, stdout, stderr|
+          stdin.close
+          assert_equal(
+            "", stdout.read,
+            "--qls #{query}, not available or installed, stdout")
+          assert_equal(
+            "No packages matching '#{query}' available\n", stderr.read,
+            "--qls #{query}, not available or installed, stderr")
+        end
+        assert_equal(
+          1, status.exitstatus,
+          "--qls #{query}, not available or installed, exitstatus")
+      end
+      
+      # Query package that is available but not installed, should get data
+      [File.basename(@pkgfile), metadata[:name]].each do |query|
+        status = Open4.popen4(
+          "#{RUBY} #{TPKG_EXECUTABLE} --qls #{query} " +
+          "--source #{[@pkgfile,pkgfile2].join(',')} " +
+          "--test-root #{testroot}") do |pid, stdin, stdout, stderr|
+          stdin.close
+          output = stdout.read
+          # Output should start with the filename
+          assert_match(/\A#{File.basename(@pkgfile)}:$/, output, "--qls #{@pkgfile}, available, not installed, header")
+          # And then the files, one per file
+          oldpwd = Dir.pwd
+          Dir.chdir(File.join(TESTPKGDIR, 'reloc'))
+          Dir.glob('*').each do |testpkgfile|
+            assert_match(/^<relocatable>\/#{testpkgfile}$/,
+              output, "--qls #{@pkgfile}, #{testpkgfile}, available, not installed")
+          end
+          Dir.chdir(oldpwd)
+          assert_equal(
+            "", stderr.read,
+            "--qls #{query}, available, not installed, stderr")
+        end
+        assert_equal(
+          0, status.exitstatus,
+          "--qls #{query}, available, not installed, exitstatus")
+      end
+      
+      # Install packages and try again
+      tpkg = Tpkg.new(
+        :file_system_root => testroot,
+        :sources => [@pkgfile, pkgfile2])
+      tpkg.install([@pkgfile, pkgfile2], PASSPHRASE)
+      
+      # TPKG_HOME ends up set in our environment due to use of the tpkg
+      # library
+      ENV.delete('TPKG_HOME')
+      
+      # Query a package that is installed but not available, should get
+      # nothing
+      [File.basename(@pkgfile), metadata[:name]].each do |query|
+        status = Open4.popen4(
+          "#{RUBY} #{TPKG_EXECUTABLE} --qls #{query} " +
+          "--test-root #{testroot}") do |pid, stdin, stdout, stderr|
+          stdin.close
+          assert_equal(
+            "", stdout.read,
+            "--qls #{query}, installed, not available, stdout")
+          assert_equal(
+            "No packages matching '#{query}' available\n", stderr.read,
+            "--qls #{query}, installed, not available, stderr")
+        end
+        assert_equal(
+          1, status.exitstatus,
+          "--qls #{query}, installed, not available, exitstatus")
+      end
+      
+      # Query a package that is installed and available, should get the data
+      # for the available package
+      # pkgfile2 and pkgfile4 have the same name but other differences
+      pkgfile4 = nil
+      Dir.mktmpdir('pkg4') do |pkg4src|
+        FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(pkg4src, 'tpkg.xml'))
+        Dir.mkdir(File.join(pkg4src, 'reloc'))
+        File.open(File.join(pkg4src, 'reloc', 'pkg4file'), 'w') {}
+        pkgfile4 = make_package(
+          :change => {
+            'name' => 'qlspkg',
+            'version' => '42'},
+          :remove => ['operatingsystem', 'architecture'],
+          :source_directory => pkg4src,
+          :output_directory => File.join(testroot, 'tmp'))
+      end
+      metadata4 = Tpkg::metadata_from_package(pkgfile4)
+      [metadata2[:name]].each do |query|
+        status = Open4.popen4(
+          "#{RUBY} #{TPKG_EXECUTABLE} --qls #{query} " +
+          "--source #{[@pkgfile,pkgfile4].join(',')} " +
+          "--test-root #{testroot}") do |pid, stdin, stdout, stderr|
+          stdin.close
+          output = stdout.read
+          assert_equal(
+            "#{File.basename(pkgfile4)}:\n<relocatable>/pkg4file\n", output,
+            "--qls #{query}, available and installed, stdout")
+          assert_equal(
+            "", stderr.read,
+            "--qls #{query}, available and installed, stderr")
+        end
+        assert_equal(
+          0, status.exitstatus,
+          "--qls #{query}, available and installed, exitstatus")
+      end
+    end
+  end
   def test_qf
     Dir.mktmpdir('testroot') do |testroot|
       # Query with no package installed
@@ -353,6 +669,86 @@ class TpkgOptionTests < Test::Unit::TestCase
       assert_equal(0, status.exitstatus, "--qf, installed, exitstatus")
     end
   end
+  # I've shelved the --qfs option for now because we don't currently keep a
+  # record of the files in the packages on the server.  I.e. metadata.yml
+  # doesn't have a complete list of files.  So implementing --qfs today would
+  # require downloading all of the packages.
+  # def test_qfs
+  #   # FIXME: ways to improve this:
+  #   # - Multiple packages available with the queried file
+  #   # - Some available packages don't contain the queried file (need to make a package with no files)
+  #   # - For the "Installed and available" case make the installed and available packages different to make sure that we're getting the data for the available package instead of the installed package
+  #   
+  #   Dir.mktmpdir('testroot') do |testroot|
+  #     # Neither available nor installed
+  #     queryfile = File.join(testroot, Tpkg::DEFAULT_BASE, 'file')
+  #     status = Open4.popen4(
+  #       "#{RUBY} #{TPKG_EXECUTABLE} --qfs #{queryfile} " +
+  #       "--test-root #{testroot}") do |pid, stdin, stdout, stderr|
+  #       stdin.close
+  #       assert_equal(
+  #         "", stdout.read, "--qfs, not available, not installed, stdout")
+  #       assert_equal("No package on server owns file '#{queryfile}'\n",
+  #         stderr.read, "--qfs, not available, not installed, stderr")
+  #     end
+  #     assert_equal(
+  #       1, status.exitstatus,
+  #       "--qfs, not available, not installed, exitstatus")
+  #     
+  #     # Available but not installed
+  #     status = Open4.popen4(
+  #       "#{RUBY} #{TPKG_EXECUTABLE} --qfs #{queryfile} " +
+  #       "--source #{@pkgfile} " +
+  #       "--test-root #{testroot}") do |pid, stdin, stdout, stderr|
+  #       stdin.close
+  #       assert_equal(
+  #         "#{queryfile}: #{File.basename(@pkgfile)}\n", stdout.read,
+  #         "--qfs, available, not installed, stdout")
+  #       assert_equal(
+  #         "", stderr.read, "--qfs, available, not installed, stderr")
+  #     end
+  #     assert_equal(
+  #       0, status.exitstatus, "--qfs, available, not installed, exitstatus")
+  #     
+  #     # Install a package and try again
+  #     tpkg = Tpkg.new(
+  #       :file_system_root => testroot,
+  #       :sources => [@pkgfile])
+  #     tpkg.install([@pkgfile], PASSPHRASE)
+  #     
+  #     # TPKG_HOME ends up set in our environment due to use of the tpkg library
+  #     ENV.delete('TPKG_HOME')
+  #     
+  #     # Installed and available
+  #     status = Open4.popen4(
+  #       "#{RUBY} #{TPKG_EXECUTABLE} --qfs #{queryfile} " +
+  #       "--source #{@pkgfile} " +
+  #       "--test-root #{testroot}") do |pid, stdin, stdout, stderr|
+  #       stdin.close
+  #       assert_equal(
+  #         "#{queryfile}: #{File.basename(@pkgfile)}\n", stdout.read,
+  #         "--qfs, installed and available, stdout")
+  #       assert_equal(
+  #         "", stderr.read, "--qfs, installed and available, stderr")
+  #     end
+  #     assert_equal(0, status.exitstatus, "--qfs, installed, exitstatus")
+  #     
+  #     # Installed but not available
+  #     queryfile = File.join(testroot, Tpkg::DEFAULT_BASE, 'file')
+  #     status = Open4.popen4(
+  #       "#{RUBY} #{TPKG_EXECUTABLE} --qfs #{queryfile} " +
+  #       "--test-root #{testroot}") do |pid, stdin, stdout, stderr|
+  #       stdin.close
+  #       assert_equal(
+  #         "", stdout.read, "--qfs, not available, installed, stdout")
+  #       assert_equal("No package on server owns file '#{queryfile}'\n",
+  #         stderr.read, "--qfs, not available, installed, stderr")
+  #     end
+  #     assert_equal(
+  #       1, status.exitstatus,
+  #       "--qfs, not available, installed, exitstatus")
+  #   end
+  # end
   def test_qs
     metadata = Tpkg::metadata_from_package(@pkgfile)
     
@@ -800,7 +1196,6 @@ class TpkgOptionTests < Test::Unit::TestCase
       # This package has some dependencies
       status = Open4.popen4("#{RUBY} #{TPKG_EXECUTABLE} --qd #{pkgfile3} --test-root #{testroot}") do |pid, stdin, stdout, stderr|
         stdin.close
-        # Output should start with the filename
         assert_equal("Package #{File.basename(pkgfile3)} depends on:\n" +
           "  name: qdslavepkg\n  type: tpkg\n\n" +
           "  name: #{metadata[:name]}\n  type: tpkg\n",
@@ -842,8 +1237,146 @@ class TpkgOptionTests < Test::Unit::TestCase
       end
     end
   end
-  # def test_qld
-  # end
+  def test_qds
+    # FIXME: ways to improve this:
+    # - Multiple packages available matching package name
+    #   - Some available packages have dependencies, some done
+    # - For the "Installed and available" case make the installed and available packages different to make sure that we're getting the data for the available package instead of the installed package
+    metadata = Tpkg::metadata_from_package(@pkgfile)
+    
+    Dir.mktmpdir('testroot') do |testroot|
+      pkgfile2 = make_package(
+        :change => {'name' => 'qdsslavepkg'},
+        :remove => ['operatingsystem', 'architecture'],
+        :output_directory => File.join(testroot, 'tmp'))
+      metadata2 = Tpkg::metadata_from_package(pkgfile2)
+      pkgfile3 = make_package(
+        :change => {'name' => 'qdsdepspkg'},
+        :dependencies => {metadata[:name] => {}, 'qdsslavepkg' => {:minimum_version => '1'}},
+        :remove => ['operatingsystem', 'architecture'],
+        :output_directory => File.join(testroot, 'tmp'))
+      metadata3 = Tpkg::metadata_from_package(pkgfile3)
+      
+      # Not available, not installed
+      [File.basename(@pkgfile), metadata[:name]].each do |query|
+        status = Open4.popen4(
+          "#{RUBY} #{TPKG_EXECUTABLE} --qds #{query} " +
+          "--test-root #{testroot}") do |pid, stdin, stdout, stderr|
+          stdin.close
+          assert_equal(
+            "", stdout.read,
+            "--qds #{query}, not available, not installed, stdout")
+          assert_equal(
+            "No packages matching '#{query}' available\n", stderr.read,
+            "--qds #{query}, not available, not installed, stderr")
+        end
+        assert_equal(
+          1, status.exitstatus,
+          "--qds #{query}, not available, not installed, exitstatus")
+      end
+      
+      # Available, not installed
+      # This package has no dependencies
+      [File.basename(@pkgfile), metadata[:name]].each do |query|
+        status = Open4.popen4(
+          "#{RUBY} #{TPKG_EXECUTABLE} --qds #{query} " +
+          "--source=#{[@pkgfile,pkgfile2,pkgfile3].join(',')} " +
+          "--test-root #{testroot}") do |pid, stdin, stdout, stderr|
+          stdin.close
+          assert_equal(
+            "Package '#{query}' does not depend on other packages\n",
+            stdout.read, "--qds #{query}, available, not installed, stdout")
+          assert_equal(
+            "", stderr.read,
+            "--qds #{query}, available, not installed, stderr")
+        end
+        assert_equal(
+          0, status.exitstatus,
+          "--qds #{query}, available, not installed, exitstatus")
+      end
+      # This package has some dependencies
+      [File.basename(pkgfile3), metadata3[:name]].each do |query|
+        status = Open4.popen4(
+          "#{RUBY} #{TPKG_EXECUTABLE} --qds #{query} " +
+          "--source=#{[@pkgfile,pkgfile2,pkgfile3].join(',')} " +
+          "--test-root #{testroot}") do |pid, stdin, stdout, stderr|
+          stdin.close
+          assert_equal("Package #{File.basename(pkgfile3)} depends on:\n" +
+            "  name: qdsslavepkg\n  type: tpkg\n\n" +
+            "  name: #{metadata[:name]}\n  type: tpkg\n",
+            stdout.read, "--qds #{query}, available, not installed, stdout")
+          assert_equal(
+            "", stderr.read,
+            "--qds #{query}, available, not installed, stderr")
+        end
+        assert_equal(
+          0, status.exitstatus,
+          "--qds #{query}, available, not installed, exitstatus")
+      end
+      
+      # Install packages and try again
+      tpkg = Tpkg.new(
+        :file_system_root => testroot,
+        :sources => [@pkgfile, pkgfile2, pkgfile3])
+      tpkg.install([@pkgfile, pkgfile2, pkgfile3], PASSPHRASE)
+      
+      # TPKG_HOME ends up set in our environment due to use of the tpkg library
+      ENV.delete('TPKG_HOME')
+      
+      # Installed and available
+      [File.basename(@pkgfile), metadata[:name]].each do |query|
+        status = Open4.popen4(
+          "#{RUBY} #{TPKG_EXECUTABLE} --qds #{query} " +
+          "--source=#{[@pkgfile,pkgfile2,pkgfile3].join(',')} " +
+          "--test-root #{testroot}") do |pid, stdin, stdout, stderr|
+          stdin.close
+          assert_equal(
+            "Package '#{query}' does not depend on other packages\n",
+            stdout.read, "--qds #{query}, available, installed, stdout")
+          assert_equal(
+            "", stderr.read, "--qds #{query}, available, installed, stderr")
+        end
+        assert_equal(
+          0, status.exitstatus,
+          "--qds #{query}, available, installed, exitstatus")
+      end
+      [File.basename(pkgfile3), metadata3[:name]].each do |query|
+        status = Open4.popen4(
+          "#{RUBY} #{TPKG_EXECUTABLE} --qds #{query} " +
+          "--source=#{[@pkgfile,pkgfile2,pkgfile3].join(',')} " +
+          "--test-root #{testroot}") do |pid, stdin, stdout, stderr|
+          stdin.close
+          assert_equal("Package #{File.basename(pkgfile3)} depends on:\n" +
+            "  name: qdsslavepkg\n  type: tpkg\n\n" +
+            "  name: #{metadata[:name]}\n  type: tpkg\n",
+            stdout.read, "--qds #{query}, available, installed, stdout")
+          assert_equal(
+            "", stderr.read, "--qds #{query}, available, installed, stderr")
+        end
+        assert_equal(
+          0, status.exitstatus,
+          "--qds #{query}, available, installed, exitstatus")
+      end
+      
+      # Not available but installed
+      [File.basename(@pkgfile), metadata[:name]].each do |query|
+        status = Open4.popen4(
+          "#{RUBY} #{TPKG_EXECUTABLE} --qds #{query} " +
+          "--test-root #{testroot}") do |pid, stdin, stdout, stderr|
+          stdin.close
+          assert_equal(
+            "", stdout.read,
+            "--qds #{query}, not available, installed, stdout")
+          assert_equal(
+            "No packages matching '#{query}' available\n", stderr.read,
+            "--qds #{query}, not available, installed, stderr")
+        end
+        assert_equal(
+          1, status.exitstatus,
+          "--qds #{query}, not available, installed, exitstatus")
+      end
+    end
+  end
   def test_qX
     metadata = Tpkg::metadata_from_package(@pkgfile)
     
@@ -884,6 +1417,87 @@ class TpkgOptionTests < Test::Unit::TestCase
           assert_equal("", stderr.read, "--qX #{query}, installed, stderr")
         end
         assert_equal(0, status.exitstatus, "--qX #{query}, installed, exitstatus")
+      end
+    end
+  end
+  def test_qXs
+    # FIXME: ways to improve this:
+    # - Multiple packages available matching package name
+    # - For the "Installed and available" case make the installed and available packages different to make sure that we're getting the data for the available package instead of the installed package
+    metadata = Tpkg::metadata_from_package(@pkgfile)
+    
+    Dir.mktmpdir('testroot') do |testroot|
+      # Not available, not installed
+      [File.basename(@pkgfile), metadata[:name]].each do |query|
+        status = Open4.popen4(
+          "#{RUBY} #{TPKG_EXECUTABLE} --qXs #{query} " +
+          "--test-root #{testroot}") do |pid, stdin, stdout, stderr|
+          stdin.close
+          assert_equal("", stdout.read,
+            "--qXs #{query}, not available, not installed, stdout")
+          assert_equal(
+            "No packages matching '#{query}' available\n", stderr.read,
+            "--qXs #{query}, not available, not installed, stderr")
+        end
+        assert_equal(1, status.exitstatus,
+          "--qXs #{query}, not available, not installed, exitstatus")
+      end
+      
+      # Available, not installed
+      [File.basename(@pkgfile), metadata[:name]].each do |query|
+        status = Open4.popen4(
+          "#{RUBY} #{TPKG_EXECUTABLE} --qXs #{query} " +
+          "--source #{@pkgfile} " +
+          "--test-root #{testroot}") do |pid, stdin, stdout, stderr|
+          stdin.close
+          assert_equal(metadata.text, stdout.read,
+            "--qXs #{query}, available, not installed, stdout")
+          assert_equal("", stderr.read,
+            "--qXs #{query}, available, not installed, stderr")
+        end
+        assert_equal(0, status.exitstatus,
+          "--qXs #{query}, available, not installed, exitstatus")
+      end
+      
+      # Install package and try again
+      tpkg = Tpkg.new(
+        :file_system_root => testroot,
+        :sources => [@pkgfile])
+      tpkg.install([@pkgfile], PASSPHRASE)
+      
+      # TPKG_HOME ends up set in our environment due to use of the tpkg library
+      ENV.delete('TPKG_HOME')
+      
+      # Installed and available
+      [File.basename(@pkgfile), metadata[:name]].each do |query|
+        status = Open4.popen4(
+          "#{RUBY} #{TPKG_EXECUTABLE} --qXs #{query} " +
+          "--source #{@pkgfile} " +
+          "--test-root #{testroot}") do |pid, stdin, stdout, stderr|
+          stdin.close
+          assert_equal(metadata.text, stdout.read,
+            "--qXs #{query}, installed and available, stdout")
+          assert_equal("", stderr.read,
+            "--qXs #{query}, installed and available, stderr")
+        end
+        assert_equal(0, status.exitstatus,
+          "--qXs #{query}, installed and available, exitstatus")
+      end
+      
+      # Installed, not available
+      [File.basename(@pkgfile), metadata[:name]].each do |query|
+        status = Open4.popen4(
+          "#{RUBY} #{TPKG_EXECUTABLE} --qXs #{query} " +
+          "--test-root #{testroot}") do |pid, stdin, stdout, stderr|
+          stdin.close
+          assert_equal("", stdout.read,
+            "--qXs #{query}, not available, installed, stdout")
+          assert_equal(
+            "No packages matching '#{query}' available\n", stderr.read,
+            "--qXs #{query}, not available, installed, stderr")
+        end
+        assert_equal(1, status.exitstatus,
+          "--qXs #{query}, not available, installed, exitstatus")
       end
     end
   end
