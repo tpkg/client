@@ -1701,6 +1701,7 @@ class TpkgOptionTests < Test::Unit::TestCase
   
   def teardown
     FileUtils.rm_rf(@testroot)
+    FileUtils.rm_f(@pkgfile)
   end
 end
 
