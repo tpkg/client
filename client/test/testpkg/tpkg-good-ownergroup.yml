@@ -9,7 +9,7 @@ bugreporting: Bugreporting info
 files:
   file_defaults:
     posix:
-      owner: root
+      owner: 0
       group: 0
       perms: 0444
   files:

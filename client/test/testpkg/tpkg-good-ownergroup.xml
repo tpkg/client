@@ -12,7 +12,7 @@
   <files>
     <file_defaults>
       <posix>
-        <owner>root</owner>
+        <owner>0</owner>
         <group>0</group>
         <perms>0444</perms>      
       </posix>
