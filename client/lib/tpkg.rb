@@ -456,22 +456,12 @@ class Tpkg
     # blocks) and see if tar succeeds in listing a file.
     1.upto(10) do |numblocks|
       tarblocks = File.read(package_file, 512*numblocks)
-      # Open3.popen3("#{find_tar} -tf - #{@@taroptions}") do |stdin, stdout, stderr|
-      #   stdin.write(tarblocks)
-      #   stdin.close
-      #   toplevel = stdout.read
-      # end
-      # Unfortunately popen3 doesn't provide a mechanism for determining the
-      # success or failure of the command until ruby 1.9.  ($? is never
-      # accurately set for popen3, the mechanism in ruby 1.9 for getting the
-      # exit status for popen3 is unique to popen3.)  So we're left with this,
-      # which it rather Unix-specific.
-      IO.popen("#{find_tar} -tf - #{@@taroptions} 2> /dev/null", 'r+') do |pipe|
-        pipe.write(tarblocks)
-        pipe.close_write
-        toplevel = pipe.read
+      Open3.popen3("#{find_tar} -tf - #{@@taroptions}") do |stdin, stdout, stderr|
+        stdin.write(tarblocks)
+        stdin.close
+        toplevel = stdout.read
       end
-      if $?.success?
+      if !toplevel.empty?
         break
       else
         toplevel = nil
