@@ -448,7 +448,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
     FileUtils.rm_f(pkgfile)
 
     # Package with operatingsystem and arch specified as regex
-    pkgfile = make_package(:output_directory => @tempoutdir, :change => {'operatingsystem' => 'RedHat|CentOS|Fedora|Debian|Ubuntu|Solaris|FreeBSD|Darwin',  'architecture' => "i386|x86_64|#{Facter['hardwaremodel'].value}|sparc|powerpc"})
+    pkgfile = make_package(:output_directory => @tempoutdir, :change => {'operatingsystem' => "RedHat|CentOS|Fedora|#{Tpkg::get_os}|Debian|Ubuntu|Solaris|FreeBSD|Darwin",  'architecture' => "i386|x86_64|#{Facter['hardwaremodel'].value}|sparc|powerpc"})
     metadata = Tpkg::metadata_from_package(pkgfile)
     pkg = { :metadata => metadata, :source => pkgfile }
     assert(Tpkg::package_meets_requirement?(pkg, req))
