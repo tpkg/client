@@ -13,11 +13,8 @@ class TpkgMiscTests < Test::Unit::TestCase
   def setup
     Tpkg::set_prompt(false)
     
-    @tempoutdir = Dir.mktmpdir("tempoutdir")
     # Make up our regular test package
-    @pkgfile = make_package(:output_directory => @tempoutdir)
-    
-    @testroot = Dir.mktmpdir("testroot")
+    @pkgfile = make_package()
   end
   
   def test_package_toplevel_directory
@@ -31,24 +28,26 @@ class TpkgMiscTests < Test::Unit::TestCase
     1.upto(240) do
       longpkgname << 'a'
     end
-    Dir.mktmpdir('longtoplevel') do |longtoplevel|
-      # It seems like most common filesystems limit filenames to 255
-      # characters. Anything over 100 characters should force tar to use one
-      # of the extended formats that needs more than 1 block.
-      # The top level directory will end up being pkgname-version so stop a
-      # few characters short of 255 to leave room for the version
-      File.open(File.join(longtoplevel, 'tpkg.yml'), 'w') do |tpkgyml|
-        yaml = <<YAML
+    Dir.mktmpdir('workdir') do |workdir|
+      Dir.mktmpdir('longtoplevel') do |longtoplevel|
+        # It seems like most common filesystems limit filenames to 255
+        # characters. Anything over 100 characters should force tar to use one
+        # of the extended formats that needs more than 1 block.
+        # The top level directory will end up being pkgname-version so stop a
+        # few characters short of 255 to leave room for the version
+        File.open(File.join(longtoplevel, 'tpkg.yml'), 'w') do |tpkgyml|
+          yaml = <<YAML
 name: #{longpkgname}
 version: 1
 maintainer: me
 description: me@example.com
 YAML
-        tpkgyml.write(yaml)
+          tpkgyml.write(yaml)
+        end
+        longpkg = Tpkg.make_package(longtoplevel, nil, :out => workdir)
       end
-      longpkg = Tpkg.make_package(longtoplevel, nil, :out => @tempoutdir)
+      assert_equal("#{longpkgname}-1", Tpkg::package_toplevel_directory(longpkg))
     end
-    assert_equal("#{longpkgname}-1", Tpkg::package_toplevel_directory(longpkg))
     
     # Verify that it fails in the expected way on something that isn't a tarball
     boguspkg = Tempfile.new('boguspkg')
@@ -112,11 +111,12 @@ YAML
       
       # This is necessary to ensure that any SSL configuration in /etc/tpkg
       # doesn't throw us off
-      tpkg = Tpkg.new(:file_system_root => @testroot)
-      
-      assert_kind_of(Net::HTTP, tpkg.gethttp(URI.parse('http://localhost:3500/pkgs')))
-      assert_kind_of(Net::HTTP, tpkg.gethttp(URI.parse('https://localhost:3501/pkgs')))
-      
+      Dir.mktmpdir('testroot') do |testroot|
+        tpkg = Tpkg.new(:file_system_root => testroot)
+        assert_kind_of(Net::HTTP, tpkg.gethttp(URI.parse('http://localhost:3500/pkgs')))
+        assert_kind_of(Net::HTTP, tpkg.gethttp(URI.parse('https://localhost:3501/pkgs')))
+      end
+
       http_server.shutdown
       t1.kill
       https_server.shutdown
@@ -167,12 +167,11 @@ YAML
   end
   
   def test_conflicting_files
-    Dir.mktmpdir('testbase') do |testbase|
-      FileUtils.mkdir_p(File.join(testbase, 'home', 'tpkg'))
-      tpkg = Tpkg.new(:file_system_root => testbase, :base => File.join('home', 'tpkg'))
+    Dir.mktmpdir('testroot') do |testroot|
+      tpkg = Tpkg.new(:file_system_root => testroot)
       
-      pkg1 = make_package(:output_directory => @tempoutdir, :change => { 'version' => '2.0' }, :remove => ['operatingsystem', 'architecture'])
-      pkg2 = make_package(:output_directory => @tempoutdir, :change => { 'version' => '3.0' }, :remove => ['operatingsystem', 'architecture'])
+      pkg1 = make_package(:change => { 'version' => '2.0' }, :remove => ['operatingsystem', 'architecture'], :output_directory => File.join(testroot, 'tmp'))
+      pkg2 = make_package(:change => { 'version' => '3.0' }, :remove => ['operatingsystem', 'architecture'], :output_directory => File.join(testroot, 'tmp'))
       # The check for conflicting files shouldn't complain when nothing
       # else is installed
       conflicts = tpkg.conflicting_files(pkg1)
@@ -190,10 +189,10 @@ YAML
       # also raise an error.
       rootpkg = nil
       Dir.mktmpdir('srcdir') do |srcdir|
-        FileUtils.mkdir_p(File.join(srcdir, 'root', 'home', 'tpkg'))
+        FileUtils.mkdir_p(File.join(srcdir, 'root', Tpkg::DEFAULT_BASE))
         FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
-        FileUtils.cp(File.join(TESTPKGDIR, 'reloc', 'file'), File.join(srcdir, 'root', 'home', 'tpkg'))
-        rootpkg = make_package(:output_directory => @tempoutdir, :change => { 'version' => '4.0' }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture'])
+        FileUtils.cp(File.join(TESTPKGDIR, 'reloc', 'file'), File.join(srcdir, 'root', Tpkg::DEFAULT_BASE))
+        rootpkg = make_package(:change => { 'version' => '4.0' }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture'], :output_directory => File.join(testroot, 'tmp'))
       end
       conflicts = tpkg.conflicting_files(rootpkg)
       assert(!conflicts.empty?)
@@ -202,9 +201,8 @@ YAML
   end
 
   def test_predict_file_permissions_and_ownership
-    Dir.mktmpdir('testbase') do |testbase|
-      FileUtils.mkdir_p(File.join(testbase, 'home', 'tpkg'))
-      tpkg = Tpkg.new(:file_system_root => testbase, :base => File.join('home', 'tpkg'))
+    Dir.mktmpdir('testroot') do |testroot|
+      tpkg = Tpkg.new(:file_system_root => testroot)
       
       Dir.mktmpdir('srcdir') do |srcdir|
         FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
@@ -219,49 +217,49 @@ YAML
         # TODO: change ownership
         # no file_defaults settings, no file posix defined, then use whatever the current 
         # perms and ownership of the file
-        pkg1 = make_package(:output_directory => @tempoutdir, :source_directory => srcdir, :change => { 'name' => 'pkg1' }, :remove => ['operatingsystem', 'architecture'])
+        pkg1 = make_package(:source_directory => srcdir, :change => { 'name' => 'pkg1' }, :remove => ['operatingsystem', 'architecture'], :output_directory => File.join(testroot, 'tmp'))
         metadata = Tpkg::metadata_from_package(pkg1)
         data = {:actual_file => File.join(srcdir, 'reloc', 'myfile')}
         predicted_perms, predicted_uid, predicted_gid = Tpkg::predict_file_perms_and_ownership(data)
         tpkg.install([pkg1])
-        assert_equal(predicted_perms.to_i, File.stat(File.join(testbase, 'home', 'tpkg', 'myfile')).mode & predicted_perms.to_i)
+        assert_equal(predicted_perms.to_i, File.stat(File.join(testroot, Tpkg::DEFAULT_BASE, 'myfile')).mode & predicted_perms.to_i)
         # Can't test these because unit test are not run as sudo. The default file ownership wont be correct
-        # assert(File.stat(File.join(testbase, 'home', 'tpkg', 'myfile')).uid, predicted_uid)
-        # assert(File.stat(File.join(testbase, 'home', 'tpkg', 'myfile')).gid, predicted_gid)
+        # assert(File.stat(File.join(testroot, 'home', 'tpkg', 'myfile')).uid, predicted_uid)
+        # assert(File.stat(File.join(testroot, 'home', 'tpkg', 'myfile')).gid, predicted_gid)
         tpkg.remove(['pkg1'])
         
         # if metadata has file_defaults settings and nothing else, then use that
-        pkg2 = make_package(:output_directory => @tempoutdir, :source_directory => srcdir, :change => { 'name' => 'pkg2' }, :file_defaults => { 'perms' => '0654', 'owner' => Etc.getlogin, 'group' => Etc.getpwnam(Etc.getlogin).gid}, :remove => ['operatingsystem', 'architecture'])
+        pkg2 = make_package(:source_directory => srcdir, :change => { 'name' => 'pkg2' }, :file_defaults => { 'perms' => '0654', 'owner' => Etc.getlogin, 'group' => Etc.getpwnam(Etc.getlogin).gid}, :remove => ['operatingsystem', 'architecture'], :output_directory => File.join(testroot, 'tmp'))
         metadata = Tpkg::metadata_from_package(pkg2)
         data = {:actual_file => File.join(srcdir, 'reloc', 'myfile'), :metadata => metadata}
         predicted_perms, predicted_uid, predicted_gid = Tpkg::predict_file_perms_and_ownership(data)
         tpkg.install([pkg2])
-        assert_equal(File.stat(File.join(testbase, 'home', 'tpkg', 'myfile')).mode & predicted_perms.to_i, predicted_perms.to_i)
-        assert_equal(File.stat(File.join(testbase, 'home', 'tpkg', 'myfile')).uid, predicted_uid)
-        assert_equal(File.stat(File.join(testbase, 'home', 'tpkg', 'myfile')).gid, predicted_gid)
+        assert_equal(File.stat(File.join(testroot, Tpkg::DEFAULT_BASE, 'myfile')).mode & predicted_perms.to_i, predicted_perms.to_i)
+        assert_equal(File.stat(File.join(testroot, Tpkg::DEFAULT_BASE, 'myfile')).uid, predicted_uid)
+        assert_equal(File.stat(File.join(testroot, Tpkg::DEFAULT_BASE, 'myfile')).gid, predicted_gid)
         tpkg.remove(['pkg2'])
         
         # if metadata has the file perms & ownership explicitly defined, then that override everything
-        pkg3 = make_package(:output_directory => @tempoutdir, :source_directory => srcdir, :change => { 'name' => 'pkg3' }, :file_defaults => { 'perms' => '0654', 'owner' => Etc.getlogin, 'group' => Etc.getpwnam(Etc.getlogin).gid}, :files => { 'myfile' => {'perms' => '0733'}}, :remove => ['operatingsystem', 'architecture'])
+        pkg3 = make_package(:source_directory => srcdir, :change => { 'name' => 'pkg3' }, :file_defaults => { 'perms' => '0654', 'owner' => Etc.getlogin, 'group' => Etc.getpwnam(Etc.getlogin).gid}, :files => { 'myfile' => {'perms' => '0733'}}, :remove => ['operatingsystem', 'architecture'], :output_directory => File.join(testroot, 'tmp'))
         metadata = Tpkg::metadata_from_package(pkg3)
         file_metadata = {:posix => { :perms => 0733}}
         data = {:actual_file => File.join(srcdir, 'reloc', 'myfile'), :metadata => metadata, :file_metadata => file_metadata}
         predicted_perms, predicted_uid, predicted_gid = Tpkg::predict_file_perms_and_ownership(data)
         tpkg.install([pkg3])
-        assert_equal(File.stat(File.join(testbase, 'home', 'tpkg', 'myfile')).mode & predicted_perms.to_i, predicted_perms.to_i)
-        assert_equal(File.stat(File.join(testbase, 'home', 'tpkg', 'myfile')).uid, predicted_uid)
-        assert_equal(File.stat(File.join(testbase, 'home', 'tpkg', 'myfile')).gid, predicted_gid)
+        assert_equal(File.stat(File.join(testroot, Tpkg::DEFAULT_BASE, 'myfile')).mode & predicted_perms.to_i, predicted_perms.to_i)
+        assert_equal(File.stat(File.join(testroot, Tpkg::DEFAULT_BASE, 'myfile')).uid, predicted_uid)
+        assert_equal(File.stat(File.join(testroot, Tpkg::DEFAULT_BASE, 'myfile')).gid, predicted_gid)
         tpkg.remove(['pkg3'])
       end
     end
   end
 
   def test_prompt_for_conflicting_files
-    # Not quite sure how to test this method
+    # FIXME: Not quite sure how to test this method
   end
 
   def test_prompt_for_install
-    # Not quite sure how to test this method
+    # FIXME: Not quite sure how to test this method
   end
 
   def test_valid_pkg_filename
@@ -370,7 +368,5 @@ YAML
   
   def teardown
     FileUtils.rm_f(@pkgfile)
-    FileUtils.rm_rf(@testroot)
-    FileUtils.rm_rf(@tempoutdir)
   end
 end
