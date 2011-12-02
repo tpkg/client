@@ -724,6 +724,13 @@ class Tpkg
         # Extract 7 from 7.1-RELEASE, for example
         fbver = Facter['operatingsystemrelease'].value
         osver = fbver.split('.').first
+      elsif Facter['operatingsystem'] &&
+            Facter['operatingsystem'].value == 'windows'
+        # Extract 6.1 from 6.1.7601, for example
+        # That seems like the right level to split at
+        # based on http://en.wikipedia.org/wiki/Ver_(command)
+        winver = Facter['operatingsystemrelease'].value
+        osver = winver.split('.')[0,2].join('.')
       elsif Facter['operatingsystemrelease'] &&
             Facter['operatingsystemrelease'].value &&
             !Facter['operatingsystemrelease'].value.empty?
