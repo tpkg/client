@@ -556,9 +556,9 @@ EOF
         destination = d
       end
       
-      # crontab_destinations returns an empty list on platforms where tpkg
+      # destination will be empty on platforms where tpkg
       # doesn't have crontab support
-      if crontab
+      if !destination.empty?
         dest = destination[:link] || destination[:file]
         
         # Running as non-root, permissions issues prevent file removal, warning

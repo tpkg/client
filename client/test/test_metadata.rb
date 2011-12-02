@@ -412,7 +412,13 @@ class TpkgMetadataTests < Test::Unit::TestCase
         # Not quite sure how to verify that the file or link is valid
         # without reproducing all of the code of crontab_destinations
         # here.
-        assert(destination.has_key?(:file) || destination.has_key?(:link))
+        # FIXME: should confirm that a warning about lack of crontab
+        # support on this platform was emitted on stderr if destination
+        # is empty.
+        assert(
+          destination.has_key?(:file) ||
+          destination.has_key?(:link) ||
+          destination.empty?)
       end
     end
     FileUtils.rm_f(pkg)
