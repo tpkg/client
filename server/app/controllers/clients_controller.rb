@@ -1,5 +1,5 @@
 class ClientsController < ApplicationController
-  before_filter :login_required
+  before_filter :login_required unless AppConfig.authentication_method == 'noauth'
 
   # list out the clients
   def index

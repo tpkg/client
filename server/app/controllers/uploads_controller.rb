@@ -1,5 +1,5 @@
 class UploadsController < ApplicationController
-  before_filter :login_required, :except => :swfupload
+  before_filter :login_required, :except => :swfupload unless AppConfig.authentication_method == 'noauth'
 
   # FIXME: Pass sessions through to allow cross-site forgery protection
   protect_from_forgery :except => [:swfupload, :create]

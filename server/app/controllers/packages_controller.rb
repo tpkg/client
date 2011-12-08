@@ -1,7 +1,7 @@
 require 'rexml/document'
 
 class PackagesController < ApplicationController
-  before_filter :login_required
+  before_filter :login_required unless AppConfig.authentication_method == 'noauth'
 #  skip_before_filter :verify_authenticity_token
 
   def index
