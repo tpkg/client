@@ -1131,6 +1131,7 @@ when :query_tpkg_metadata_available
 when :query_env
   puts "Operating System: #{Tpkg::get_os}"
   puts "Architecture: #{Tpkg::get_arch}"
+  puts "Tar: #{Tpkg::find_tar}"
 when :query_conf
   # This is somewhat arbitrarily limited to the options read from the
   # tpkg.conf config files.  The reason it exists at all is that it is

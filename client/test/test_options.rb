@@ -1512,6 +1512,7 @@ class TpkgOptionTests < Test::Unit::TestCase
     # Make sure the expected lines are there
     assert(output.any? {|line| line.include?('Operating System:')})
     assert(output.any? {|line| line.include?('Architecture:')})
+    assert(output.any? {|line| line.include?('Tar:')})
   end
   
   def test_qconf
