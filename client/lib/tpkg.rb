@@ -19,23 +19,24 @@ Silently.silently do
     require 'facter'
   end
   require 'digest/sha2'    # Digest::SHA256#hexdigest, etc.
-  require 'uri'            # URI
+  require 'etc'            # Etc.getpwnam, getgrnam
+  require 'fileutils'      # FileUtils.cp, rm, etc.
+  require 'find'           # Find
   require 'net/http'       # Net::HTTP
   require 'net/https'      # Net::HTTP#use_ssl, etc.
-  require 'time'           # Time#httpdate
-  require 'rexml/document' # REXML::Document
-  require 'fileutils'      # FileUtils.cp, rm, etc.
-  require 'tempfile'       # Tempfile
-  require 'find'           # Find
-  require 'etc'            # Etc.getpwnam, getgrnam
   require 'openssl'        # OpenSSL
   require 'open3'          # Open3
   require 'set'            # Enumerable#to_set
+  require 'rexml/document' # REXML::Document
+  require 'stringio'       # StringIO
+  require 'tempfile'       # Tempfile
+  require 'time'           # Time#httpdate
+  require 'uri'            # URI
   require 'yaml'           # YAML
 end
-require 'tpkg/versiontype' # Version
 require 'tpkg/deployer'
 require 'tpkg/metadata'
+require 'tpkg/versiontype' # Version
 
 OpenSSLCipherError = OpenSSL::Cipher.const_defined?(:CipherError) ? OpenSSL::Cipher::CipherError : OpenSSL::CipherError
 
@@ -96,11 +97,18 @@ class Tpkg
               # either forward slashes or backslashes at the API level. But
               # you can't execute a path with forward slashes, apparently due
               # to some backwards-compatibility thing with cmd.exe. Sigh.
-              tarpath = path + '\\' + tarname + '.exe'
+              tarpath = path.gsub('/', '\\') + '\\' + tarname + '.exe'
             else
               tarpath = File.join(path, tarname)
             end
             if File.executable?(tarpath)
+              # Particularly on Windows it is possible that the path contains
+              # spaces.  I.e. C:\Program Files (x86)\GnuWin32\bin\bsdtar.exe
+              # It looks like that needs to be wrapped in quotes to execute
+              # properly.
+              if tarpath.include?(' ')
+                tarpath = '"' + tarpath + '"'
+              end
               Open3.popen3("#{tarpath} --version") do |stdin, stdout, stderr|
                 stdin.close
                 stdout.each_line do |line|
@@ -120,7 +128,6 @@ class Tpkg
             end
           end
         end
-        # Raise an exception if we didn't find a suitable tar
         raise "Unable to find GNU tar or bsdtar in PATH"
       end
     end

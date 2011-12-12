@@ -1,5 +1,3 @@
-
-
 #
 # Test tpkg's basic tar functionality
 #
@@ -27,9 +25,9 @@ class TpkgTarTests < Test::Unit::TestCase
     assert(good_tar, 'find_tar returns GNU tar or bsdtar')    
     
     # Muck with ENV['PATH'] and verify that find_tar throws an exception
-    Tpkg.clear_cached_tar
     oldpath = ENV['PATH']
     ENV['PATH'] = Tempfile.new('tpkgtest').path
+    Tpkg.clear_cached_tar
     assert_raise(RuntimeError, 'find tar with bogus path') { Tpkg::find_tar }
     ENV['PATH'] = oldpath
 
@@ -38,6 +36,35 @@ class TpkgTarTests < Test::Unit::TestCase
     goodtar = tar.dup
     tar << 'junk'
     assert_equal(goodtar, Tpkg::find_tar)
+
+    # Verify that the returned path is wrapped in quotes if it contains spaces
+    testdirtmp = Tempfile.new('tpkgtest')
+    testdir = testdirtmp.path
+    testdirtmp.close
+    File.unlink(testdir)
+    testsubdir = File.join(testdir, 'a b')
+    FileUtils.mkdir_p(testsubdir)
+    Tpkg.clear_cached_tar
+    tar = Tpkg::find_tar
+    tar.sub!(/^"/, '')
+    tar.sub!(/"$/, '')
+    FileUtils.cp(tar, testsubdir)
+    if File.basename(tar) == 'bsdtar.exe'
+      # Dir.glob and Windows-style paths with \ seem incompatible, even with
+      # File::FNM_NOESCAPE
+      tardir = File.dirname(tar).gsub('\\', '/')
+      Dir.glob(File.join(tardir, '*.dll')).each do |dll|
+        FileUtils.cp(dll, testsubdir)
+      end
+    end
+    Tpkg.clear_cached_tar
+    oldpath = ENV['PATH']
+    ENV['PATH'] = testsubdir
+    assert_equal(
+      '"' + testsubdir.gsub('/', '\\') + '\\' + File.basename(tar) + '"',
+      Tpkg::find_tar)
+    FileUtils.rm_rf(testdir)
+    ENV['PATH'] = oldpath
   end
   
   def test_clear_cached_tar
@@ -52,6 +79,12 @@ class TpkgTarTests < Test::Unit::TestCase
       Tpkg::clear_cached_tar
       ENV['PATH'] = oldpath
     end
+  end
+
+  def cleanup
+    # Given the tests in this file this seems like a good idea so that we
+    # don't leave things in a weird state
+    Tpkg.clear_cached_tar
   end
 end
 
