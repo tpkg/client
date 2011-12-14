@@ -5,7 +5,7 @@ PortSystem          1.0
 PortGroup           ruby 1.0
 
 name                tpkg
-version             2.2.4
+version             2.3.0
 categories          sysutils
 maintainers         aput.net:jheiss openmaintainer 
 supported_archs     noarch
@@ -24,8 +24,8 @@ platforms           darwin
 
 master_sites        sourceforge
 
-checksums           sha1    da37d99db812a4f78659e35c147211562cb272f1 \
-                    rmd160  23feb47fb9ca88724a3f88d35e512962fdbbffdc
+checksums           sha1    96e8f5b197fc9ca52f114ea4494212172bbc94c1 \
+                    rmd160  7bf0f106332794edd66d7577246d8b8085285fc2
 
 depends_build       port:rb-rake
 depends_run         port:facter
