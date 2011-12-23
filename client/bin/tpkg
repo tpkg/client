@@ -52,9 +52,9 @@ def rerun_with_sudo_if_necessary
     # environment.  As such we set the base as a command line option to ensure
     # it survives the sudo process.
     if ENV['TPKG_HOME']
-      exec('sudo', $0, '--base', ENV['TPKG_HOME'], *ARGV)
+      exec('sudo', '-H', $0, '--base', ENV['TPKG_HOME'], *ARGV)
     else
-      exec('sudo', $0, *ARGV)
+      exec('sudo', '-H', $0, *ARGV)
     end
   end
 end
