@@ -23,13 +23,6 @@ require 'tpkg'
 @prompt = true
 @quiet = false
 @sudo = nil
-# Neither of the common Windows environments for running Ruby have
-# sudo, so turn it off by default on those platforms
-if RUBY_PLATFORM == 'i386-mingw32' || RUBY_PLATFORM == 'i386-cygwin'
-  @sudo = false
-else
-  @sudo = true
-end
 @force = false
 @deploy = false
 @deploy_params = ARGV   # hold parameters for how to invoke tpkg on the machines we're deploying to
@@ -92,6 +85,20 @@ def parse_config_files
         elsif key == 'host_group_script'
           settings[:host_group_script] = value
           puts "Loaded host group script #{value} from #{configfile}" if @debug
+        elsif key == 'sudo'
+          sudoval = nil
+          # My kingdom for a String#to_boolean
+          if value == 'true'
+            sudoval = true
+          elsif value == 'false'
+            sudoval = false
+          else
+            puts "Unrecognized value #{value} for sudo setting in #{configfile}, ignoring"
+          end
+          if !sudoval.nil?
+            settings[:sudo] = sudoval
+            puts "Loaded sudo #{value} from #{configfile}" if @debug
+          end
         end
       end
     end
@@ -484,11 +491,23 @@ def instantiate_tpkg
   
   # Sources can come from the command line and config files.  We use the
   # combined set of sources.
-  @sources.concat(settings[:sources])
+  @sources.concat(settings[:sources]).uniq!
   @tpkg_options[:sources] = @sources
   
   @tpkg_options[:report_server] = settings[:report_server]
-  @tpkg_options[:sudo] = @sudo
+  # sudo can come from three possible places.  They take precedence in this
+  # order:
+  # - command line option
+  # - config file
+  # - Tpkg.sudo_default? method defined in tpkg.rb
+  case
+  when !@sudo.nil?
+    @tpkg_options[:sudo] = @sudo
+  when @tpkg_options.has_key?(:sudo)
+    @sudo = @tpkg_options[:sudo]
+  else
+    @sudo = @tpkg_options[:sudo] = Tpkg.sudo_default?
+  end
   @tpkg_options[:force] = @force
   
   if !@sudo
