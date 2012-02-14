@@ -11,13 +11,13 @@ then
         # Save folks from having to build separate packages for Red Hat and
         # CentOS
         OSMAJOR=`echo $OS | cut -d- -f2`
-        OS="RedHat-$OSMAJOR,CentOS-$OSMAJOR"
+        OS="RedHat-$OSMAJOR, CentOS-$OSMAJOR"
 fi
 ARCH=`tpkg --qenv | grep 'Architecture' | awk '{print $NF}'`
 
 if echo $OS | egrep 'RedHat|CentOS'
 then
-	for rpm in cmake ncurses-devel openssl-devel; do
+	for rpm in cmake gcc-c++ ncurses-devel openssl-devel; do
 		rpm --quiet -q $rpm || sudo yum install $rpm
 	done
 fi
