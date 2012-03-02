@@ -17,13 +17,13 @@ ARCH=`tpkg --qenv | grep 'Architecture' | awk '{print $NF}'`
 
 if echo $OS | egrep 'RedHat|CentOS'
 then
-	for rpm in openssl-devel readline-devel bison
+	for rpm in readline-devel bison
 	do
 		rpm --quiet -q $rpm || sudo yum install $rpm
 	done
 fi
 
-for tpkg in tcl
+for tpkg in tcl openssl
 do
 	tpkg --quiet -q $tpkg || tpkg -i $tpkg
 done
