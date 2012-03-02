@@ -1,6 +1,6 @@
 name: NAME
-version: VERSION
-package_version: PKGVER
+version: "VERSION"
+package_version: "PKGVER"
 maintainer: tpkg-users@lists.sourceforge.net
 operatingsystem: [OS]
 architecture: [ARCH]
