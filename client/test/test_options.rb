@@ -1695,7 +1695,7 @@ class TpkgOptionTests < Test::Unit::TestCase
         # tpkg should have bailed with an error
         assert_not_equal(0, $?.exitstatus)
         # And not created anything in the output directory
-        assert(2, Dir.entries(outdir).length)
+        assert_equal(2, Dir.entries(outdir).length)
       end
     end
   end
