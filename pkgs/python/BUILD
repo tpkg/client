@@ -14,17 +14,9 @@ then
 fi
 ARCH=`tpkg --qenv | grep 'Architecture' | awk '{print $NF}'`
 
-if echo $OS | egrep 'RedHat|CentOS'
-then
-	# There are some modules that will silently not get built if bzip
-	# and gdbm are not installed.  There are probably other similar
-	# modules, those are just two I've stumbled across so far where
-	# other programs needed python to have those modules.
-	for rpm in gcc bzip2-devel gdbm-devel
-	do
-		rpm --quiet -q $rpm || sudo yum install $rpm
-	done
-fi
+for tpkg in bzip2 gdbm; do
+	tpkg --quiet -q $tpkg || tpkg -i $tpkg
+done
 
 for ver in 2.7.2 3.2.2
 do
@@ -44,9 +36,7 @@ do
 	cat <<EOF >> $pkgdir/tpkg.yml
 dependencies:
 - name: bzip2
-  native: true
 - name: gdbm
-  native: true
 EOF
 	# Install
 	mkdir $pkgdir/root
