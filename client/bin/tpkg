@@ -514,8 +514,8 @@ end
 case
 when !@sudo.nil?
   @tpkg_options[:sudo] = @sudo
-when @tpkg_options.has_key?(:sudo)
-  @sudo = @tpkg_options[:sudo]
+when settings.has_key?(:sudo)
+  @sudo = @tpkg_options[:sudo] = settings[:sudo]
 else
   @sudo = @tpkg_options[:sudo] = Tpkg.sudo_default?
 end
