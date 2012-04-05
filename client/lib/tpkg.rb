@@ -749,7 +749,18 @@ class Tpkg
     end
     @@os.dup
   end
-
+  
+  # Should sudo be on by default?
+  def self.sudo_default?
+    # Neither of the common Windows environments for running Ruby have
+    # sudo, so turn it off by default on those platforms
+    if RUBY_PLATFORM == 'i386-mingw32' || RUBY_PLATFORM == 'i386-cygwin'
+      false
+    else
+      true
+    end
+  end
+  
   # Given an array of pkgs. Determine if any of those package
   # satisfy the requirement specified by req
   def self.packages_meet_requirement?(pkgs, req)
@@ -1356,7 +1367,7 @@ class Tpkg
     if options.has_key?(:force)
       @force = options[:force]
     end
-    @sudo = true
+    @sudo = Tpkg.sudo_default?
     if options.has_key?(:sudo)
       @sudo = options[:sudo]
     end

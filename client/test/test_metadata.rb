@@ -605,7 +605,7 @@ YAML
       # tpkg.yml contains the right stuff?
       filelines = File.readlines(File.join(outputdir, 'tpkg.yml'))
       filelines.each {|line| line.chomp!}
-      assert(filelines.include?('--- '))
+      assert(filelines.include?('--- ') || filelines.include?('---'))
       assert(filelines.include?('name: pkgone'))
       assert(filelines.include?('version: 1'))
       assert(filelines.include?('maintainer: test@example.com'))
@@ -634,9 +634,9 @@ XML
       # The xml to yaml conversion yields slightly different but semantically
       # equivalent results to a direct dump of yaml
       filelines.delete('')
-      assert(filelines.include?('--- '))
+      assert(filelines.include?('--- ') || filelines.include?('---'))
       assert(filelines.include?('name: pkgone'))
-      assert(filelines.include?('version: "1"'))
+      assert(filelines.include?('version: "1"') || filelines.include?("version: '1'"))
       assert(filelines.include?('maintainer: test@example.com'))
       assert(filelines.include?('description: Package one'))
       assert(filelines.include?('files: {}'))

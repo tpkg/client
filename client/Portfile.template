@@ -9,6 +9,7 @@ version             %VER%
 categories          sysutils
 maintainers         aput.net:jheiss openmaintainer 
 supported_archs     noarch
+license             MIT
 
 description         Tpkg is an application packaging and deployment tool.
 
@@ -22,10 +23,10 @@ long_description    Tpkg is a cross-platform tool for packaging and \
 homepage            http://tpkg.sourceforge.net/
 platforms           darwin
 
-master_sites        sourceforge
+master_sites        sourceforge:project/tpkg/tpkg/${version}
 
-checksums           sha1    %SHA1% \
-                    rmd160  %RMD160%
+checksums           rmd160  %RMD160% \
+                    sha256  %SHA256%
 
 depends_build       port:rb-rake
 depends_run         port:facter
