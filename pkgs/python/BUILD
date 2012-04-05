@@ -3,7 +3,7 @@
 set -e
 
 PKG=python
-PKGVER=1
+PKGVER=2
 OS=`tpkg --qenv | grep 'Operating System' | awk '{print $NF}'`
 if echo $OS | egrep 'RedHat|CentOS'
 then
