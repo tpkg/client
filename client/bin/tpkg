@@ -655,7 +655,7 @@ when :query_installed
       # command-line syntax like "tpkg -q foo || tpkg -i foo" to ensure
       # that a package is installed.
       ret_val = 1
-      $stderr.puts "No packages matching '#{@action_value}' installed" if !@quiet
+      $stderr.puts "No packages matching '#{@action_value.join(',')}' installed" if !@quiet
     else
       packages.each do | name, pkgs |
         matches.concat(pkgs)
@@ -903,7 +903,7 @@ when :query_available
     ret_val = 1
     if !@quiet
       if @action_value
-        $stderr.puts "No packages matching '#{@action_value}' available"
+        $stderr.puts "No packages matching '#{@action_value.join(',')}' available"
       else
         $stderr.puts "No packages available"
       end
