@@ -282,7 +282,8 @@ Display tpkg's configuration settings.
 .TP
 .BI --base " BASE"
 Base directory for tpkg operations.  Command line option overrides the
-TPKG_HOME environment variable and config files.
+TPKG_HOME environment variable and config files.  The base directory must be a
+fully qualified path.
 .TP
 .BI --source " SOURCE"
 Specify additional sources where packages are located.
@@ -363,7 +364,8 @@ The home directory file overrides settings in the system-wide file.
 .RS 8
 .TP
 .BI "base = " BASE
-Set a different base other than /opt/tpkg
+Set a different base other than /opt/tpkg.  The base directory must be a fully
+qualified path.
 .TP
 .BI "source = " SOURCE
 A URL or directory to use as a source of packages.  May be specified more than
@@ -380,6 +382,11 @@ operations will be reported to the server.
 The filename for a script which takes one or more host group names as
 arguments and outputs the names of the hosts in those groups one per line on
 stdout.  Used with the --group option.
+.TP
+.BI "sudo = " true/false
+Should
+.B tpkg
+use sudo when performing package management operations?
 .RE
 .TP
 .B /etc/tpkg/ca.pem

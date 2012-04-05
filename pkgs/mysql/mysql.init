@@ -7,7 +7,7 @@ case "$1" in
 	if [ ! -d /opt/tpkg/mysql/var/mysql ]
 	then
 		echo "Initializing MySQL database with mysql_install_db"
-		/opt/tpkg/mysql/bin/mysql_install_db --user=mysql
+		/opt/tpkg/mysql/scripts/mysql_install_db --user=mysql --basedir=/opt/tpkg/mysql
 		# mysql_install_db sets restrictive permissions on the
 		# top level directory by default, but we put the socket
 		# file (mysql.sock) into that directory and thus need

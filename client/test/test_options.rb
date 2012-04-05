@@ -1533,7 +1533,7 @@ class TpkgOptionTests < Test::Unit::TestCase
     error = nil
     # The File.join(blah) is roughly equivalent to '../bin/tpkg'
     parentdir = File.dirname(File.dirname(__FILE__))
-    Open3.popen3("#{RUBY} -I #{File.join(parentdir, 'lib')} #{File.join(parentdir, 'bin', 'tpkg')} -s shell.sourceforge.net --use-ssh-key no_such_file --no-sudo --version") do |stdin, stdout, stderr|
+    Open3.popen3("#{RUBY} -I #{File.join(parentdir, 'lib')} #{File.join(parentdir, 'bin', 'tpkg')} -s shell.sourceforge.net --use-ssh-key no_such_file --no-sudo --version --test-root #{@testroot}") do |stdin, stdout, stderr|
       stdin.close
       error = stderr.readlines
     end
@@ -1545,7 +1545,7 @@ class TpkgOptionTests < Test::Unit::TestCase
     error = nil
     # The File.join(blah) is roughly equivalent to '../bin/tpkg'
     parentdir = File.dirname(File.dirname(__FILE__))
-    Open3.popen3("#{RUBY} -I #{File.join(parentdir, 'lib')} #{File.join(parentdir, 'bin', 'tpkg')} -s shell.sourceforge.net --use-ssh-key --version") do |stdin, stdout, stderr|
+    Open3.popen3("#{RUBY} -I #{File.join(parentdir, 'lib')} #{File.join(parentdir, 'bin', 'tpkg')} -s shell.sourceforge.net --use-ssh-key --version --test-root #{@testroot}") do |stdin, stdout, stderr|
       stdin.close
       output = stdout.readlines
       error = stderr.readlines
@@ -1559,7 +1559,7 @@ class TpkgOptionTests < Test::Unit::TestCase
     error = nil
     # The File.join(blah) is roughly equivalent to '../bin/tpkg'
     parentdir = File.dirname(File.dirname(__FILE__))
-    Open3.popen3("#{RUBY} -I #{File.join(parentdir, 'lib')} #{File.join(parentdir, 'bin', 'tpkg')} -s shell.sourceforge.net --version") do |stdin, stdout, stderr|
+    Open3.popen3("#{RUBY} -I #{File.join(parentdir, 'lib')} #{File.join(parentdir, 'bin', 'tpkg')} -s shell.sourceforge.net --version --test-root #{@testroot}") do |stdin, stdout, stderr|
       stdin.close
       output = stdout.readlines
       error = stderr.readlines
@@ -1695,7 +1695,7 @@ class TpkgOptionTests < Test::Unit::TestCase
         # tpkg should have bailed with an error
         assert_not_equal(0, $?.exitstatus)
         # And not created anything in the output directory
-        assert(2, Dir.entries(outdir).length)
+        assert_equal(2, Dir.entries(outdir).length)
       end
     end
   end

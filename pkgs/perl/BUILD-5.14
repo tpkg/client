@@ -28,7 +28,7 @@ cd $PKG-$VER || exit 1
 # I haven't figured out a better way to get the archname that Perl will decide
 # to use.
 sh Configure -dE $use64bitint || exit 1
-archname=`sh -c '. config.sh; echo $archname'`
+archname=`sh -c '. ./config.sh; echo $archname'`
 if [ -z "$archname" ]
 then
 	echo "Calculating archname failed" >&2

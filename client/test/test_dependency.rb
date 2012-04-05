@@ -576,7 +576,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
       assert_equal('0.9', solution_packages.first[:metadata][:version])
       FileUtils.rm_f(older_apkg)
     end
-
+    
     # Test that we don't prefer installed packages if :prefer is false
     Dir.mktmpdir('testbase') do |testbase|
       #  First install an older version of d
@@ -599,7 +599,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
       assert(solution_packages.first[:source].include?('d-1.3-1.tpkg'))
       FileUtils.rm_f(older_dpkg)
     end
-
+    
     # Test that we don't prefer installed packages if :prefer is false
     # This is a more complex test than the previous, as the 'a' package
     # in our test @pkgfiles has dependencies, whereas the initial older
