@@ -37,6 +37,9 @@ require 'tpkg'
 @other_options = {}     
 @compress = "gzip"
 
+#
+# Subroutines
+#
 
 def rerun_with_sudo_if_necessary
   if Process.euid != 0 && @sudo
@@ -106,6 +109,22 @@ def parse_config_files
   
   @config_file_settings = settings
 end
+
+passphrase_callback = lambda do | package |
+#  ask("Passphrase for #{package}: ", true)
+  begin
+    system 'stty -echo;' 
+    print "Passphrase for #{package}: "
+    input = STDIN.gets.chomp
+  ensure
+    system 'stty echo; echo ""'
+  end
+  input
+end
+
+#
+# Begin main program logic
+#
 
 opts = OptionParser.new(nil, 24, '  ')
 opts.banner = 'Usage: tpkg [options]'
@@ -416,13 +435,6 @@ rescue OptionParser::ParseError => e
   exit 1
 end
 
-# Rerun with sudo if necessary, unless it's a deploy, then
-# we don't need to run with sudo on this machine. It will run with sudo
-# on the remote machine
-if @rerun_with_sudo && !@deploy
-  rerun_with_sudo_if_necessary
-end
-
 # Display a usage message if the user did not specify a valid action to perform.
 if !@action
   puts opts
@@ -455,99 +467,91 @@ end
 # Figure out base directory, sources and other configuration
 #
 
-def instantiate_tpkg
-  settings = parse_config_files
-  
-  # base can come from four possible places.  They take precedence in this
-  # order:
-  # - command line option
-  # - TPKG_HOME environment variable
-  # - config file
-  # - Tpkg::DEFAULT_BASE constant defined in tpkg.rb
-  if ENV['TPKG_HOME']
-    if !@tpkg_options[:base]
-      @tpkg_options[:base] = ENV['TPKG_HOME']
-      # Warn the user, as this could potentially be confusing
-      # if they don't realize there's an environment variable set.
-      warn "Using base '#{@tpkg_options[:base]}' base from $TPKG_HOME" if !@quiet
-    else
-      warn "Ignoring $TPKG_HOME" if @debug
-    end
-  end
-  if settings[:base]
-    if !@tpkg_options[:base]
-      # Warn the user, as this could potentially be confusing
-      # if they don't realize there's a config file lying
-      # around
-      @tpkg_options[:base] = settings[:base]
-      warn "Using base #{@tpkg_options[:base]} from config file" if !@quiet
-    else
-      warn "Ignoring 'base' option in config file" if @debug
-    end
-  end
+settings = parse_config_files
+
+# base can come from four possible places.  They take precedence in this
+# order:
+# - command line option
+# - TPKG_HOME environment variable
+# - config file
+# - Tpkg::DEFAULT_BASE constant defined in tpkg.rb
+if ENV['TPKG_HOME']
   if !@tpkg_options[:base]
-    @tpkg_options[:base] = Tpkg::DEFAULT_BASE
-  end
-  
-  # Sources can come from the command line and config files.  We use the
-  # combined set of sources.
-  @sources.concat(settings[:sources]).uniq!
-  @tpkg_options[:sources] = @sources
-  
-  @tpkg_options[:report_server] = settings[:report_server]
-  # sudo can come from three possible places.  They take precedence in this
-  # order:
-  # - command line option
-  # - config file
-  # - Tpkg.sudo_default? method defined in tpkg.rb
-  case
-  when !@sudo.nil?
-    @tpkg_options[:sudo] = @sudo
-  when @tpkg_options.has_key?(:sudo)
-    @sudo = @tpkg_options[:sudo]
+    @tpkg_options[:base] = ENV['TPKG_HOME']
+    # Warn the user, as this could potentially be confusing
+    # if they don't realize there's an environment variable set.
+    warn "Using base '#{@tpkg_options[:base]}' base from $TPKG_HOME" if !@quiet
   else
-    @sudo = @tpkg_options[:sudo] = Tpkg.sudo_default?
+    warn "Ignoring $TPKG_HOME" if @debug
   end
-  @tpkg_options[:force] = @force
-  
-  if !@sudo
-    curruid = Process.euid
-    if curruid == 0
-      # Besides there being no point to running with --no-sudo when root, we
-      # don't want users to accidentally create files/directories that can't be
-      # modified by other users who properly run --no-sudo as a regular user.
-      raise "--no-sudo cannot be used as 'root' user or via sudo"
-    end
-    fsroot = @tpkg_options[:file_system_root] ? @tpkg_options[:file_system_root] : ''
-    base = File.join(fsroot, @tpkg_options[:base])
-    if File.exist?(base)
-      baseuid = File.stat(base).uid
-      # We want to ensure that all --no-sudo usage within a given base directory
-      # is done under the same account.
-      if baseuid != curruid
-        raise "Base dir #{@tpkg_options[:base]} owned by UID #{baseuid}, not your UID #{curruid}"
-      end
-    end
+end
+if settings[:base]
+  if !@tpkg_options[:base]
+    # Warn the user, as this could potentially be confusing
+    # if they don't realize there's a config file lying
+    # around
+    @tpkg_options[:base] = settings[:base]
+    warn "Using base #{@tpkg_options[:base]} from config file" if !@quiet
+  else
+    warn "Ignoring 'base' option in config file" if @debug
   end
-  
-  tpkg = Tpkg.new(@tpkg_options)
+end
+if !@tpkg_options[:base]
+  @tpkg_options[:base] = Tpkg::DEFAULT_BASE
 end
 
-passphrase_callback = lambda do | package |
-#  ask("Passphrase for #{package}: ", true)
-  begin
-    system 'stty -echo;' 
-    print "Passphrase for #{package}: "
-    input = STDIN.gets.chomp
-  ensure
-    system 'stty echo; echo ""'
+# Sources can come from the command line and config files.  We use the
+# combined set of sources.
+@sources.concat(settings[:sources]).uniq!
+@tpkg_options[:sources] = @sources
+
+@tpkg_options[:report_server] = settings[:report_server]
+# sudo can come from three possible places.  They take precedence in this
+# order:
+# - command line option
+# - config file
+# - Tpkg.sudo_default? method defined in tpkg.rb
+case
+when !@sudo.nil?
+  @tpkg_options[:sudo] = @sudo
+when @tpkg_options.has_key?(:sudo)
+  @sudo = @tpkg_options[:sudo]
+else
+  @sudo = @tpkg_options[:sudo] = Tpkg.sudo_default?
+end
+@tpkg_options[:force] = @force
+
+if !@sudo
+  curruid = Process.euid
+  if curruid == 0
+    # Besides there being no point to running with --no-sudo when root, we
+    # don't want users to accidentally create files/directories that can't be
+    # modified by other users who properly run --no-sudo as a regular user.
+    raise "--no-sudo cannot be used as 'root' user or via sudo"
   end
-  input
+  fsroot = @tpkg_options[:file_system_root] ? @tpkg_options[:file_system_root] : ''
+  base = File.join(fsroot, @tpkg_options[:base])
+  if File.exist?(base)
+    baseuid = File.stat(base).uid
+    # We want to ensure that all --no-sudo usage within a given base directory
+    # is done under the same account.
+    if baseuid != curruid
+      raise "Base dir #{@tpkg_options[:base]} owned by UID #{baseuid}, not your UID #{curruid}"
+    end
+  end
+end
+
+# Rerun with sudo if necessary, unless it's a deploy, then
+# we don't need to run with sudo on this machine. It will run with sudo
+# on the remote machine
+if @rerun_with_sudo && !@deploy
+  rerun_with_sudo_if_necessary
 end
 
 #
-# Do stuff
+# Perform the user's requested operation
 #
+
 if @deploy
 #  puts "Creating deployer with #{@worker_count} number of worker"
   @deploy_options["max-worker"] = @worker_count
@@ -597,16 +601,16 @@ when :make
 when :extract
   Tpkg::extract_metadata(@action_value)
 when :install
-  tpkg = instantiate_tpkg
+  tpkg = Tpkg.new(@tpkg_options)
   ret_val = tpkg.install(@action_value, passphrase_callback, @other_options)
 when :upgrade
-  tpkg = instantiate_tpkg
+  tpkg = Tpkg.new(@tpkg_options)
   ret_val = tpkg.upgrade(@action_value, passphrase_callback, @other_options)
 when :remove
-  tpkg = instantiate_tpkg
+  tpkg = Tpkg.new(@tpkg_options)
   ret_val = tpkg.remove(@action_value, @other_options)
 when :download
-  tpkg = instantiate_tpkg
+  tpkg = Tpkg.new(@tpkg_options)
   ret_val = tpkg.download_pkgs(@action_value, @other_options)
 when :verify
   result = nil
@@ -615,7 +619,7 @@ when :verify
     Tpkg::verify_package_checksum(@action_value)
   # Verify an installed pkg
   else
-    tpkg = instantiate_tpkg
+    tpkg = Tpkg.new(@tpkg_options)
     results = tpkg.verify_file_metadata([@action_value])
     if results.length == 0
       puts "No package found"
@@ -632,13 +636,13 @@ when :verify
     puts "Package verification failed" unless success 
   end
 when :execute_init
-  tpkg = instantiate_tpkg
+  tpkg = Tpkg.new(@tpkg_options)
   if @init_options[:cmd].nil?
     raise "You didn't specify what init command to run"
   end
   ret_val = tpkg.execute_init(@init_options)
 when :query_installed
-  tpkg = instantiate_tpkg
+  tpkg = Tpkg.new(@tpkg_options)
   matches = []
   if @action_value
     # The --query switch is set to accept multiple values (the "Array"
@@ -676,7 +680,7 @@ when :query_installed
     end
   end
 when :query_info
-  tpkg = instantiate_tpkg
+  tpkg = Tpkg.new(@tpkg_options)
   requirements = []
   packages = {}
   tpkg.parse_requests([@action_value], requirements, packages,
@@ -721,7 +725,7 @@ when :query_info
     $stderr.puts "No packages matching '#{@action_value}' installed"
   end
 when :query_info_available
-  tpkg = instantiate_tpkg
+  tpkg = Tpkg.new(@tpkg_options)
   requirements = []
   packages = {}
   tpkg.parse_requests([@action_value], requirements, packages)
@@ -770,7 +774,7 @@ when :query_info_available
     print output_strings.join("================================================================================\n")
   end
 when :query_list_files
-  tpkg = instantiate_tpkg
+  tpkg = Tpkg.new(@tpkg_options)
   requirements = []
   packages = {}
   tpkg.parse_requests([@action_value], requirements, packages,
@@ -807,7 +811,7 @@ when :query_list_files
     end
   end
 when :query_list_files_available
-  tpkg = instantiate_tpkg
+  tpkg = Tpkg.new(@tpkg_options)
   requirements = []
   packages = {}
   tpkg.parse_requests([@action_value], requirements, packages)
@@ -846,7 +850,7 @@ when :query_list_files_available
     FileUtils.rm_rf(downloaddir)
   end
 when :query_who_owns_file
-  tpkg = instantiate_tpkg
+  tpkg = Tpkg.new(@tpkg_options)
   owned = false
   expanded_file = File.expand_path(@action_value)
   tpkg.files_for_installed_packages.each do |pkgfile, fip|
@@ -864,7 +868,7 @@ when :query_who_owns_file
     $stderr.puts "No package owns file '#{@action_value}'"
   end
 when :query_available
-  tpkg = instantiate_tpkg
+  tpkg = Tpkg.new(@tpkg_options)
   availpkgs = []
   if @action_value
     # The --qs switch is set to accept multiple values (the "Array"
@@ -916,7 +920,7 @@ when :query_available
     end
   end
 when :query_requires
-  tpkg = instantiate_tpkg
+  tpkg = Tpkg.new(@tpkg_options)
   
   # Parse the request
   requirements = [] 
@@ -981,7 +985,7 @@ when :query_requires
     puts "No other package depends on '#{@action_value}'"
   end
 when :query_depends
-  tpkg = instantiate_tpkg
+  tpkg = Tpkg.new(@tpkg_options)
   
   requirements = []
   packages = {}
@@ -1031,7 +1035,7 @@ when :query_depends
     end
   end
 when :query_depends_available
-  tpkg = instantiate_tpkg
+  tpkg = Tpkg.new(@tpkg_options)
   requirements = []
   packages = {}
   tpkg.parse_requests([@action_value], requirements, packages)
@@ -1086,7 +1090,7 @@ when :query_depends_available
     end
   end
 when :query_tpkg_metadata
-  tpkg = instantiate_tpkg
+  tpkg = Tpkg.new(@tpkg_options)
   requirements = []
   packages = {}
   tpkg.parse_requests([@action_value], requirements, packages,
@@ -1111,7 +1115,7 @@ when :query_tpkg_metadata
     end
   end
 when :query_tpkg_metadata_available
-  tpkg = instantiate_tpkg
+  tpkg = Tpkg.new(@tpkg_options)
   requirements = []
   packages = {}
   tpkg.parse_requests([@action_value], requirements, packages)
@@ -1158,12 +1162,12 @@ when :query_conf
   # without recreating all of our logic about deciding which config files to
   # read, which order to read them in, what environment variables override the
   # config files, etc.
-  tpkg = instantiate_tpkg
+  tpkg = Tpkg.new(@tpkg_options)
   puts "Base: #{tpkg.base}"
   puts "Sources: #{tpkg.sources.inspect}"
   puts "Report server: #{tpkg.report_server}"
 when :query_history
-  tpkg = instantiate_tpkg
+  tpkg = Tpkg.new(@tpkg_options)
   tpkg.installation_history
 when :query_version
   puts Tpkg::VERSION
