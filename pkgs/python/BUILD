@@ -14,6 +14,10 @@ then
 fi
 ARCH=`tpkg --qenv | grep 'Architecture' | awk '{print $NF}'`
 
+# There are some modules that will silently not get built if bzip and
+# gdbm are not installed.  There are probably other similar modules,
+# those are just two I've stumbled across so far where other programs
+# needed python to have those modules.
 for tpkg in bzip2 gdbm; do
 	tpkg --quiet -q $tpkg || tpkg -i $tpkg
 done
