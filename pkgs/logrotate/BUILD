@@ -18,6 +18,12 @@ then
 fi
 ARCH=`tpkg --qenv | grep 'Architecture' | awk '{print $NF}'`
 
+if echo $OS | egrep 'RedHat|CentOS'; then
+	for rpm in popt-devel; do
+		rpm --quiet -q $rpm || sudo yum install $rpm
+	done
+fi
+
 rm -rf $PKG-$VER
 tar zxvf $PKG-$VER.tar.gz
 cd $PKG-$VER
