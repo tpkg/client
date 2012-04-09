@@ -3,7 +3,7 @@
 set -e
 
 PKG=rubygems
-VER=1.8.10
+VER=1.8.21
 PKGVER=1
 
 tpkg -q ruby-defaults || tpkg -i ruby-defaults
