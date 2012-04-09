@@ -14,14 +14,14 @@ if echo $OS | egrep 'RedHat|CentOS'; then
 fi
 ARCH=`tpkg --qenv | grep 'Architecture' | awk '{print $NF}'`
 
-for tpkg in ; do
-	tpkg --quiet -q $tpkg || tpkg -i $tpkg
-done
-if echo $OS | egrep 'RedHat|CentOS'; then
-	for rpm in ; do
-		rpm --quiet -q $rpm || sudo yum install $rpm
-	done
-fi
+#for tpkg in ; do
+#	tpkg --quiet -q $tpkg || tpkg -i $tpkg
+#done
+#if echo $OS | egrep 'RedHat|CentOS'; then
+#	for rpm in ; do
+#		rpm --quiet -q $rpm || sudo yum install $rpm
+#	done
+#fi
 
 rm -rf $PKG-$VER
 tar zxvf $PKG-$VER.tar.gz
