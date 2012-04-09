@@ -18,7 +18,7 @@ ARCH=`tpkg --qenv | grep 'Architecture' | awk '{print $NF}'`
 # http://gcc.gnu.org/install/prerequisites.html
 if echo $OS | egrep 'RedHat|CentOS'
 then
-	for rpm in gcc glibc-devel gawk make
+	for rpm in gcc glibc-devel glibc-devel.i686 gawk make zip
 	do
 		rpm --quiet -q $rpm || sudo yum install $rpm
 	done
