@@ -3,7 +3,7 @@
 set -e
 
 PKG=apache-couchdb
-VER=1.0.2
+VER=1.2.0
 PKGVER=1
 OS=`tpkg --qenv | grep 'Operating System' | awk '{print $NF}'`
 if echo $OS | egrep 'RedHat|CentOS'
