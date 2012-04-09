@@ -67,7 +67,7 @@ chmod 755 $pkgdir/root/opt/tpkg/etc/init.d/$PKG
 mkdir -p $pkgdir/root/opt/tpkg/$PKG-$VER/var/log
 mkdir -p $pkgdir/root/opt/tpkg/$PKG-$VER/var/run/mysqld
 # Create generic non-versioned directory link
-ln -s -f /opt/tpkg/$PKG-$VER $pkgdir/root/opt/tpkg/$PKG
+ln -s -f $PKG-$VER $pkgdir/root/opt/tpkg/$PKG
 # Install
 make install DESTDIR=$pkgdir/root
 # Clean out stuff we don't want
