@@ -26,7 +26,8 @@ ARCH=`tpkg --qenv | grep 'Architecture' | awk '{print $NF}'`
 rm -rf $PKG-$VER
 tar zxvf $PKG-$VER.tar.gz
 cd $PKG-$VER
-./configure --prefix=/opt/tpkg --mandir=/opt/tpkg/man
+#./configure --prefix=/opt/tpkg --mandir=/opt/tpkg/man
+./configure --prefix=/opt/tpkg --mandir=/opt/tpkg/man --with-shared
 make
 pkgdir=`mktemp -d -t tpkg.XXXXXX`
 cat ../../tpkg.yml | \
