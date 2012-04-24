@@ -1,45 +1,58 @@
 #!/bin/sh
+
 set -e
 set -u
 
 PKG=ruby
-VER=1.9.3-p125
+VER=1.9.3-p194
 PKGVER=1
-prefix=/opt/tpkg/$PKG-1.9
-OSMAJOR=`facter | grep lsbmajdistrelease | cut -d' ' -f3`
-ARCH=`facter hardwaremodel`
+OS=`tpkg --qenv | grep 'Operating System' | awk '{print $NF}'`
+if echo $OS | egrep 'RedHat|CentOS'; then
+        # Save folks from having to build separate packages for Red Hat and
+        # CentOS
+        OSMAJOR=`echo $OS | cut -d- -f2`
+        OS="RedHat-$OSMAJOR, CentOS-$OSMAJOR"
+fi
+ARCH=`tpkg --qenv | grep 'Architecture' | awk '{print $NF}'`
 
-for i in ncurses readline zlib openssl gdbm
-do
-	pkg=$i-devel
-	rpm --quiet -q $pkg || sudo yum install $pkg
+for tpkg in gdbm krb5 libffi libyaml ncurses openssl readline zlib; do
+	tpkg --quiet -q $tpkg || tpkg -i $tpkg
 done
 
 rm -rf $PKG-$VER
 tar zxvf $PKG-$VER.tar.gz
-
 cd $PKG-$VER
-o="--prefix=$prefix"
-o="$o --disable-rpath"
-./configure $o
+#./configure --prefix=/opt/tpkg --mandir=/opt/tpkg/man
+export LDFLAGS="-L/opt/tpkg/lib64 -Wl,-rpath=/opt/tpkg/lib64"
+export PKG_CONFIG_PATH=/opt/tpkg/lib64/pkgconfig:/opt/tpkg/lib/pkgconfig
+./configure --prefix=/opt/tpkg --mandir=/opt/tpkg/man --with-opt-dir=/opt/tpkg
 make
-
 pkgdir=`mktemp -d -t tpkg.XXXXXX`
-sed -e "s/NAME/$PKG/" \
-	-e "s/VERSION/$VER/" \
-	-e "s/PKGVER/$PKGVER/" \
-	-e "s/OS/RedHat-$OSMAJOR,CentOS-$OSMAJOR/" \
-	-e "s/ARCH/$ARCH/" \
-	-e "/file/d" \
-	-e "/path/d" \
-	-e "/init/d" \
-	< ../../tpkg.xml > $pkgdir/tpkg.xml
-
+cat ../../tpkg.yml | \
+	sed "s/NAME/$PKG/" | \
+	sed "s/VERSION/$VER/" | \
+	sed "s/PKGVER/$PKGVER/" | \
+	sed "s/OS/$OS/" | \
+	sed "s/ARCH/$ARCH/" > $pkgdir/tpkg.yml
+cat <<EOF >> $pkgdir/tpkg.yml
+dependencies:
+- name: gdbm
+- name: krb5
+- name: libffi
+- name: libyaml
+- name: ncurses
+- name: openssl
+- name: readline
+- name: zlib
+EOF
+mkdir $pkgdir/root
 # Install
 make install DESTDIR=$pkgdir/root
+rm -f $pkgdir/root/opt/tpkg/share/info/dir
 # Make package
 tpkg --make $pkgdir
 # Cleanup
 rm -rf $pkgdir
 cd ..
 rm -rf $PKG-$VER
+
