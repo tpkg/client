@@ -27,7 +27,9 @@ rm -rf $PKG-$VER
 tar zxvf $PKG-$VER.tar.gz
 cd $PKG-$VER
 #./configure --prefix=/opt/tpkg --mandir=/opt/tpkg/man
-./configure --prefix=/opt/tpkg --mandir=/opt/tpkg/man --with-shared
+./configure \
+	--prefix=/opt/tpkg --mandir=/opt/tpkg/man \
+	--with-shared --enable-rpath
 make
 pkgdir=`mktemp -d -t tpkg.XXXXXX`
 cat ../../tpkg.yml | \
