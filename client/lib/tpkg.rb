@@ -3692,9 +3692,14 @@ class Tpkg
             name = pkg[:metadata][:name]
             version = pkg[:metadata][:version]
             package_version = pkg[:metadata][:package_version]
-            pkgname = "#{name}-#{version}"
+            pkgname = "#{name}"
+           if Tpkg::get_os =~ /Debian|Ubuntu/
+               pkgname << "=#{version}"
+           else
+               pkgname <<"-#{version}"
+           end
             if package_version
-              pkgname << "-#{package_version}"
+                pkgname << "-#{package_version}"
             end
             puts "Native #{pkgname}"
           else    
@@ -3776,7 +3781,7 @@ class Tpkg
         elsif Tpkg::get_os =~ /Debian|Ubuntu/
           name = pkg[:metadata][:name]
           version = pkg[:metadata][:version]
-          pkgname = "#{name}-#{version}"
+          pkgname = "#{name}=#{version}"
           if pkg[:metadata][:package_version]
             pkgname << "-#{pkg[:metadata][:package_version]}"
           end
@@ -3987,7 +3992,7 @@ class Tpkg
         elsif Tpkg::get_os =~ /Debian|Ubuntu/
           name = pkg[:metadata][:name]
           version = pkg[:metadata][:version]
-          pkgname = "#{name}-#{version}"
+          pkgname = "#{name}=#{version}"
           if pkg[:metadata][:package_version]
             pkgname << "-#{pkg[:metadata][:package_version]}"
           end
