@@ -1,4 +1,0 @@
-client
-======
-
-tpkg client code
