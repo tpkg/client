@@ -1,7 +1,0 @@
-#!/bin/sh
-
-sed "s,%BASE%,$TPKG_HOME," $TPKG_HOME/etc/init.d/stunnel > $TPKG_HOME/etc/init.d/stunnel.new
-test -s $TPKG_HOME/etc/init.d/stunnel.new || exit 1
-chmod 755 $TPKG_HOME/etc/init.d/stunnel.new || exit 1
-mv $TPKG_HOME/etc/init.d/stunnel.new $TPKG_HOME/etc/init.d/stunnel || exit 1
-

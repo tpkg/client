@@ -1,3 +1,0 @@
-MAILTO=""
-30 2 * * * root %BASE%/sbin/logrotate %BASE%/etc/logrotate.conf --state %BASE%/var/lib/logrotate.status > %BASE%/var/log/logrotate.log 2>&1
-

@@ -1,9 +1,0 @@
-<%- @page_title = "Upload History" %>
-<h1>Upload History</h1>
-<div id="results_table">
-<%- if @uploads.size > 0 -%>
-  <%= render :partial => 'shared/results_table', :locals => { :objects => @uploads } %>
-<%- else -%>
-  No data
-<%- end -%>
-</div>

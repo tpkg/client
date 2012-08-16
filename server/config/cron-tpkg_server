@@ -1,3 +1,0 @@
-MAILTO="root"
-0 3 * * * t /opt/tpkg/tpkg/config/update_pkg_db
-

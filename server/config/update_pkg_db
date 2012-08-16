@@ -1,2 +1,0 @@
-#!/bin/bash
-RAILS_ENV=production /opt/tpkg/tpkg/script/runner /opt/tpkg/tpkg/app/scripts/examine_repo.rb
