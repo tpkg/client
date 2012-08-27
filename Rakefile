@@ -4,7 +4,7 @@ require 'tmpdir'
 require 'open-uri'
 require 'rake/testtask'
 
-TPKGVER = IO.read('../VERSION').chomp
+TPKGVER = IO.read('VERSION').chomp
 TARBALLFILE = "tpkg-#{TPKGVER}.tar.gz"
 TARBALL = File.expand_path(TARBALLFILE)
 
