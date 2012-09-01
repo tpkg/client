@@ -64,7 +64,7 @@ def parse_config_files
   end
   
   # FIXME: Move config file parsing to tpkg.rb
-  # http://sourceforge.net/apps/trac/tpkg/ticket/28
+  # https://github.com/tpkg/client/issues/22
   fsroot = @tpkg_options[:file_system_root] ? @tpkg_options[:file_system_root] : ''
   settings = {:sources => []}
   [File.join(fsroot, Tpkg::DEFAULT_CONFIGDIR, 'tpkg.conf'),

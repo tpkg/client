@@ -5,7 +5,7 @@
   <version>%VER%</version>
   <maintainer>tpkg-users@lists.sourceforge.net</maintainer>
   <description>tpkg library</description>
-  <bugreporting>https://sourceforge.net/apps/trac/tpkg/newticket</bugreporting>
+  <bugreporting>https://github.com/tpkg/client/issues</bugreporting>
   <dependencies>
     <dependency>
       <name>ruby</name>

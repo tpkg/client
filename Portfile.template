@@ -20,10 +20,10 @@ long_description    Tpkg is a cross-platform tool for packaging and \
                     scale to deployments across hundreds or thousands \
                     of systems.
 
-homepage            http://tpkg.sourceforge.net/
+homepage            http://tpkg.github.com/
 platforms           darwin
 
-master_sites        sourceforge:project/tpkg/tpkg/${version}
+master_sites        https://github.com/downloads/tpkg/client/
 
 checksums           rmd160  %RMD160% \
                     sha256  %SHA256%

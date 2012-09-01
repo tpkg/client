@@ -5,7 +5,7 @@ require 'open-uri'
 require 'rake/testtask'
 
 TPKGVER = IO.read('VERSION').chomp
-TARBALLFILE = "tpkg-#{TPKGVER}.tar.gz"
+TARBALLFILE = "tpkg-client-#{TPKGVER}.tar.gz"
 TARBALL = File.expand_path(TARBALLFILE)
 
 BUILDROOT = '/var/tmp/tpkg-client-buildroot'
@@ -382,10 +382,10 @@ task :install, :destdir do |t, args|
                   :copythirdparty => true)
 end
 
-desc 'Fetch tarball from sourceforge'
+desc 'Fetch tarball from github'
 task :fetch do
   if !File.exist?(TARBALL)
-    url = "http://downloads.sourceforge.net/project/tpkg/tpkg/#{TPKGVER}/#{TARBALLFILE}"
+    url = "https://github.com/downloads/tpkg/client/#{TARBALLFILE}"
     puts "Fetching tarball from #{url}"
     open(url) do |df|
       open(TARBALL, 'w') do |lf|

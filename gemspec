@@ -5,7 +5,7 @@ spec = Gem::Specification.new do |s|
   s.version = '%VER%'
   s.authors = ['Darren Dao', 'Jason Heiss']
   s.email = 'tpkg-users@lists.sourceforge.net'
-  s.homepage = 'http://tpkg.sourceforge.net'
+  s.homepage = 'http://tpkg.github.com/'
   s.rubyforge_project = 'tpkg'
   s.platform = Gem::Platform::RUBY
   s.required_ruby_version = '>=1.8'
