@@ -1,11 +1,11 @@
 tpkg - Application Packaging and Deployment
-http://tpkg.sourceforge.net
+http://tpkg.github.com/
 
 ------------------------------------------------------------------------------
 Setup
 ------------------------------------------------------------------------------
 
-See the GettingStarted page on http://tpkg.sourceforge.net/
+See http://tpkg.github.com/get_started.html
 
 ------------------------------------------------------------------------------
 Help
@@ -27,7 +27,7 @@ Credits
 ------------------------------------------------------------------------------
 
 Various parties have contributed to tpkg development and hold the copyright to
-the code they have contributed:
+the code they have contributed, including but not limited to:
 
 AT&T Interactive
 Jason Heiss
