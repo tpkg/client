@@ -4773,7 +4773,13 @@ class Tpkg
   end
   
   def send_update_to_server(options={})
-    request = {"client"=>Facter['fqdn'].value}
+    
+    fqdn = Facter['fqdn'].value
+    if fqdn == nil
+      fqdn = Facter['hostname'].value<<"."<<Facter['domain'].value
+    end
+    
+    request = {"client"=>fqdn}
     request[:user] = Etc.getlogin || Etc.getpwuid(Process.uid).name
     request[:tpkg_home] = ENV['TPKG_HOME']
     
