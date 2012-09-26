@@ -168,7 +168,7 @@ opts.on('--groups', '-g', '=GROUP', Array, 'Group of server on which to apply ac
   # abbreviation.  I.e. if the option is --servers and the user specified
   # --serv (which OptionParser will accept as long as it is unambiguous) this
   # won't detect and remove it.
-  @deploy_params = @deploy_params - ['--groups', '-g', @groups.join(","), "--servers=#{@groups.join(',')}"]
+  @deploy_params = @deploy_params - ['--groups', '-g', @groups.join(","), "--groups=#{@groups.join(',')}"]
 end
 opts.on('--ua', 'Upgrade all packages') do |opt|
   @rerun_with_sudo = true
@@ -449,7 +449,7 @@ if @groups
     end
     servers = []
     @groups.each do |group|
-      IO.popen(settings[:host_group_script]) do |pipe|
+      IO.popen(settings[:host_group_script]<<" "<<group.chomp) do |pipe|
         pipe.each_line do |line|
           servers << line.chomp
         end
