@@ -4776,7 +4776,7 @@ class Tpkg
     
     fqdn = Facter['fqdn'].value
     if fqdn == nil
-      fqdn = Facter['hostname'].value<<"."<<Facter['domain'].value
+      fqdn = Facter['hostname'].value << '.' << Facter['domain'].value
     end
     
     request = {"client"=>fqdn}
