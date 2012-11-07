@@ -2,6 +2,6 @@ Package: tpkg
 Version: %VER%-1
 Maintainer: tpkg-users@lists.sourceforge.net
 Architecture: all
-Depends: ruby, libopenssl-ruby1.8, facter, lsb-release, lsb-base
+Depends: ruby-interpreter, facter, lsb-release, lsb-base
 Description: tpkg client
 
