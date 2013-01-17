@@ -2,6 +2,7 @@ require 'rbconfig'
 require 'tempfile'
 require 'tmpdir'
 require 'open-uri'
+require 'openssl'
 require 'rake/testtask'
 
 TPKGVER = IO.read('VERSION').chomp
@@ -385,7 +386,7 @@ end
 desc 'Fetch tarball from github'
 task :fetch do
   if !File.exist?(TARBALL)
-    url = "https://github.com/downloads/tpkg/client/#{TARBALLFILE}"
+    url = "http://cloud.github.com/downloads/tpkg/client/#{TARBALLFILE}"
     puts "Fetching tarball from #{url}"
     open(url) do |df|
       open(TARBALL, 'w') do |lf|
