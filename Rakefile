@@ -242,7 +242,7 @@ task :deb do
   # Create package file structure in build root
   #
   
-  rm_rf(BUILDROOT)
+  system("sudo rm -rf #{BUILDROOT}")
   
   mkdir_p(File.join(BUILDROOT, 'DEBIAN'))
   File.open(File.join(BUILDROOT, 'DEBIAN', 'control'), 'w') do |control|
@@ -254,7 +254,7 @@ task :deb do
   end
   
   bindir = File.join('usr', 'bin')
-  libdir = File.join('usr', 'local', 'lib', 'site_ruby', '1.8')
+  libdir = File.join('usr', 'local', 'lib', 'site_ruby')
   mandir = File.join('usr', 'share', 'man')
   etcdir = '/etc'
   externalsdir = File.join('usr', 'lib', 'tpkg', 'externals')
@@ -284,7 +284,7 @@ task :deb do
   # Cleanup
   #
   
-  rm_rf(BUILDROOT)
+  system("sudo rm -rf #{BUILDROOT}")
 end
 
 desc 'Build tpkg client SysV packages for Solaris'

@@ -711,7 +711,13 @@ class Tpkg
       if Facter['lsbmajdistrelease'] &&
          Facter['lsbmajdistrelease'].value &&
          !Facter['lsbmajdistrelease'].value.empty?
-        osver = Facter['lsbmajdistrelease'].value
+        lsbmajdistrelease = Facter['lsbmajdistrelease'].value
+       # Normal wheezy beta returns 'testing', but Raspian on the
+        # Raspberry Pi returns this uglier string.  Normalize it.
+        if lsbmajdistrelease == 'testing/unstable'
+          lsbmajdistrelease = 'testing'
+        end
+        osver = lsbmajdistrelease
       elsif operatingsystem == 'Ubuntu'
         # Work around lack of lsbmajdistrelease on older versions of Ubuntu
         # due to older version of facter.  Support for lsbmajdistrelease on
