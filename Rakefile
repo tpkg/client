@@ -4,8 +4,9 @@ require 'tmpdir'
 require 'open-uri'
 require 'openssl'
 require 'rake/testtask'
+require 'bundler/gem_tasks'
 
-TPKGVER = IO.read('VERSION').chomp
+TPKGVER = `ruby -Ilib -e "require 'tpkg'; puts Tpkg::VERSION"`.chomp
 TARBALLFILE = "tpkg-client-#{TPKGVER}.tar.gz"
 TARBALL = File.expand_path(TARBALLFILE)
 
@@ -416,49 +417,6 @@ task :macport => :fetch do
     end
   end
   puts "Portfile is #{portfile}"
-end
-
-desc 'Build rubygem package'
-task :gem do
-  #
-  # Create package file structure in build root
-  #
-  
-  rm_rf(BUILDROOT)
-  copy_tpkg_files(BUILDROOT,
-                  :bindir => 'bin',
-                  :libdir => 'lib',
-                  :schemadir => 'schema')
-  
-  #
-  # Prep gemspec (renaming to Rakefile in the process)
-  #
-  File.open(File.join(BUILDROOT, 'Rakefile'), 'w') do |gemspec|
-    IO.foreach('gemspec') do |line|
-      line.sub!('%VER%', TPKGVER)
-      gemspec.puts(line)
-    end
-  end
-  
-  #
-  # Build the package
-  #
-  
-  system("cd #{BUILDROOT} && rake gem")
-  gemglob = File.join(BUILDROOT, 'pkg', '*.gem')
-  gemfile = Dir.glob(gemglob).first
-  if gemfile
-    mv(gemfile, Dir.tmpdir)
-    puts "Gem is #{File.join(Dir.tmpdir, File.basename(gemfile))}"
-  else
-    warn "Gem file #{gemglob} not found!"
-  end
-  
-  #
-  # Cleanup
-  #
-  
-  rm_rf(BUILDROOT)
 end
 
 # It may seem odd to package tpkg with tpkg, but if users want to
