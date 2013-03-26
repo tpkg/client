@@ -49,5 +49,7 @@ class TpkgCompressTests < Test::Unit::TestCase
     FileUtils.rm_f(@pkgfile)
     FileUtils.rm_f(@gzip_pkgfile)
     FileUtils.rm_f(@bz2_pkgfile)
+    FileUtils.rm_f(@default_compression_pkgfile)
+    FileUtils.rm_f(@uncompressed_pkgfile)
   end 
 end 
