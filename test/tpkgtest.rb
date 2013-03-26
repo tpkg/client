@@ -12,6 +12,7 @@ require 'tpkg'
 require 'tempfile'
 require 'tmpdir'
 require 'facter'
+require 'mocha/setup'
 
 Tpkg::set_debug(true) if ENV['debug']
 
@@ -79,6 +80,9 @@ end
 module TpkgTests
   # Directory with test package contents
   TESTPKGDIR = File.expand_path('testpkg', File.dirname(__FILE__))
+  # Fake command used in place of system commands
+  TESTCMDDIR = File.expand_path('testcmds', File.dirname(__FILE__))
+  TESTCMD = File.join(TESTCMDDIR, 'testcmd')
   # Passphrase used for encrypting/decrypting packages
   PASSPHRASE = 'password'
 

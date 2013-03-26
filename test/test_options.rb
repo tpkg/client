@@ -17,6 +17,9 @@ class TpkgOptionTests < Test::Unit::TestCase
   def setup
     Tpkg::set_prompt(false)
     @testroot = Dir.mktmpdir('testroot')
+    @tpkg = Tpkg.new(:file_system_root => @testroot)
+    # TPKG_HOME ends up set in our environment due to use of the tpkg library
+    ENV.delete('TPKG_HOME')
     # Make up our regular test package
     @pkgfile = make_package(:remove => ['operatingsystem', 'architecture'])
   end
@@ -193,7 +196,7 @@ class TpkgOptionTests < Test::Unit::TestCase
           # Note spaces between commas here for just a bit of extra testing.
           # See below when we match this out of the --qi output for further
           # explanation
-          'operatingsystem' => "RedHat, CentOS, #{Tpkg::get_os}, FreeBSD, Solaris",
+          'operatingsystem' => "RedHat, CentOS, #{@tpkg.os.os}, FreeBSD, Solaris",
           'architecture' => Facter['hardwaremodel'].value},
         :output_directory => File.join(testroot, 'tmp'))
       pkgfile3 = make_package(
@@ -234,7 +237,7 @@ class TpkgOptionTests < Test::Unit::TestCase
               # package.  tpkg splits on commas into an array when parsing the
               # metadata, and the tpkg executable joins the array members back
               # together with a comma but no spaces when displaying --qi
-              assert_match(/^operatingsystem: RedHat,CentOS,#{Tpkg::get_os},FreeBSD,Solaris$/,
+              assert_match(/^operatingsystem: RedHat,CentOS,#{@tpkg.os.os},FreeBSD,Solaris$/,
                 output, "--qi #{query}, operatingsystem, installed")
               assert_match(/^architecture: #{Facter['hardwaremodel'].value}$/,
                 output, "--qi #{query}, architecture, installed")
@@ -265,7 +268,7 @@ class TpkgOptionTests < Test::Unit::TestCase
           # Note spaces between commas here for just a bit of extra testing.
           # See below when we match this out of the --qis output for further
           # explanation
-          'operatingsystem' => "RedHat, CentOS, #{Tpkg::get_os}, FreeBSD, Solaris",
+          'operatingsystem' => "RedHat, CentOS, #{@tpkg.os.os}, FreeBSD, Solaris",
           'architecture' => Facter['hardwaremodel'].value},
         :output_directory => File.join(testroot, 'tmp'))
       metadata2 = Tpkg::metadata_from_package(pkgfile2)
@@ -347,7 +350,7 @@ class TpkgOptionTests < Test::Unit::TestCase
               # metadata, and the tpkg executable joins the array members back
               # together with a comma but no spaces when displaying --qi
               assert_match(
-                /^operatingsystem: RedHat,CentOS,#{Tpkg::get_os},FreeBSD,Solaris$/,
+                /^operatingsystem: RedHat,CentOS,#{@tpkg.os.os},FreeBSD,Solaris$/,
                 output, "--qis #{query}, operatingsystem, installed")
               assert_match(
                 /^architecture: #{Facter['hardwaremodel'].value}$/,
@@ -417,7 +420,7 @@ class TpkgOptionTests < Test::Unit::TestCase
           # Note spaces between commas here for just a bit of extra testing.
           # See below when we match this out of the --qis output for further
           # explanation
-          'operatingsystem' => "RedHat, CentOS, #{Tpkg::get_os}",
+          'operatingsystem' => "RedHat, CentOS, #{@tpkg.os.os}",
           'architecture' => "#{Facter['hardwaremodel'].value}, bogusarch"},
         :output_directory => File.join(testroot, 'tmp'))
       metadata4 = Tpkg::metadata_from_package(pkgfile4)
@@ -432,7 +435,7 @@ class TpkgOptionTests < Test::Unit::TestCase
             /^version: #{metadata4['version']}$/, output,
             "--qis #{query}, version, available and installed, stdout")
           assert_match(
-            /^operatingsystem: RedHat,CentOS,#{Tpkg::get_os}$/,
+            /^operatingsystem: RedHat,CentOS,#{@tpkg.os.os}$/,
             output,
             "--qis #{query}, operatingsystem, available and installed, stdout")
           assert_match(

@@ -10,14 +10,6 @@ STDOUT.sync = STDERR.sync = true # All outputs/prompts to the kernel ASAP
 # ruby 1.9 and there's nothing we can do to fix that.
 require 'tpkg/silently'
 Silently.silently do
-  begin
-    # Try loading facter w/o gems first so that we don't introduce a
-    # dependency on gems if it is not needed.
-    require 'facter'       # Facter
-  rescue LoadError
-    require 'rubygems'
-    require 'facter'
-  end
   require 'digest/sha2'    # Digest::SHA256#hexdigest, etc.
   require 'etc'            # Etc.getpwnam, getgrnam
   require 'fileutils'      # FileUtils.cp, rm, etc.
@@ -34,15 +26,15 @@ Silently.silently do
   require 'uri'            # URI
   require 'yaml'           # YAML
 end
-require 'tpkg/deployer'
-require 'tpkg/metadata'
-require 'tpkg/versiontype' # Version
 
 OpenSSLCipherError = OpenSSL::Cipher.const_defined?(:CipherError) ? OpenSSL::Cipher::CipherError : OpenSSL::CipherError
 
 class Tpkg
-  
-  VERSION = 'trunk'
+  require 'tpkg/deployer'
+  require 'tpkg/metadata'
+  require 'tpkg/versiontype'
+  require 'tpkg/os'
+  require 'tpkg/version'
 
   GENERIC_ERR = 1  
   POSTINSTALL_ERR = 2
@@ -56,8 +48,6 @@ class Tpkg
   DEFAULT_FILE_PERMS = nil
   DEFAULT_DIR_PERMS = 0755
 
-  attr_reader :installed_directory
- 
   #
   # Class methods
   #
@@ -357,6 +347,7 @@ class Tpkg
         end
 
         # check permission/ownership of crontab files
+        # FIXME: only matters now for cron.d-style files
         if tpkgfile[:crontab]
           data = {:actual_file => working_path, :metadata => metadata, :file_metadata => tpkgfile}
           perms, uid, gid = predict_file_perms_and_ownership(data)
@@ -681,97 +672,12 @@ class Tpkg
     Dir.mkdir(tmpdir)
     tmpdir
   end
-
-  @@arch = nil
-  def self.get_arch
-    if !@@arch
-      Facter.loadfacts
-      @@arch = Facter['hardwaremodel'].value
-    end
-    @@arch.dup
-  end
-  
-  # Returns a string representing the OS of this box of the form:
-  # "OSname-OSmajorversion".  The OS name is currently whatever facter
-  # returns for the 'operatingsystem' fact.  The major version is a bit
-  # messier, as we try on a per-OS basis to come up with something that
-  # represents the major version number of the OS, where binaries are
-  # expected to be compatible across all versions of the OS with that
-  # same major version number.  Examples include RedHat-5, CentOS-5,
-  # FreeBSD-7, Darwin-10.5, and Solaris-5.10
-  @@os = nil
-  def self.get_os
-    if !@@os
-      # Tell facter to load everything, otherwise it tries to dynamically
-      # load the individual fact libraries using a very broken mechanism
-      Facter.loadfacts
-      
-      operatingsystem = Facter['operatingsystem'].value
-      osver = nil
-      if Facter['lsbmajdistrelease'] &&
-         Facter['lsbmajdistrelease'].value &&
-         !Facter['lsbmajdistrelease'].value.empty?
-        lsbmajdistrelease = Facter['lsbmajdistrelease'].value
-       # Normal wheezy beta returns 'testing', but Raspian on the
-        # Raspberry Pi returns this uglier string.  Normalize it.
-        if lsbmajdistrelease == 'testing/unstable'
-          lsbmajdistrelease = 'testing'
-        end
-        osver = lsbmajdistrelease
-      elsif operatingsystem == 'Ubuntu'
-        # Work around lack of lsbmajdistrelease on older versions of Ubuntu
-        # due to older version of facter.  Support for lsbmajdistrelease on
-        # Ubuntu was added in facter 1.5.3, but there's no good way to force
-        # older Ubuntu systems to a newer version of facter.
-        osver = Facter['lsbdistrelease'].value.split('.').first
-      elsif Facter['kernel'] &&
-            Facter['kernel'].value == 'Darwin' &&
-            Facter['macosx_productversion'] &&
-            Facter['macosx_productversion'].value &&
-            !Facter['macosx_productversion'].value.empty?
-        macver = Facter['macosx_productversion'].value
-        # Extract 10.5 from 10.5.6, for example
-        osver = macver.split('.')[0,2].join('.')
-      elsif Facter['operatingsystem'] &&
-            Facter['operatingsystem'].value == 'FreeBSD'
-        # Extract 7 from 7.1-RELEASE, for example
-        fbver = Facter['operatingsystemrelease'].value
-        osver = fbver.split('.').first
-      elsif Facter['operatingsystem'] &&
-            Facter['operatingsystem'].value == 'windows'
-        # Extract 6.1 from 6.1.7601, for example
-        # That seems like the right level to split at
-        # based on http://en.wikipedia.org/wiki/Ver_(command)
-        winver = Facter['operatingsystemrelease'].value
-        osver = winver.split('.')[0,2].join('.')
-      elsif Facter['operatingsystemrelease'] &&
-            Facter['operatingsystemrelease'].value &&
-            !Facter['operatingsystemrelease'].value.empty?
-        osver = Facter['operatingsystemrelease'].value
-      else
-        raise "Unable to determine proper OS value on this platform"
-      end
-      @@os = "#{operatingsystem}-#{osver}"
-    end
-    @@os.dup
-  end
-  
-  # Should sudo be on by default?
-  def self.sudo_default?
-    # Neither of the common Windows environments for running Ruby have
-    # sudo, so turn it off by default on those platforms
-    if RUBY_PLATFORM == 'i386-mingw32' || RUBY_PLATFORM == 'i386-cygwin'
-      false
-    else
-      true
-    end
-  end
   
   # Given an array of pkgs. Determine if any of those package
   # satisfy the requirement specified by req
-  def self.packages_meet_requirement?(pkgs, req)
+  def packages_meet_requirement?(pkgs, req)
     pkgs.each do | pkg |
-      return true if Tpkg::package_meets_requirement?(pkg, req)   
+      return true if package_meets_requirement?(pkg, req)   
     end
     return false
   end
@@ -780,7 +686,7 @@ class Tpkg
   # available package
   # req is a standard Hash format used in the library to represent package
   # requirements
-  def self.package_meets_requirement?(pkg, req)
+  def package_meets_requirement?(pkg, req)
     result = true
     puts "pkg_meets_req checking #{pkg.inspect} against #{req.inspect}" if @@debug
     metadata = pkg[:metadata]
@@ -878,16 +784,16 @@ class Tpkg
       # field matches all clients.
       if metadata[:operatingsystem] &&
          !metadata[:operatingsystem].empty? &&
-         !metadata[:operatingsystem].include?(get_os) &&
-         !metadata[:operatingsystem].any?{|os| get_os =~ /#{os}/}
+         !metadata[:operatingsystem].include?(os.os) &&
+         !metadata[:operatingsystem].any?{|mos| os.os =~ /#{mos}/}
         puts "Package fails operatingsystem" if @@debug
         result = false
       end
       # Same deal with empty? here
       if metadata[:architecture] &&
          !metadata[:architecture].empty? &&
-         !metadata[:architecture].include?(get_arch) &&
-         !metadata[:architecture].any?{|arch| get_arch =~ /#{arch}/}
+         !metadata[:architecture].include?(os.arch) &&
+         !metadata[:architecture].any?{|march| os.arch =~ /#{march}/}
         puts "Package fails architecture" if @@debug
         result = false
       end
@@ -1344,7 +1250,7 @@ class Tpkg
   DEFAULT_BASE = '/opt/tpkg'
   DEFAULT_CONFIGDIR = '/etc'
   
-  def initialize(options)
+  def initialize(options={})
     # Options
     @base = options[:base] ? options[:base] : DEFAULT_BASE
     # An array of filenames or URLs which point to individual package files
@@ -1373,9 +1279,10 @@ class Tpkg
     if options.has_key?(:force)
       @force = options[:force]
     end
-    @sudo = Tpkg.sudo_default?
-    if options.has_key?(:sudo)
-      @sudo = options[:sudo]
+    
+    @cmd_crontab = 'crontab'
+    if options[:cmd_crontab]
+      @cmd_crontab = options[:cmd_crontab]
     end
     
     @configdir = DEFAULT_CONFIGDIR
@@ -1404,7 +1311,7 @@ class Tpkg
       rescue Errno::EACCES
         raise if Process.euid == 0
       rescue Errno::EIO => e
-        if Tpkg::get_os =~ /Darwin/
+        if os.os =~ /Darwin/
           # Try to help our Mac OS X users, otherwise this could be
           # rather confusing.
           warn "\nNote: /home is controlled by the automounter by default on Mac OS X.\n" +
@@ -1423,12 +1330,10 @@ class Tpkg
     dirs_to_create = [@installed_directory, @metadata_directory, @sources_directory,
                       @tmp_directory, @log_directory]
     dirs_to_create.each do |dir|
-      if !File.exist?(dir)
-        begin
-          FileUtils.mkdir_p(dir)
-        rescue Errno::EACCES
-          raise if Process.euid == 0
-        end
+      begin
+        FileUtils.mkdir_p(dir)
+      rescue Errno::EACCES
+        raise if Process.euid == 0
       end
     end
     @tar = Tpkg::find_tar
@@ -1438,15 +1343,27 @@ class Tpkg
     @locks = 0
     @installed_metadata = {}
     @available_packages_cache = {}
+    @os = nil
   end
   
   attr_reader :base
+  attr_reader :installed_directory
   attr_reader :sources
   attr_reader :report_server
   attr_reader :lockforce
   attr_reader :force
-  attr_reader :sudo
   attr_reader :file_system_root
+  
+  # This allows us to avoid creating an OS object (which is rather slow due to
+  # Facter loading) unless it is needed.  Many tpkg operations don't require
+  # an OS object, so it is nice to not spend the time creating one if it is
+  # not needed.
+  def os
+    if !@os
+      @os = Tpkg::OS.create(:debug => @@debug)
+    end
+    @os
+  end
   
   def gethttp(uri)
     if uri.scheme != 'http' && uri.scheme != 'https'
@@ -1544,9 +1461,7 @@ class Tpkg
               # Attempt to save a local copy, might not work if we're not
               # running with sufficient privileges
               begin
-                if !File.exist?(localdir)
-                  FileUtils.mkdir_p(localdir)
-                end
+                FileUtils.mkdir_p(localdir)
                 File.open(localpath, 'w') do |file|
                   file.puts(response.body)
                 end
@@ -1617,10 +1532,10 @@ class Tpkg
     end
   end
   
-  # Used by load_available_native_packages to stuff all the info about a
+  # Used by available_native_packages to stuff all the info about a
   # native package into a hash to match the structure we pass around
   # internally for tpkgs
-  def pkg_for_native_package(name, version, package_version, source)
+  def self.pkg_for_native_package(name, version, package_version, source)
     metadata = {}
     metadata[:name] = name
     metadata[:version] = version
@@ -1632,260 +1547,18 @@ class Tpkg
     pkg
   end
   
-  def load_available_native_packages(pkgname)
-    if !@available_native_packages[pkgname]
-      native_packages = []
-      if Tpkg::get_os =~ /RedHat|CentOS|Fedora/
-        [ {:arg => 'installed', :header => 'Installed', :source => :native_installed},
-          {:arg => 'available', :header => 'Available', :source => :native_available} ].each do |yum|
-          cmd = "yum info #{yum[:arg]} #{pkgname}"
-          puts "available_native_packages running '#{cmd}'" if @@debug
-          stderr_first_line = nil
-          Open3.popen3(cmd) do |stdin, stdout, stderr|
-            stdin.close
-            read_packages = false
-            name = version = package_version = nil
-            stdout.each_line do |line|
-              if line =~ /#{yum[:header]} Packages/
-                # Skip the header lines until we get to this line
-                read_packages = true
-              elsif read_packages
-                if line =~ /^Name\s*:\s*(.+)/
-                  name = $1.strip
-                elsif line =~ /^Arch\s*:\s*(.+)/
-                  arch = $1.strip
-                elsif line =~ /^Version\s*:\s*(.+)/
-                  version = $1.strip.to_s
-                elsif line =~ /^Release\s*:\s*(.+)/
-                  package_version = $1.strip.to_s
-                elsif line =~ /^Repo\s*:\s*(.+)/
-                  repo = $1.strip
-                elsif line =~ /^\s*$/
-                  pkg = pkg_for_native_package(name, version, package_version, yum[:source])
-                  native_packages << pkg
-                  name = version = package_version = nil
-                end
-                # In the end we ignore the architecture.  Anything that
-                # shows up in yum should be installable on this box, and
-                # the chance of a mismatch between facter's idea of the
-                # architecture and RPM's idea is high.  I.e. i386 vs i686
-                # or i32e vs x86_64 or whatever.
-              end
-            end
-            stderr_first_line = stderr.gets
-          end
-          # FIXME: popen3 doesn't set $?
-          if !$?.success?
-            # Ignore 'no matching packages', raise anything else
-            if stderr_first_line != "Error: No matching Packages to list\n"
-              raise "available_native_packages error running yum"
-            end
-          end
-        end
-      elsif Tpkg::get_os =~ /Debian|Ubuntu/
-        # The default 'dpkg -l' format has an optional third column for
-        # errors, which makes it hard to parse reliably.
-        puts "available_native_packages running dpkg-query -W -f='${Package} ${Version} ${Status}\n' #{pkgname}" if @@debug
-        stderr_first_line = nil
-        Open3.popen3("dpkg-query -W -f='${Package} ${Version} ${Status}\n' #{pkgname}") do |stdin, stdout, stderr|
-          stdin.close
-          stdout.each_line do |line|
-            name, debversion, status = line.split(' ', 3)
-            # Seems to be Debian convention that if the package has a
-            # package version you seperate that from the upstream version
-            # with a hyphen.
-            version = nil
-            package_version = nil
-            if debversion =~ /-/
-              version, package_version = debversion.split('-', 2)
-            else
-              version = debversion
-            end
-	    # We want packages with a state of "installed".  However,
-	    # there's also a state of "not-installed", and the state
-	    # field contains several space-seperated values, so we have
-	    # to be somewhat careful to pick out "installed".
-            if status.split(' ').include?('installed')
-              pkg = pkg_for_native_package(name, version, package_version, :native_installed)
-              native_packages << pkg
-            end
-          end
-          stderr_first_line = stderr.gets
-        end
-        # FIXME: popen3 doesn't set $?
-        if !$?.success?
-          # Ignore 'no matching packages', raise anything else
-          if stderr_first_line !~ 'No packages found matching'
-            raise "available_native_packages error running dpkg-query"
-          end
-        end
-        puts "available_native_packages running 'apt-cache show #{pkgname}'" if @@debug
-        IO.popen("apt-cache show #{pkgname}") do |pipe|
-          name = nil
-          version = nil
-          package_version = nil
-          pipe.each_line do |line|
-            if line =~ /^Package: (.*)/
-              name = $1
-              version = nil
-              package_version = nil
-            elsif line =~ /^Version: (.*)/
-              debversion = $1
-              # Seems to be Debian convention that if the package has a
-              # package version you seperate that from the upstream version
-              # with a hyphen.
-              if debversion =~ /-/
-                version, package_version = debversion.split('-', 2)
-              else
-                version = debversion
-              end
-              pkg = pkg_for_native_package(name, version, package_version, :native_available)
-              native_packages << pkg
-            end
-          end
-        end
-        if !$?.success?
-          raise "available_native_packages error running apt-cache"
-        end
-      elsif Tpkg::get_os =~ /Solaris/
-        # Example of pkginfo -x output:
-        # SUNWzfsu                      ZFS (Usr)
-        #                               (i386) 11.10.0,REV=2006.05.18.01.46
-        puts "available_native_packages running 'pkginfo -x #{pkgname}'" if @@debug
-        IO.popen("pkginfo -x #{pkgname}") do |pipe|
-          name = nil
-          version = nil
-          package_version = nil
-          pipe.each_line do |line|
-            if line =~ /^\w/
-              name = line.split(' ')
-              version = nil
-              package_version = nil
-            else
-              arch, solversion = line.split(' ')
-              # Lots of Sun and some third party packages (including CSW)
-              # seem to use this REV= convention in the version.  I've
-              # never seen it documented, but since it seems to be a
-              # widely used convention we'll go with it.
-              if solversion =~ /,REV=/
-                version, package_version = solversion.split(',REV=')
-              else
-                version = solversion
-              end
-              pkg = pkg_for_native_package(name, version, package_version, :native_installed)
-              native_packages << pkg
-            end
-          end
-        end
-        if !$?.success?
-          raise "available_native_packages error running pkginfo"
-        end
-        if File.exist?('/opt/csw/bin/pkg-get')
-          puts "available_native_packages running '/opt/csw/bin/pkg-get -a'" if @@debug
-          IO.popen('/opt/csw/bin/pkg-get -a') do |pipe|
-            pipe.each_line do |line|
-              next if line =~ /^#/  # Skip comments
-              name, solversion = line.split
-              # pkg-get doesn't have an option to only show available
-              # packages matching a specific name, so we have to look over
-              # all available packages and pick out the ones that match.
-              next if name != pkgname
-              # Lots of Sun and some third party packages (including CSW)
-              # seem to use this REV= convention in the version.  I've
-              # never seen it documented, but since it seems to be a
-              # widely used convention we'll go with it.
-              version = nil
-              package_version = nil
-              if solversion =~ /,REV=/
-                version, package_version = solversion.split(',REV=')
-              else
-                version = solversion
-              end
-              pkg = pkg_for_native_package(name, version, package_version, :native_available)
-              native_packages << pkg
-            end
-          end
-        end
-      elsif Tpkg::get_os =~ /FreeBSD/
-        puts "available_native_packages running 'pkg_info #{pkgname}'" if @@debug
-        IO.popen("pkg_info #{pkgname}") do |pipe|
-          pipe.each_line do |line|
-            name_and_version = line.split(' ', 3)
-            nameparts = name_and_version.split('-')
-            fbversion = nameparts.pop
-            name = nameparts.join('-')
-            # Seems to be FreeBSD convention that if the package has a
-            # package version you seperate that from the upstream version
-            # with an underscore.
-            version = nil
-            package_version = nil
-            if fbversion =~ /_/
-              version, package_version = fbversion.split('_', 2)
-            else
-              version = fbversion
-            end
-            pkg = pkg_for_native_package(name, version, package_version, :native_installed)
-            package_version << pkg
-          end
-        end
-        if !$?.success?
-          raise "available_native_packages error running pkg_info"
-        end
-        # FIXME: FreeBSD available packages
-        # We could either poke around in the ports tree (if installed), or
-        # try to recreate the URL "pkg_add -r" would use and pull a
-        # directory listing.
-      elsif Tpkg::get_os =~ /Darwin/
-        if File.exist?('/opt/local/bin/port')
-          puts "available_native_packages running '/opt/local/bin/port installed #{pkgname}'" if @@debug
-          IO.popen("/opt/local/bin/port installed #{pkgname}") do |pipe|
-            pipe.each_line do |line|
-              next if line =~ /The following ports are currently installed/
-              next if line =~ /None of the specified ports are installed/
-              next if line !~ /\(active\)/
-              name, version = line.split(' ')
-              version.sub!(/^@/, '')
-              # Remove variant names
-              version.sub!(/\+.*/, '')
-              # Remove the _number that is always listed on installed ports,
-              # presumably some sort of differentiator if multiple copies of
-              # the same port version are installed.
-              version.sub!(/_\d+$/, '')
-              package_version = nil
-              pkg = pkg_for_native_package(name, version, package_version, :native_installed)
-              native_packages << pkg
-            end
-          end
-          if !$?.success?
-            raise "available_native_packages error running port"
-          end
-          puts "available_native_packages running '/opt/local/bin/port list #{pkgname}'" if @@debug
-          IO.popen("/opt/local/bin/port list #{pkgname}") do |pipe|
-            pipe.each_line do |line|
-              name, version = line.split(' ')
-              version.sub!(/^@/, '')
-              package_version = nil
-              pkg = pkg_for_native_package(name, version, package_version, :native_available)
-              native_packages << pkg
-            end
-          end
-          if !$?.success?
-            raise "available_native_packages error running port"
-          end
-        else
-          # Fink support would be nice
-          raise "No supported native package tool available on #{Tpkg::get_os}"
-        end
-      else
-        puts "Unknown value for OS: #{Tpkg::get_os}"
-      end
-      @available_native_packages[pkgname] = native_packages
+  def available_native_packages(pkgname)
+    if @available_native_packages[pkgname]
+      return @available_native_packages[pkgname]
+    else
+      native_packages = os.available_native_packages(pkgname)
       if @@debug
         nicount = native_packages.select{|pkg| pkg[:source] == :native_installed}.length
         nacount = native_packages.select{|pkg| pkg[:source] == :native_available}.length
         puts "Found #{nicount} installed native packages for #{pkgname}"
         puts "Found #{nacount} available native packages for #{pkgname}"
       end
+      @available_native_packages[pkgname] = native_packages
     end
   end
   
@@ -1988,16 +1661,15 @@ class Tpkg
                         # that we clone it here. Otherwise, req can be changed later on from
                         # the calling method and modify our cache inadvertently
         if req[:type] == :native
-          load_available_native_packages(req[:name])
-          @available_native_packages[req[:name]].each do |pkg|
-            if Tpkg::package_meets_requirement?(pkg, req)
+          available_native_packages(req[:name]).each do |pkg|
+            if package_meets_requirement?(pkg, req)
               pkgs << pkg
             end
           end
         else
           load_available_packages(req[:name])
           @available_packages[req[:name]].each do |pkg|
-            if Tpkg::package_meets_requirement?(pkg, req)
+            if package_meets_requirement?(pkg, req)
               pkgs << pkg
             end
           end
@@ -2034,10 +1706,9 @@ class Tpkg
   def installed_packages_that_meet_requirement(req=nil)
     pkgs = []
     if req && req[:type] == :native
-      load_available_native_packages(req[:name])
-      @available_native_packages[req[:name]].each do |pkg|
+      available_native_packages(req[:name]).each do |pkg|
         if pkg[:source] == :native_installed &&
-           Tpkg::package_meets_requirement?(pkg, req)
+           package_meets_requirement?(pkg, req)
           pkgs << pkg
         end
       end
@@ -2066,7 +1737,7 @@ class Tpkg
       # makes the process more consistent and easier to follow.
       installed_packages(pkgname).each do |pkg|
         if req
-          if Tpkg::package_meets_requirement?(pkg, req)
+          if package_meets_requirement?(pkg, req)
             pkgs << pkg
           end
         else
@@ -2175,7 +1846,7 @@ class Tpkg
             # nil entry inserted into packages by the sorting code
             # below.  We need to skip those.
             if pkg != nil
-              Tpkg::package_meets_requirement?(pkg, req)
+              package_meets_requirement?(pkg, req)
             end
           end
       end
@@ -2411,7 +2082,7 @@ class Tpkg
         if packages[newreq[:type]][newreq[:name]]
           pkg = solution[:pkgs].find{|solpkg| solpkg[:metadata][:name] == newreq[:name]}
           puts "checksol newreq pkg: #{pkg.inspect}" if @@debug
-          if pkg && Tpkg::package_meets_requirement?(pkg, newreq)
+          if pkg && package_meets_requirement?(pkg, newreq)
             # No change to solution needed
           else
             # Solution no longer works
@@ -2462,9 +2133,7 @@ class Tpkg
       # If downloaddir is specified, then download to that directory. Otherwise,
       # download to default source directory
       localdir = downloaddir || localdir
-      if !File.exist?(localdir)
-        FileUtils.mkdir_p(localdir)
-      end
+      FileUtils.mkdir_p(localdir)
       localpath = File.join(localdir, File.basename(path))
     end
     uri = URI.join(source, path)
@@ -2509,118 +2178,61 @@ class Tpkg
     end
     init_scripts
   end
-  
   # Given a package's metadata return a hash of init scripts in the
   # package and where they need to be linked to on the system
   def init_links(metadata)
     links = {}
     init_scripts(metadata).each do |installed_path, tpkgfile|
-      # SysV-style init
-      if Tpkg::get_os =~ /RedHat|CentOS|Fedora/ ||
-         Tpkg::get_os =~ /Debian|Ubuntu/ ||
-         Tpkg::get_os =~ /Solaris/
-        start = '99'
-        if tpkgfile[:init][:start]
-          start = tpkgfile[:init][:start]
-        end
-        levels = nil
-        if Tpkg::get_os =~ /RedHat|CentOS|Fedora/ ||
-           Tpkg::get_os =~ /Debian|Ubuntu/
-          levels = ['2', '3', '4', '5']
-        elsif Tpkg::get_os =~ /Solaris/
-          levels = ['2', '3']
-        end
-        if tpkgfile[:init][:levels]
-          levels = tpkgfile[:init][:levels]
-        end
-        init_directory = nil
-        if Tpkg::get_os =~ /RedHat|CentOS|Fedora/
-          init_directory = File.join(@file_system_root, 'etc', 'rc.d')
-        elsif Tpkg::get_os =~ /Debian|Ubuntu/ ||
-              Tpkg::get_os =~ /Solaris/
-          init_directory = File.join(@file_system_root, 'etc')
-        end
-        
-        # in case user specify levels in yaml as string/integer instead of array
-        if !levels.kind_of?(Array)
-          levels = levels.to_s.split(//)  
-        end
-        
-        levels.each do |level|
-          links[File.join(init_directory, "rc#{level}.d", 'S' + start.to_s + File.basename(installed_path))] = installed_path
-        end
-      elsif Tpkg::get_os =~ /FreeBSD/
-        init_directory = File.join(@file_system_root, 'usr', 'local', 'etc', 'rc.d')
-        if tpkgfile[:init][:levels] && tpkgfile[:init][:levels].empty?
-          # User doesn't want the init script linked in to auto-start
-        else
-          links[File.join(init_directory, File.basename(installed_path))] = installed_path
-        end
-      else
-        warn "No init script support for #{Tpkg::get_os}"
+      os.init_links(installed_path, tpkgfile).each do |link_path|
+        link = File.join(@file_system_root, link_path)
+        links[link] = File.join(@file_system_root, installed_path)
       end
     end
     links
   end
-  
   # Given a package's metadata return a hash of crontabs in the
-  # package and where they need to be installed on the system
-  def crontab_destinations(metadata)
-    destinations = {}
-    
-    # Don't do anything unless we have to
+  # package and the entry for that file from the metadata
+  def crontabs(metadata)
+    crontabs = {}
     unless metadata[:files] && metadata[:files][:files]
-      return destinations
+      return crontabs
     end
-    
     metadata[:files][:files].each do |tpkgfile|
       if tpkgfile[:crontab]
         tpkg_path = tpkgfile[:path]
         installed_path = normalize_path(tpkg_path)
-        destinations[installed_path] = {}
-        
-        # Decide whether we're going to add the file to a per-user
-        # crontab or link it into a directory of misc. crontabs.  If the
-        # system only supports per-user crontabs we have to go the
-        # per-user route.  If the system supports both we decide based on
-        # whether the package specifies a user for the crontab.
-        # Systems that only support per-user style
-        if Tpkg::get_os =~ /FreeBSD/ ||
-           Tpkg::get_os =~ /Solaris/ ||
-           Tpkg::get_os =~ /Darwin/
-          if tpkgfile[:crontab][:user]
-            user = tpkgfile[:crontab][:user]
-            if Tpkg::get_os =~ /FreeBSD/
-              destinations[installed_path][:file] = File.join(@file_system_root, 'var', 'cron', 'tabs', user)
-            elsif Tpkg::get_os =~ /Solaris/
-              destinations[installed_path][:file] = File.join(@file_system_root, 'var', 'spool', 'cron', 'crontabs', user)
-            elsif Tpkg::get_os =~ /Darwin/
-              destinations[installed_path][:file] = File.join(@file_system_root, 'usr', 'lib', 'cron', 'tabs', user)
-            end
-          else
-            raise "No user specified for crontab in #{metadata[:filename]}"
-          end
-        # Systems that support cron.d style
-        elsif Tpkg::get_os =~ /RedHat|CentOS|Fedora/ ||
-              Tpkg::get_os =~ /Debian|Ubuntu/
-          # If a user is specified go the per-user route
-          if tpkgfile[:crontab][:user]
-            user = tpkgfile[:crontab][:user]
-            if Tpkg::get_os =~ /RedHat|CentOS|Fedora/
-              destinations[installed_path][:file] = File.join(@file_system_root, 'var', 'spool', 'cron', user)
-            elsif Tpkg::get_os =~ /Debian|Ubuntu/
-              destinations[installed_path][:file] = File.join(@file_system_root, 'var', 'spool', 'cron', 'crontabs', user)
-            end
-          # Otherwise go the cron.d route
-          else
-            destinations[installed_path][:link] = File.join(@file_system_root, 'etc', 'cron.d', File.basename(installed_path))
-          end
-        else
-          warn "No crontab support for #{Tpkg::get_os}"
-        end
+        crontabs[installed_path] = tpkgfile
       end
     end
+    crontabs
+  end
+  # Given a package's metadata return a hash of crontabs in the
+  # package and where they need to be installed on the system
+  def crontab_destinations(metadata)
+    destinations = {}
+    crontabs(metadata).each do |installed_path, tpkgfile|
+      destinations[installed_path] = crontab_destination(installed_path, tpkgfile)
+    end
     destinations
+  end
+  # Given info for a crontab from a package's metadata return info about
+  # where the crontab needs to be installed on the system
+  def crontab_destination(installed_path, tpkgfile)
+    destination = {}
+    # Decide whether we're going to add the file to a per-user crontab or
+    # link it into a directory of cron.d-style crontabs.
+    if tpkgfile[:crontab][:user]
+      destination[:type] = :file
+      destination[:user] = tpkgfile[:crontab][:user]
+    else
+      if os.cron_dot_d_directory
+        destination[:type] = :link
+        destination[:path] = File.join(os.cron_dot_d_directory, File.basename(installed_path))
+      else
+        warn "No cron.d-style crontab support for #{os}"
+      end
+    end
+    destination
   end
   
   def run_external(pkgfile, operation, name, data)
@@ -2944,70 +2556,74 @@ class Tpkg
   end
   
   def install_init_scripts(metadata)
-    init_links(metadata).each do |link, init_script|
-      # We don't have to do anything if there's already symlink to our init
-      # script. This can happen if the user removes a package manually without
-      # removing the init symlink
-      next if File.symlink?(link) && File.readlink(link) == init_script
+    init_links(metadata).each do |link, installed_path|
+      install_init_script(metadata, link, installed_path)
+    end
+  end
+  def install_init_script(metadata, link, installed_path)
+    # We don't have to do anything if there's already symlink to our init
+    # script. This can happen if the user removes a package manually without
+    # removing the init symlink
+    return if File.symlink?(link) && File.readlink(link) == installed_path
+    begin
+      FileUtils.mkdir_p(File.dirname(link))
       begin
-        if !File.exist?(File.dirname(link))
-          FileUtils.mkdir_p(File.dirname(link))
-        end
-        begin
-          File.symlink(init_script, link)
-        rescue Errno::EEXIST
-          # The link name that init_links provides is not guaranteed to
-          # be unique.  It might collide with a base system init script
-          # or an init script from another tpkg.  If the link name
-          # supplied by init_links results in EEXIST then try appending
-          # a number to the end of the link name.
-          catch :init_link_done do
-            1.upto(9) do |i|
-              begin
-                File.symlink(init_script, link + i.to_s)
-                throw :init_link_done
-              rescue Errno::EEXIST
-              end
+        File.symlink(installed_path, link)
+      rescue Errno::EEXIST
+        # The link name that init_links provides is not guaranteed to
+        # be unique.  It might collide with a base system init script
+        # or an init script from another tpkg.  If the link name
+        # supplied by init_links results in EEXIST then try appending
+        # a number to the end of the link name.
+        catch :init_link_done do
+          1.upto(9) do |i|
+            begin
+              File.symlink(installed_path, link + i.to_s)
+              throw :init_link_done
+            rescue Errno::EEXIST
             end
-            # If we get here (i.e. we never reached the throw) then we
-            # failed to create any of the possible link names.
-            raise "Failed to install init script #{init_script} -> #{link} for #{File.basename(metadata[:filename].to_s)}, too many overlapping filenames"
           end
+          # If we get here (i.e. we never reached the throw) then we
+          # failed to create any of the possible link names.
+          raise "Failed to install init script #{installed_path} -> #{link} for #{File.basename(metadata[:filename].to_s)}, too many overlapping filenames"
         end
-      # EACCES for file/directory permissions issues
-      rescue Errno::EACCES => e
-        # If creating the link fails due to permission problems and
-        # we're not running as root just warn the user, allowing folks
-        # to run tpkg as a non-root user with reduced functionality.
-        if Process.euid != 0
-          warn "Failed to install init script for #{File.basename(metadata[:filename].to_s)}, probably due to lack of root privileges: #{e.message}"
-        else
-          raise e
-        end
+      end
+    # EACCES for file/directory permissions issues
+    rescue Errno::EACCES => e
+      # If creating the link fails due to permission problems and
+      # we're not running as root just warn the user, allowing folks
+      # to run tpkg as a non-root user with reduced functionality.
+      if Process.euid != 0
+        warn "Failed to install init script for #{File.basename(metadata[:filename].to_s)}, probably due to lack of root privileges: #{e.message}"
+      else
+        raise e
       end
     end
   end
   def remove_init_scripts(metadata)
-    init_links(metadata).each do |link, init_script|
-      # The link we ended up making when we unpacked the package could be any
-      # of a series (see the code in install_init_scripts for the reasoning),
-      # we need to check them all.
-      links = [link]
-      links.concat((1..9).to_a.map { |i| link + i.to_s })
-      links.each do |l|
-        if File.symlink?(l) && File.readlink(l) == init_script
-          begin
-            File.delete(l)
-          # EACCES for file/directory permissions issues
-          rescue Errno::EACCES => e
-            # If removing the link fails due to permission problems and
-            # we're not running as root just warn the user, allowing folks
-            # to run tpkg as a non-root user with reduced functionality.
-            if Process.euid != 0
-              warn "Failed to remove init script for #{File.basename(metadata[:filename].to_s)}, probably due to lack of root privileges: #{e.message}"
-            else
-              raise e
-            end
+    init_links(metadata).each do |link, installed_path|
+      remove_init_script(metadata, link, installed_path)
+    end
+  end
+  def remove_init_script(metadata, link, installed_path)
+    # The link we ended up making when we unpacked the package could be any
+    # of a series (see the code in install_init_scripts for the reasoning),
+    # we need to check them all.
+    links = [link]
+    links.concat((1..9).to_a.map { |i| link + i.to_s })
+    links.each do |l|
+      if File.symlink?(l) && File.readlink(l) == installed_path
+        begin
+          File.delete(l)
+        # EACCES for file/directory permissions issues
+        rescue Errno::EACCES => e
+          # If removing the link fails due to permission problems and
+          # we're not running as root just warn the user, allowing folks
+          # to run tpkg as a non-root user with reduced functionality.
+          if Process.euid != 0
+            warn "Failed to remove init script for #{File.basename(metadata[:filename].to_s)}, probably due to lack of root privileges: #{e.message}"
+          else
+            raise e
           end
         end
       end
@@ -3016,220 +2632,131 @@ class Tpkg
   
   def install_crontabs(metadata)
     crontab_destinations(metadata).each do |crontab, destination|
-      # FIXME: Besides the regex being ugly it is also only going to match on
-      # Linux, need to figure out if there's a reason for that or if this can
-      # be made more generic.
-      if !@sudo && (destination[destination.keys.first] =~ /\/var\/spool\/cron/)
-        install_crontab_bycmd(metadata, crontab, destination)
-        next
-      end
-      
-      begin
-        if destination[:link]
-          install_crontab_link(metadata, crontab, destination)
-        elsif destination[:file]
-          install_crontab_file(metadata, crontab, destination)
-        end
-      # EACCES for file/directory permissions issues
-      rescue Errno::EACCES => e
-        # If installing the crontab fails due to permission problems and
-        # we're not running as root just warn the user, allowing folks
-        # to run tpkg as a non-root user with reduced functionality.
-        if Process.euid != 0
-          warn "Failed to install crontab for #{File.basename(metadata[:filename].to_s)}, probably due to lack of root privileges: #{e.message}"
-        else
-          raise e
-        end
-      rescue RuntimeError => e
-        if e.message.include?('cannot generate tempfile') && Process.euid != 0
-          warn "Failed to install crontab for #{File.basename(metadata[:filename].to_s)}, probably due to lack of root privileges: #{e.message}"
-        else
-          raise e
-        end
+      if destination[:type] == :link
+        install_crontab_link(metadata, crontab, destination[:path])
+      elsif destination[:type] == :file
+        install_crontab_file(metadata, crontab, destination[:user])
       end
     end
   end
   def install_crontab_link(metadata, crontab, destination)
-    return if File.symlink?(destination[:link]) && File.readlink(destination[:link]) == crontab
-    if !File.exist?(File.dirname(destination[:link]))
-      FileUtils.mkdir_p(File.dirname(destination[:link]))
-    end
+    return if (File.symlink?(destination) && File.readlink(destination) == crontab)
     begin
-      File.symlink(crontab, destination[:link])
-    rescue Errno::EEXIST
-      # The link name that crontab_destinations provides is not
-      # guaranteed to be unique.  It might collide with a base
-      # system crontab or a crontab from another tpkg.  If the
-      # link name supplied by crontab_destinations results in
-      # EEXIST then try appending a number to the end of the link
-      # name.
-      catch :crontab_link_done do
-        1.upto(9) do |i|
-          begin
-            File.symlink(crontab, destination[:link] + i.to_s)
-            throw :crontab_link_done
-          rescue Errno::EEXIST
-          end
-        end
-        # If we get here (i.e. we never reached the throw) then we
-        # failed to create any of the possible link names.
-        raise "Failed to install crontab #{crontab} -> #{destination[:link]} for #{File.basename(metadata[:filename].to_s)}, too many overlapping filenames"
-      end
-    end
-  end
-  # FIXME: Can this be replaced by install_crontab_bycmd?
-  def install_crontab_file(metadata, crontab, destination)
-    if !File.exist?(File.dirname(destination[:file]))
-      FileUtils.mkdir_p(File.dirname(destination[:file]))
-    end
-    tmpfile = Tempfile.new(File.basename(destination[:file]), File.dirname(destination[:file]))
-    if File.exist?(destination[:file])
-      # Match permissions and ownership of current crontab
-      st = File.stat(destination[:file])
+      FileUtils.mkdir_p(File.dirname(destination))
       begin
-        File.chmod(st.mode & 07777, tmpfile.path)
-        File.chown(st.uid, st.gid, tmpfile.path)
-      # EPERM for attempts to chown/chmod as non-root user
-      rescue Errno::EPERM => e
-        # If installing the crontab fails due to permission problems and
-        # we're not running as root just warn the user, allowing folks
-        # to run tpkg as a non-root user with reduced functionality.
-        if Process.euid != 0
-          warn "Failed to install crontab for #{File.basename(metadata[:filename].to_s)}, probably due to lack of root privileges: #{e.message}"
-        else
-          raise e
+        File.symlink(crontab, destination)
+      rescue Errno::EEXIST
+        # The link name that crontab_destinations provides is not
+        # guaranteed to be unique.  It might collide with a base
+        # system crontab or a crontab from another tpkg.  If the
+        # link name supplied by crontab_destinations results in
+        # EEXIST then try appending a number to the end of the link
+        # name.
+        catch :crontab_link_done do
+          1.upto(9) do |i|
+            begin
+              File.symlink(crontab, destination + i.to_s)
+              throw :crontab_link_done
+            rescue Errno::EEXIST
+            end
+          end
+          # If we get here (i.e. we never reached the throw) then we
+          # failed to create any of the possible link names.
+          raise "Failed to install crontab #{crontab} -> #{destination} for #{File.basename(metadata[:filename].to_s)}, too many overlapping filenames"
         end
-      rescue Errno::EINVAL
-        raise if RUBY_PLATFORM != 'i386-cygwin'
       end
-      # Insert the contents of the current crontab file
-      File.open(destination[:file]) { |file| tmpfile.write(file.read) }
+    rescue Errno::EACCES => e
+      # If installing the crontab fails due to permission problems and
+      # we're not running as root just warn the user, allowing folks
+      # to run tpkg as a non-root user with reduced functionality.
+      if Process.euid != 0
+        warn "Failed to install crontab for #{File.basename(metadata[:filename].to_s)}, probably due to lack of root privileges: #{e.message}"
+      else
+        raise e
+      end
     end
-    # Insert a header line so we can find this section to remove later
-    tmpfile.puts "### TPKG START - #{@base} - #{File.basename(metadata[:filename].to_s)}"
-    # Insert the package crontab contents
-    crontab_contents = IO.read(crontab)
-    tmpfile.write(crontab_contents)
-    # Insert a newline if the crontab doesn't end with one
-    if crontab_contents.chomp == crontab_contents
-      tmpfile.puts
-    end
-    # Insert a footer line
-    tmpfile.puts "### TPKG END - #{@base} - #{File.basename(metadata[:filename].to_s)}"
-    tmpfile.close
-    File.rename(tmpfile.path, destination[:file])
-    # FIXME: On Solaris we should bounce cron or use the crontab
-    # command, otherwise cron won't pick up the changes
   end
-  def install_crontab_bycmd(metadata, crontab, destination)
-    oldcron = `crontab -l`
-    tmpf = '/tmp/tpkg_cron.' + rand.to_s
-    tmpfh = File.open(tmpf,'w')
-    tmpfh.write(oldcron) unless oldcron.empty?
-    tmpfh.puts "### TPKG START - #{@base} - #{File.basename(metadata[:filename].to_s)}"
-    tmpfh.write File.readlines(crontab)
-    tmpfh.puts "### TPKG END - #{@base} - #{File.basename(metadata[:filename].to_s)}"
-    tmpfh.close
-    `crontab #{tmpf}`
-    FileUtils.rm(tmpf)
+  def crontab_uoption(user)
+    # The crontab command generally seems unwilling to let you specify the -u
+    # option, even for your own username, if you aren't root.  So if the user
+    # requested is the same as the current user omit the option.
+    uoption = nil
+    if user == 'ANY' || user == Etc.getpwuid.name
+      uoption = ''
+    else
+      uoption = "-u #{user}"
+      if Process.uid != 0
+        warn "Package requests user #{user} for crontab, likely will fail due to lack of of root privileges"
+      end
+    end
+    uoption
+  end
+  def install_crontab_file(metadata, crontab, user)
+    uoption = crontab_uoption(user)
+    tf = Tempfile.new('tpkg_crontab')
+    oldcron = `#{@cmd_crontab} #{uoption} -l`
+    tf.write(oldcron)
+    tf.write("\n") if (oldcron.chomp == oldcron)
+    # Insert a header line so we can find this section to remove later
+    tf.puts "### TPKG START - #{@base} - #{File.basename(metadata[:filename].to_s)}"
+    newcron = File.read(crontab)
+    tf.write(newcron)
+    tf.write("\n") if (newcron.chomp == newcron)
+    tf.puts "### TPKG END - #{@base} - #{File.basename(metadata[:filename].to_s)}"
+    tf.close
+    system("#{@cmd_crontab} #{uoption} #{tf.path}")
+    tf.close!
   end
   def remove_crontabs(metadata)
     crontab_destinations(metadata).each do |crontab, destination|
-      # FIXME: Besides the regex being ugly it is also only going to match on
-      # Linux, need to figure out if there's a reason for that or if this can
-      # be made more generic.
-      if !@sudo && (destination[destination.keys.first] =~ /\/var\/spool\/cron/)
-        remove_crontab_bycmd(metadata, crontab, destination)
-        next
-      end
-      
-      begin
-        if destination[:link]
-          remove_crontab_link(metadata, crontab, destination)
-        elsif destination[:file]
-          remove_crontab_file(metadata, crontab, destination)
-        end
-      # EACCES for file/directory permissions issues
-      rescue Errno::EACCES => e
-        # If removing the crontab fails due to permission problems and
-        # we're not running as root just warn the user, allowing folks
-        # to run tpkg as a non-root user with reduced functionality.
-        if Process.euid != 0
-          warn "Failed to remove crontab for #{File.basename(metadata[:filename].to_s)}, probably due to lack of root privileges: #{e.message}"
-        else
-          raise e
-        end
+      if destination[:type] == :link
+        remove_crontab_link(metadata, crontab, destination[:path])
+      elsif destination[:type] == :file
+        remove_crontab_file(metadata, destination[:user])
       end
     end
   end
   def remove_crontab_link(metadata, crontab, destination)
-    # The link we ended up making when we unpacked the package could
-    # be any of a series (see the code in unpack for the reasoning),
-    # we need to check them all.
-    links = [destination[:link]]
-    links.concat((1..9).to_a.map { |i| destination[:link] + i.to_s })
-    links.each do |l|
-      if File.symlink?(l) && File.readlink(l) == crontab
-        File.delete(l)
+    begin
+      # The link we ended up making when we unpacked the package could
+      # be any of a series (see the code in unpack for the reasoning),
+      # we need to check them all.
+      links = [destination]
+      links.concat((1..9).to_a.map { |i| destination + i.to_s })
+      links.each do |l|
+        if File.symlink?(l) && File.readlink(l) == crontab
+          File.delete(l)
+        end
+      end
+    rescue Errno::EACCES => e
+      # If removing the crontab fails due to permission problems and
+      # we're not running as root just warn the user, allowing folks
+      # to run tpkg as a non-root user with reduced functionality.
+      if Process.euid != 0
+        warn "Failed to remove crontab for #{File.basename(metadata[:filename].to_s)}, probably due to lack of root privileges: #{e.message}"
+      else
+        raise e
       end
     end
   end
-  # FIXME: Can this be replaced by remove_crontab_bycmd?
-  def remove_crontab_file(metadata, crontab, destination)
-    if File.exist?(destination[:file])
-      tmpfile = Tempfile.new(File.basename(destination[:file]), File.dirname(destination[:file]))
-      # Match permissions and ownership of current crontab
-      st = File.stat(destination[:file])
-      begin
-        File.chmod(st.mode & 07777, tmpfile.path)
-        File.chown(st.uid, st.gid, tmpfile.path)
-      # EPERM for attempts to chown/chmod as non-root user
-      rescue Errno::EPERM => e
-        # If installing the crontab fails due to permission problems and
-        # we're not running as root just warn the user, allowing folks
-        # to run tpkg as a non-root user with reduced functionality.
-        if Process.euid != 0
-          warn "Failed to install crontab for #{File.basename(metadata[:filename].to_s)}, probably due to lack of root privileges: #{e.message}"
-        else
-          raise
-        end
-      rescue Errno::EINVAL
-        raise if RUBY_PLATFORM != 'i386-cygwin'
-      end
-      # Remove section associated with this package
-      skip = false
-      IO.foreach(destination[:file]) do |line|
-        if line == "### TPKG START - #{@base} - #{File.basename(metadata[:filename].to_s)}\n"
-          skip = true
-        elsif line == "### TPKG END - #{@base} - #{File.basename(metadata[:filename].to_s)}\n"
-          skip = false
-        elsif !skip
-          tmpfile.write(line)
-        end
-      end
-      tmpfile.close
-      File.rename(tmpfile.path, destination[:file])
-      # FIXME: On Solaris we should bounce cron or use the crontab
-      # command, otherwise cron won't pick up the changes
-    end
-  end
-  def remove_crontab_bycmd(metadata, crontab, destination)
-    oldcron = `crontab -l`
-    tmpf = '/tmp/tpkg_cron.' + rand.to_s
-    tmpfh = File.open(tmpf,'w')
+  def remove_crontab_file(metadata, user)
+    uoption = crontab_uoption(user)
+    oldcron = `#{@cmd_crontab} #{uoption} -l`
+    tf = Tempfile.new('tpkg_crontab')
+    # Remove section associated with this package
     skip = false
-    oldcron.each do |line|
+    oldcron.lines.each do |line|
       if line == "### TPKG START - #{@base} - #{File.basename(metadata[:filename].to_s)}\n"
         skip = true
       elsif line == "### TPKG END - #{@base} - #{File.basename(metadata[:filename].to_s)}\n"
         skip = false
       elsif !skip
-        tmpfh.write(line)
+        tf.write(line)
       end
     end
-    tmpfh.close
-    `crontab #{tmpf}`
-    FileUtils.rm(tmpf)
+    tf.close
+    system("#{@cmd_crontab} #{uoption} #{tf.path}")
+    tf.close!
   end
   
   def run_preinstall(package_file, workdir)
@@ -3519,7 +3046,7 @@ class Tpkg
         req = { :name => metadata[:name], :type => :tpkg }
         # Quick sanity check that the package can be installed on this machine.
         puts "check_requests checking that available package for request works on this machine: #{pkg.inspect}" if @@debug
-        if !Tpkg::package_meets_requirement?(pkg, req)
+        if !package_meets_requirement?(pkg, req)
           possible_errors << "  Requested package #{metadata[:filename]} doesn't match this machine's OS or architecture"
           good_package = false
           next
@@ -3528,7 +3055,7 @@ class Tpkg
         # available for each dependency of this package
         metadata[:dependencies].each do |depreq|
           puts "check_requests checking for available packages to satisfy dependency: #{depreq.inspect}" if @@debug
-          if available_packages_that_meet_requirement(depreq).empty? && !Tpkg::packages_meet_requirement?(packages.values.flatten, depreq)
+          if available_packages_that_meet_requirement(depreq).empty? && !packages_meet_requirement?(packages.values.flatten, depreq)
             possible_errors << "  Requested package #{metadata[:filename]} depends on #{depreq.inspect}, no packages that satisfy that dependency are available"
             good_package = false
           end
@@ -3609,7 +3136,7 @@ class Tpkg
       next if pkg1[:metadata][:conflicts].nil?
       pkg1[:metadata][:conflicts].each do | conflict |
         pkgs_to_install.each do |pkg2|
-          if Tpkg::package_meets_requirement?(pkg2, conflict)
+          if package_meets_requirement?(pkg2, conflict)
             conflicting_pkgs << pkg1
           end
         end
@@ -3631,7 +3158,7 @@ class Tpkg
       next if pkg1[:metadata][:conflicts].nil?
       pkg1[:metadata][:conflicts].each do | conflict |
         pkgs_to_install.each do |pkg2|
-          if Tpkg::package_meets_requirement?(pkg2, conflict)
+          if package_meets_requirement?(pkg2, conflict)
             raise "Package conflicts between #{pkg2[:metadata][:filename]} and #{pkg1[:metadata][:filename]}"
           end
         end
@@ -3695,20 +3222,8 @@ class Tpkg
         puts "The following packages will be #{promptstring}:"
         pkgs_to_report.sort(&SORT_PACKAGES).each do |pkg|
           if pkg[:source] == :native_available
-            name = pkg[:metadata][:name]
-            version = pkg[:metadata][:version]
-            package_version = pkg[:metadata][:package_version]
-            pkgname = "#{name}"
-           if Tpkg::get_os =~ /Debian|Ubuntu/
-               pkgname << "=#{version}"
-           else
-               pkgname <<"-#{version}"
-           end
-            if package_version
-                pkgname << "-#{package_version}"
-            end
-            puts "Native #{pkgname}"
-          else    
+            puts "Native #{os.native_pkg_to_install_string(pkg)}"
+          else
             puts pkg[:metadata][:filename]
           end
         end
@@ -3776,67 +3291,7 @@ class Tpkg
         # Nothing to do for packages currently installed
         warn "Skipping #{pkg[:metadata][:name]}, already installed"
       elsif pkg[:source] == :native_available
-        if Tpkg::get_os =~ /RedHat|CentOS|Fedora/
-          name = pkg[:metadata][:name]
-          version = pkg[:metadata][:version]
-          package_version = pkg[:metadata][:package_version]
-          # RPMs always have a release/package_version
-          pkgname = "#{name}-#{version}-#{package_version}"
-          puts "Running 'yum -y install #{pkgname}' to install native package" if @@debug
-          system("yum -y install #{pkgname}")
-        elsif Tpkg::get_os =~ /Debian|Ubuntu/
-          name = pkg[:metadata][:name]
-          version = pkg[:metadata][:version]
-          pkgname = "#{name}=#{version}"
-          if pkg[:metadata][:package_version]
-            pkgname << "-#{pkg[:metadata][:package_version]}"
-          end
-          puts "Running 'apt-get -y install #{pkgname}' to install native package" if @@debug
-          system("apt-get -y install #{pkgname}")
-        elsif Tpkg::get_os =~ /Solaris/
-          name = pkg[:metadata][:name]
-          version = pkg[:metadata][:version]
-          pkgname = "#{name}-#{version}"
-          if pkg[:metadata][:package_version]
-            pkgname << ",REV=#{pkg[:metadata][:package_version]}"
-          end
-          if File.exist?('/opt/csw/bin/pkg-get')
-            puts "Running '/opt/csw/bin/pkg-get -i #{pkgname}' to install native package" if @@debug
-            system("/opt/csw/bin/pkg-get -i #{pkgname}")
-          else
-            raise "No native package installation tool available"
-          end
-        elsif Tpkg::get_os =~ /FreeBSD/
-          name = pkg[:metadata][:name]
-          version = pkg[:metadata][:version]
-          pkgname = "#{name}-#{version}"
-          if pkg[:metadata][:package_version]
-            pkgname << "_#{pkg[:metadata][:package_version]}"
-          end
-          puts "Running 'pkg_add -r #{pkgname}' to install native package" if @@debug
-          system("pkg_add -r #{pkgname}")
-        elsif Tpkg::get_os =~ /Darwin/
-          if File.exist?('/opt/local/bin/port')
-            name = pkg[:metadata][:name]
-            # MacPorts doesn't support installing a specific version (AFAIK)
-            if pkg[:metadata][:version]
-              warn "Ignoring version with MacPorts"
-            end
-            # Nor does it have a concept of a package version
-            if pkg[:metadata][:package_version]
-              warn "Ignoring package version with MacPorts"
-            end
-            # Just for consistency with the code for other platforms
-            pkgname = name
-            puts "Running '/opt/local/bin/port install #{pkgname}' to install native package" if @@debug
-            system("/opt/local/bin/port install #{pkgname}")
-          else
-            # Fink, Homebrew support would be nice
-            raise "No supported native package tool available on #{Tpkg::get_os}"
-          end
-        else
-          raise "No native package installation support for #{Tpkg::get_os}"
-        end
+        os.install_native_package(pkg)
       else # regular tpkg that needs to be installed
         pkgfile = nil
         if File.file?(pkg[:source])
@@ -3852,8 +3307,7 @@ class Tpkg
         else
           if prompt_for_conflicting_files(pkgfile)
             ret_val |= unpack(pkgfile, :passphrase => passphrase)
-            # create and install stubbed native package if needed
-            stub_native_pkg(pkg)
+            os.stub_native_pkg(pkg)
           end
         end
       end
@@ -3986,79 +3440,8 @@ class Tpkg
          pkg[:source] == :native_installed
         # Nothing to do for packages currently installed
       elsif pkg[:source] == :native_available
-        if Tpkg::get_os =~ /RedHat|CentOS|Fedora/
-          name = pkg[:metadata][:name]
-          version = pkg[:metadata][:version]
-          package_version = pkg[:metadata][:package_version]
-          # RPMs always have a release/package_version
-          pkgname = "#{name}-#{version}-#{package_version}"
-          puts "Running 'yum -y install #{pkgname}' to upgrade native package" if @@debug
-          system("yum -y install #{pkgname}")
-          has_updates = true
-        elsif Tpkg::get_os =~ /Debian|Ubuntu/
-          name = pkg[:metadata][:name]
-          version = pkg[:metadata][:version]
-          pkgname = "#{name}=#{version}"
-          if pkg[:metadata][:package_version]
-            pkgname << "-#{pkg[:metadata][:package_version]}"
-          end
-          puts "Running 'apt-get -y install #{pkgname}' to upgrade native package" if @@debug
-          system("apt-get -y install #{pkgname}")
-          has_updates = true
-        elsif Tpkg::get_os =~ /Solaris/
-          name = pkg[:metadata][:name]
-          version = pkg[:metadata][:version]
-          pkgname = "#{name}-#{version}"
-          if pkg[:metadata][:package_version]
-            pkgname << ",REV=#{pkg[:metadata][:package_version]}"
-          end
-          if File.exist?('/opt/csw/bin/pkg-get')
-            puts "Running '/opt/csw/bin/pkg-get -i #{pkgname}' to upgrade native package" if @@debug
-            system("/opt/csw/bin/pkg-get -i #{pkgname}")
-            has_updates = true
-          else
-            raise "No native package upgrade tool available"
-          end
-        elsif Tpkg::get_os =~ /FreeBSD/
-          name = pkg[:metadata][:name]
-          version = pkg[:metadata][:version]
-          pkgname = "#{name}-#{version}"
-          if pkg[:metadata][:package_version]
-            pkgname << "_#{pkg[:metadata][:package_version]}"
-          end
-          # This is not very ideal.  It would be better to download the
-          # new package, and if the download is successful remove the
-          # old package and install the new one.  The way we're doing it
-          # here we risk leaving the system with neither version
-          # installed if the download of the new package fails.
-          # However, the FreeBSD package tools don't make it easy to
-          # handle things properly.
-          puts "Running 'pkg_delete #{name}' and 'pkg_add -r #{pkgname}' to upgrade native package" if @@debug
-          system("pkg_delete #{name}")
-          system("pkg_add -r #{pkgname}")
-          has_updates = true
-        elsif Tpkg::get_os =~ /Darwin/
-          if File.exist?('/opt/local/bin/port')
-            name = pkg[:metadata][:name]
-            # MacPorts doesn't support installing a specific version (AFAIK)
-            if pkg[:metadata][:version]
-              warn "Ignoring version with MacPorts"
-            end
-            # Nor does it have a concept of a package version
-            if pkg[:metadata][:package_version]
-              warn "Ignoring package version with MacPorts"
-            end
-            # Just for consistency with the code for other platforms
-            pkgname = name
-            puts "Running '/opt/local/bin/port upgrade #{pkgname}' to upgrade native package" if @@debug
-            system("/opt/local/bin/port upgrade #{pkgname}")
-          else
-            # Fink support would be nice
-            raise "No supported native package tool available on #{Tpkg::get_os}"
-          end
-        else
-          raise "No native package upgrade support for #{Tpkg::get_os}"
-        end
+        os.upgrade_native_package(pkg)
+        has_updates = true
       else  # tpkg
         pkgfile = nil
         if File.file?(pkg[:source])
@@ -4107,8 +3490,7 @@ class Tpkg
             is_doing_upgrade = true if removed_pkgs.include?(pkg[:metadata][:name])
             ret_val |= unpack(pkgfile, :passphrase => passphrase, :externals_to_skip => externals_to_skip,
                                        :is_doing_upgrade => is_doing_upgrade)
-            # create and install stubbed native package if needed
-            stub_native_pkg(pkg)
+            os.stub_native_pkg(pkg)
           end
           has_updates = true
         end
@@ -4370,8 +3752,7 @@ class Tpkg
       package_metadata_dir = File.join(@metadata_directory, File.basename(package_file, File.extname(package_file)))
       FileUtils.rm_rf(package_metadata_dir)
       
-      # remove native dependency stub packages if needed
-      remove_native_stub_pkg(pkg)
+      os.remove_native_stub_pkg(pkg)
       
       # Cleanup
       FileUtils.rm_rf(workdir)
@@ -4698,15 +4079,8 @@ class Tpkg
   # Packages are downloaded into the current directory or into the directory
   # specified in options[:out]
   def download_pkgs(requests, options={})
-    if options[:out]
-      if !File.exists?(options[:out])
-        FileUtils.mkdir_p(options[:out])
-      elsif !File.directory?(options[:out])
-        puts "#{options[:out]} is not a valid directory."
-        return GENERIC_ERR
-      end
-    end
     output_dir = options[:out] || Dir.pwd
+    FileUtils.mkdir_p(output_dir)
     
     requirements = []
     packages = {}
@@ -4779,13 +4153,7 @@ class Tpkg
   end
   
   def send_update_to_server(options={})
-    
-    fqdn = Facter['fqdn'].value
-    if fqdn == nil
-      fqdn = Facter['hostname'].value << '.' << Facter['domain'].value
-    end
-    
-    request = {"client"=>fqdn}
+    request = {"client"=>os.fqdn}
     request[:user] = Etc.getlogin || Etc.getpwuid(Process.uid).name
     request[:tpkg_home] = ENV['TPKG_HOME']
     
@@ -4838,101 +4206,4 @@ class Tpkg
       puts "Failed to send update to reporter server"
     end
   end
-  
-  # create and install native stub package if needed
-  # this stub package helps prevent user from removing native packages that
-  # our tpkg packages depend on
-  def stub_native_pkg(pkg)
-    # gather all of the native dependencies
-    native_deps = pkg[:metadata].get_native_deps
-    return if native_deps.empty?
-    
-    if Tpkg::get_os =~ /RedHat|CentOS|Fedora/
-      rpm = create_rpm("stub_for_#{pkg[:metadata][:name]}", native_deps)
-      return if rpm.nil?
-      
-      # install the rpm
-      cmd = "rpm -i #{rpm}"
-      puts cmd if @@debug
-      system(cmd)
-      if !$?.success?
-        warn "Warning: Failed to install native stub package for #{pkg[:metadata][:name]}"
-      end
-    else
-      # TODO: support other OSes
-    end
-  end
-  
-  # remove the native dependency stub packages if there's any
-  def remove_native_stub_pkg(pkg)
-    # Don't have to do anything if this package has no native dependencies
-    native_deps = pkg[:metadata].get_native_deps
-    return if native_deps.empty?
-    
-    # the convention is that stub package is named as "stub_for_pkgname"
-    stub_pkg_name = "stub_for_#{pkg[:metadata][:name]}"
-    
-    if Tpkg::get_os =~ /RedHat|CentOS|Fedora/
-      cmd = "yum -y remove #{stub_pkg_name}"
-      puts cmd if @@debug
-      system(cmd)
-      if !$?.success?
-        warn "Warning: Failed to remove native stub package for #{pkg[:metadata][:name]}"
-      end
-    else
-      # TODO: support other OSes
-    end
-  end
-  
-  def create_rpm(name, deps=[])
-    # setup directories for rpmbuild
-    topdir = Tpkg::tempdir('rpmbuild')
-    %w[BUILD RPMS SOURCES SPECS SRPMS].each do |dir|
-      FileUtils.mkdir_p(File.join(topdir, dir))
-    end
-    
-    dep_list = deps.collect{|dep|dep[:name]}.join(",")
-    
-    # create rpm spec file
-    spec = <<-EOS.gsub(/^\s+/, "")
-    Name: #{name}
-    Summary: stub pkg created by tpkg
-    Version: 1
-    Release: 1
-    buildarch: noarch
-    Requires: #{dep_list}
-    Group: Applications/System
-    License: MIT
-    BuildRoot: %{_builddir}/%{name}-buildroot
-    %description
-    stub pkg created by tpkg for the following dependencies: #{dep_list}
-    %files
-    EOS
-    spec_file = File.join(topdir, 'SPECS', 'pkg.spec')
-    File.open(spec_file, 'w') do |file|
-      file.puts(spec)
-    end
-    
-    # run rpmbuild
-    system("rpmbuild -bb --define '_topdir #{topdir}' #{spec_file}")
-    if !$?.success?
-      warn "Warning: Failed to create native stub package for #{name}"
-      return nil
-    end
-    
-    # copy result over to tmpfile
-    result = File.join(topdir, 'RPMS', 'noarch', "#{name}-1-1.noarch.rpm")
-    rpm = nil
-    if File.exists?(result)
-      tmpfile = Tempfile.new(File.basename(result))
-      FileUtils.cp(result, tmpfile.path)
-      rpm = tmpfile.path
-    end
-    
-    # cleanup
-    FileUtils.rm_rf(topdir)
-    
-    return rpm
-  end
 end
-

@@ -1,0 +1,13 @@
+name: testpkg
+version: 1.0
+package_version: 1
+maintainer: Maintainer
+operatingsystem: OS
+architecture: Architecture
+description: Description
+bugreporting: Bugreporting info
+dependencies:
+- name: dep1
+  native: true
+- name: dep2
+  native: true

@@ -1,0 +1,36 @@
+#!/bin/sh
+
+# These are example outputs captured from running the actual pkgutil
+# command on a Solaris system
+
+case "$3" in
+'CSWcurl')
+	cat <<-EOF
+	curl	CSWcurl	7.25.0,REV=2012.04.26	118429
+	curl_devel_stub	CSWcurldevel	7.25.0,REV=2012.04.26	1777
+	curl_rt_stub	CSWcurlrt	7.25.0,REV=2012.04.26	1829
+	libcurl2	CSWlibcurl2	7.11.2,REV=2011.04.29	86010
+	libcurl3	CSWlibcurl3	7.15.5,REV=2011.04.29	109615
+	libcurl4	CSWlibcurl4	7.25.0,REV=2012.04.26	368611
+	libcurl4_feature	CSWlibcurl4-feature	7.25.0,REV=2012.04.26	407147
+	libcurl_dev	CSWlibcurl-dev	7.25.0,REV=2012.04.26	147545
+	php5_curl	CSWphp5-curl	5.3.10,REV=2012.03.24	31214
+	php5curl_stub	CSWphp5curl	5.3.10,REV=2012.03.24	2554
+	pm_www_curl	CSWpm-www-curl	4.15,REV=2011.03.08	46727
+	pm_wwwcurl	CSWpmwwwcurl	4.15,REV=2011.03.08	1756
+	py_curl	CSWpy-curl	7.19.0,REV=2011.12.09	73408
+	EOF
+	;;
+'CSWwget')
+	cat <<-EOF
+	wget	CSWwget	1.13.4,REV=2012.05.12	858888
+	wgetpaste	CSWwgetpaste	2.18,REV=2011.03.28	9560
+	EOF
+	;;
+'SUNWzfsu')
+	printf ""
+	;;
+'bogus')
+	printf ""
+	;;
+esac

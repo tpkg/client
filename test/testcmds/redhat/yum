@@ -1,0 +1,90 @@
+#!/bin/sh
+
+# These are example outputs captured from running the actual yum command on a
+# CentOS system
+
+case "$2" in
+'installed')
+	case "$3" in
+	'curl')
+		cat <<-EOF
+		Loaded plugins: fastestmirror
+		Determining fastest mirrors
+		 * base: mirror.atlanticmetro.net
+		 * extras: dallas.tx.mirror.xygenhosting.com
+		 * updates: mirrordenver.fdcservers.net
+		Installed Packages
+		Name        : curl
+		Arch        : i686
+		Version     : 7.19.7
+		Release     : 26.el6_2.4
+		Size        : 343 k
+		Repo        : installed
+		From repo   : anaconda-CentOS-201207051201.i386
+		Summary     : A utility for getting files from remote servers (FTP, HTTP, and
+		            : others)
+		URL         : http://curl.haxx.se/
+		License     : MIT
+		Description : cURL is a tool for getting files from HTTP, FTP, FILE, LDAP,
+		            : LDAPS, DICT, TELNET and TFTP servers, using any of the supported
+		            : protocols. cURL is designed to work without user interaction or
+		            : any kind of interactivity. cURL offers many useful capabilities,
+		            : like proxy support, user authentication, FTP upload, HTTP post,
+		            : and file transfer resume.
+
+		EOF
+		;;
+	'wget')
+		cat <<-EOF
+		Loaded plugins: fastestmirror
+		Loading mirror speeds from cached hostfile
+		 * base: mirror.atlanticmetro.net
+		 * extras: dallas.tx.mirror.xygenhosting.com
+		 * updates: mirrordenver.fdcservers.net
+		EOF
+		printf "Error: No matching Packages to list\n" >&2
+		;;
+	esac
+	;;
+'available')
+	case "$3" in
+	'curl')
+		cat <<-EOF
+		Loaded plugins: fastestmirror
+		Loading mirror speeds from cached hostfile
+		 * base: mirror.atlanticmetro.net
+		 * extras: dallas.tx.mirror.xygenhosting.com
+		 * updates: mirrordenver.fdcservers.net
+		EOF
+		printf "Error: No matching Packages to list\n" >&2
+		;;
+	'wget')
+		cat <<-EOF
+		Loaded plugins: fastestmirror
+		Loading mirror speeds from cached hostfile
+		 * base: mirror.atlanticmetro.net
+		 * extras: dallas.tx.mirror.xygenhosting.com
+		 * updates: mirrordenver.fdcservers.net
+		Available Packages
+		Name        : wget
+		Arch        : i686
+		Version     : 1.12
+		Release     : 1.4.el6
+		Size        : 481 k
+		Repo        : base
+		Summary     : A utility for retrieving files using the HTTP or FTP protocols
+		URL         : http://wget.sunsite.dk/
+		License     : GPLv3+ and GFDL
+		Description : GNU Wget is a file retrieval utility which can use either the HTTP
+		            : or FTP protocols. Wget features include the ability to work in the
+		            : background while you are logged out, recursive retrieval of
+		            : directories, file name wildcard matching, remote file timestamp
+		            : storage and comparison, use of Rest with FTP servers and Range
+		            : with HTTP servers to retrieve files over slow or unstable
+		            : connections, support for Proxy servers, and configurability.
+
+		EOF
+		;;
+	esac
+	;;
+esac

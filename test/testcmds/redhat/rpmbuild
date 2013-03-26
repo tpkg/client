@@ -1,0 +1,6 @@
+#!/bin/sh
+
+topdir=`echo "$3" | cut -d' ' -f2`
+rpmdir="$topdir/RPMS/noarch"
+mkdir -p "$rpmdir"
+printf "This is a fake rpm" > "$rpmdir/test-1-1.noarch.rpm"

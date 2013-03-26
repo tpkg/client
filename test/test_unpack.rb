@@ -5,11 +5,6 @@
 require File.expand_path('tpkgtest', File.dirname(__FILE__))
 require 'find'
 
-# Give ourself access to some Tpkg variables
-class Tpkg
-  attr_reader :metadata_directory
-end
-
 class TpkgUnpackTests < Test::Unit::TestCase
   include TpkgTests
   
@@ -32,6 +27,11 @@ class TpkgUnpackTests < Test::Unit::TestCase
       end
       @pkgfile = make_package(:output_directory => @tempoutdir, :source_directory => srcdir, :files => {'/etc/rootfile' => {'perms' => '0666'}})
     end
+    
+    # Pretend to be an OS with init script support
+    res = Facter::Util::Resolution.new('operatingsystem')
+    res.setcode(lambda {'RedHat'})
+    Facter.stubs(:[]).returns(res)
   end
   
   def test_unpack
@@ -317,13 +317,12 @@ class TpkgUnpackTests < Test::Unit::TestCase
           tmpfile = Tempfile.new('tpkgtest_script')
           scriptfiles[script] = tmpfile
           scriptfile.puts('#!/bin/sh')
+          scriptfile.puts('set -e')
           # Test that tpkg set $TPKG_HOME before running the script
-          scriptfile.puts('echo TPKG_HOME: \"$TPKG_HOME\"')
-          scriptfile.puts('test -n "$TPKG_HOME" || exit 1')
+          scriptfile.puts('test -n "$TPKG_HOME"')
           # Test that we had chdir'ed to package unpack directory
-          scriptfile.puts('ls dummyfile || exit 1')
+          scriptfile.puts('test -e dummyfile')
           scriptfile.puts("echo #{script} > #{tmpfile.path}")
-          scriptfile.puts("echo #{script}: #{tmpfile.path}")
           scriptfile.puts('sleep 1')
         end
         File.chmod(0755, File.join(srcdir, script))
@@ -383,67 +382,6 @@ class TpkgUnpackTests < Test::Unit::TestCase
       tpkg.init_links(metadata3).each do |link, init_script|
         assert(File.symlink?(link + '2'))
         assert_equal(init_script, File.readlink(link + '2'))
-      end
-    end
-    FileUtils.rm_f(pkg)
-    FileUtils.rm_f(pkg2)
-    FileUtils.rm_f(pkg3)
-    
-    # Test crontab handling
-    crontab_contents = '* * * * *  crontab'
-    pkg = nil
-    pkg2 = nil
-    pkg3 = nil
-    Dir.mktmpdir('srcdir') do |srcdir|
-      FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
-      FileUtils.mkdir_p(File.join(srcdir, 'reloc'))
-      File.open(File.join(srcdir, 'reloc', 'mycrontab'), 'w') do |file|
-        file.puts(crontab_contents)
-      end
-      pkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'crontabpkg' }, :source_directory => srcdir, :files => { 'mycrontab' => { 'crontab' => {'user' => 'root'} } }, :remove => ['operatingsystem', 'architecture'])
-      pkg2 = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'crontabpkg2' }, :source_directory => srcdir, :files => { 'mycrontab' => { 'crontab' => {'user' => 'root'} } }, :remove => ['operatingsystem', 'architecture'])
-      pkg3 = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'crontabpkg3' }, :source_directory => srcdir, :files => { 'mycrontab' => { 'crontab' => {'user' => 'root'} } }, :remove => ['operatingsystem', 'architecture'])
-    end
-    Dir.mktmpdir('testroot') do |testroot|
-      testbase = File.join(testroot, 'home', 'tpkg')
-      FileUtils.mkdir_p(testbase)
-      tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [pkg,pkg2,pkg3])
-      metadata  = Tpkg::metadata_from_package(pkg)
-      metadata2 = Tpkg::metadata_from_package(pkg2)
-      metadata3 = Tpkg::metadata_from_package(pkg3)
-      tpkg.install([pkg], PASSPHRASE)
-      tpkg.crontab_destinations(metadata).each do |crontab, destination|
-        if destination[:file]
-          assert(File.file?(destination[:file]))
-          assert(IO.read(destination[:file]).include?(crontab_contents))
-        elsif destination[:link]
-          assert(File.symlink?(destination[:link]))
-          assert_equal(crontab, File.readlink(destination[:link]))
-        end
-      end
-      # Test the handling of packages with conflicting crontabs.
-      # Systems where we put the crontab into a user file should end up
-      # with three copies of the crontab contents in that file.  Systems
-      # where we link the crontab into a directory should end up with a
-      # link ending in '1' and a link ending in '2'.
-      tpkg.install([pkg2], PASSPHRASE)
-      tpkg.install([pkg3], PASSPHRASE)
-      tpkg.crontab_destinations(metadata2).each do |crontab, destination|
-        if destination[:file]
-          assert(File.file?(destination[:file]))
-          contents = IO.read(destination[:file])
-          # Strip out two copies of the crontab contents and verify that
-          # it still contains the contents, as installing the additional
-          # packages should add two copies of the contents to the file.
-          contents.sub!(crontab_contents, '')
-          contents.sub!(crontab_contents, '')
-          assert(contents.include?(crontab_contents))
-        elsif destination[:link]
-          assert(File.symlink?(destination[:link] + '1'))
-          assert_equal(crontab, File.readlink(destination[:link] + '1'))
-          assert(File.symlink?(destination[:link] + '2'))
-          assert_equal(crontab, File.readlink(destination[:link] + '2'))
-        end
       end
     end
     FileUtils.rm_f(pkg)
@@ -589,7 +527,12 @@ class TpkgUnpackTests < Test::Unit::TestCase
       assert_equal(0666, File.stat(File.join(testroot, 'etc', 'rootfile')).mode & 07777)
     end
   end
-
+  
+  # Test that the unpack method calls install_crontabs as appropriate
+  def test_unpack_install_crontabs
+    # FIXME
+  end
+  
   # Check that if a config file already existed in the system, then we don't
   # overwrite it. Instead we save the new one with a .tpkgnew extension. 
   def test_config_files_handling
@@ -676,7 +619,8 @@ class TpkgUnpackTests < Test::Unit::TestCase
         # Running as non-root, permissions issues prevent link creation, warning
         FileUtils.rm(Dir.glob(link + '*'))
         File.chmod(0000, File.dirname(link))
-        assert_nothing_raised { tpkg.install_init_scripts(metadata) }
+        # assert_nothing_raised { tpkg.install_init_scripts(metadata) }
+        tpkg.install_init_scripts(metadata)
         # FIXME: look for warning in stderr
         assert(!File.exist?(link) && !File.symlink?(link))
         File.chmod(0755, File.dirname(link))
@@ -688,136 +632,8 @@ class TpkgUnpackTests < Test::Unit::TestCase
       end
     end
   end
-  
-  def test_install_crontabs
-    metadata = nil
-    Dir.mktmpdir('srcdir') do |srcdir|
-      FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
-      create_metadata_file(File.join(srcdir, 'tpkg.xml'), :change => { 'name' => 'cronpkg'  }, :files => { 'etc/cron.d/crontab' => { 'crontab' => {'user' => 'root'} } })
-      metadata = Metadata.new(File.read(File.join(srcdir, 'tpkg.xml')), 'xml')
-    end
-    
-    Dir.mktmpdir('testroot') do |testroot|
-      testbase = File.join(testroot, 'home', 'tpkg')
-      FileUtils.mkdir_p(testbase)
-      tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'))
-      
-      crontab = nil
-      destination = nil
-      tpkg.crontab_destinations(metadata).each do |c, d|
-        crontab = c
-        destination = d
-      end
-      
-      # destination will be empty on platforms where tpkg
-      # doesn't have crontab support
-      if !destination.empty?
-        dest = destination[:link] || destination[:file]
-        
-        # Running as non-root, permissions issues prevent file creation, warning
-        FileUtils.mkdir_p(File.dirname(dest))
-        File.chmod(0000, File.dirname(dest))
-        assert_nothing_raised { tpkg.install_crontabs(metadata) }
-        # FIXME: look for warning in stderr
-        assert(!File.exist?(dest) && !File.symlink?(dest))
-        File.chmod(0755, File.dirname(dest))
-        
-        # Running as root, permissions issues prevent link creation, exception raised
-        # FIXME: I don't actually know of a way to trigger EACCES in this
-        # situation when running as root, and we never run the unit tests as
-        # root anyway.
-      end
-    end
-  end
-  def test_install_crontab_link
-    metadata = nil
-    Dir.mktmpdir('srcdir') do |srcdir|
-      FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
-      create_metadata_file(File.join(srcdir, 'tpkg.xml'), :change => { 'name' => 'cronpkg'  }, :files => { 'etc/cron.d/crontab' => { 'crontab' => {} } })
-      metadata = Metadata.new(File.read(File.join(srcdir, 'tpkg.xml')), 'xml')
-    end
-    
-    Dir.mktmpdir('testroot') do |testroot|
-      testbase = File.join(testroot, 'home', 'tpkg')
-      FileUtils.mkdir_p(testbase)
-      tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'))
-      
-      crontab = File.join(testbase, 'etc/cron.d/crontab')
-      destination = {:link => File.join(testroot, 'etc/cron.d/crontab')}
-      
-      # Directory for link doesn't exist, directory and link are created
-      tpkg.install_crontab_link(metadata, crontab, destination)
-      assert(File.symlink?(destination[:link]))
-      assert_equal(crontab, File.readlink(destination[:link]))
-      
-      # Link already exists, nothing is done
-      sleep 2
-      beforetime = File.lstat(destination[:link]).mtime
-      tpkg.install_crontab_link(metadata, crontab, destination)
-      assert(File.symlink?(destination[:link]))
-      assert_equal(crontab, File.readlink(destination[:link]))
-      assert_equal(beforetime, File.lstat(destination[:link]).mtime)
-      
-      # Existing files or links up to 8 already exist, link created with appropriate suffix
-      File.delete(destination[:link])
-      File.symlink('somethingelse', destination[:link])
-      0.upto(8) do |i|
-        File.delete(destination[:link] + i.to_s) if (i != 0)
-        File.symlink('somethingelse', destination[:link] + i.to_s)
-        tpkg.install_crontab_link(metadata, crontab, destination)
-        assert(File.symlink?(destination[:link] + (i + 1).to_s))
-        assert_equal(crontab, File.readlink(destination[:link] + (i + 1).to_s))
-      end
-      
-      # Existing files or links up to 9 already exist, exception raised
-      File.delete(destination[:link] + '9')
-      File.symlink('somethingelse', destination[:link] + '9')
-      assert_raise(RuntimeError) { tpkg.install_crontab_link(metadata, crontab, destination) }
-    end
-  end
-  def test_install_crontab_file
-    metadata = nil
-    Dir.mktmpdir('srcdir') do |srcdir|
-      FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
-      create_metadata_file(File.join(srcdir, 'tpkg.xml'), :change => { 'name' => 'cronpkg'  }, :files => { 'etc/cron.d/crontab' => { 'crontab' => {'user' => 'root'} } })
-      metadata = Metadata.new(File.read(File.join(srcdir, 'tpkg.xml')), 'xml')
-    end
-    
-    Dir.mktmpdir('testroot') do |testroot|
-      testbase = File.join(testroot, 'home', 'tpkg')
-      FileUtils.mkdir_p(testbase)
-      tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'))
-      
-      crontab = File.join(testbase, 'etc/cron.d/crontab')
-      destination = {:file => File.join(testroot, 'etc/cron.d/crontab')}
-      
-      crontab_contents = '* * * * *  crontab'
-      FileUtils.mkdir_p(File.dirname(crontab))
-      File.open(crontab, 'w') do |file|
-        file.puts(crontab_contents)
-      end
-      
-      # Directory for file doesn't exist, directory and file are created
-      tpkg.install_crontab_file(metadata, crontab, destination)
-      assert(File.file?(destination[:file]))
-      contents = IO.read(destination[:file])
-      assert(contents.include?(crontab_contents))
-      
-      # File exists, contents added and permissions retained
-      File.chmod(0707, destination[:file])
-      tpkg.install_crontab_file(metadata, crontab, destination)
-      assert(File.file?(destination[:file]))
-      assert_equal(0707, File.stat(destination[:file]).mode & 07777)
-      contents = IO.read(destination[:file])
-      # Strip out a copy of the crontab contents and verify that it still
-      # contains the contents, as installing the crontab a second time should
-      # add another copy of the contents to the file.
-      contents.sub!(crontab_contents, '')
-      assert(contents.include?(crontab_contents))
-      
-      # FIXME: Should test rescue of EPERM, but we can't trigger it without root
-      # privileges here to set the file ownership to another user.
-    end
+  def test_install_init_script
+    # FIXME
   end
   
   def test_run_preinstall
@@ -1146,13 +962,14 @@ class TpkgUnpackTests < Test::Unit::TestCase
         tpkg.save_package_metadata(package_file, workdir, metadata, files_info, checksums_of_decrypted_files)
         
         # verify metadata and file_metadata are actually there
-        assert(File.exists?(File.join(tpkg.metadata_directory, 'save_pkg_metadata-1.0-1', 'tpkg.yml')))
-        assert(File.exists?(File.join(tpkg.metadata_directory, 'save_pkg_metadata-1.0-1', 'file_metadata.bin')))
+        assert(File.exists?(File.join(tpkg.instance_variable_get(:@metadata_directory), 'save_pkg_metadata-1.0-1', 'tpkg.yml')))
+        assert(File.exists?(File.join(tpkg.instance_variable_get(:@metadata_directory), 'save_pkg_metadata-1.0-1', 'file_metadata.bin')))
       end
     end
   end
   
   def teardown
+    Facter.unstub(:[])
     FileUtils.rm_f(@pkgfile)
     FileUtils.rm_rf(@tempoutdir)
   end

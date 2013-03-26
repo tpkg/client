@@ -423,7 +423,7 @@ def package(gem)
     # If the gemspec lists any extensions then the package has native
     # code and needs to be flagged as specific to the OS and architecture
     if gemspec.extensions && !gemspec.extensions.empty?
-      os = Tpkg::get_os
+      os = tpkg.os.os
       if os =~ /RedHat-(.*)/
         os = os + ", CentOS-#{$1}"
       elsif os =~ /CentOS-(.*)/

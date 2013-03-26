@@ -1,0 +1,145 @@
+#!/bin/sh
+
+# These are example outputs captured from running the actual apt-cache
+# command on a Debian system
+
+case "$2" in
+# Note that the ruby entry contains backticks, which have been escaped here
+'ruby1.9.1')
+	cat <<-EOF
+	Package: ruby1.9.1
+	Version: 1.9.3.194-7
+	Installed-Size: 252
+	Maintainer: akira yamada <akira@debian.org>
+	Architecture: amd64
+	Replaces: irb1.9.1, rdoc1.9.1, rubygems1.9.1
+	Provides: irb1.9.1, rdoc1.9.1, ruby-interpreter, rubygems1.9.1
+	Depends: libruby1.9.1 (= 1.9.3.194-7), libc6 (>= 2.2.5)
+	Suggests: ruby1.9.1-examples, ri1.9.1, graphviz, ruby1.9.1-dev, ruby-switch
+	Conflicts: irb1.9.1 (<< 1.9.1.378-2~), rdoc1.9.1 (<< 1.9.1.378-2~), ri (<= 4.5), ri1.9.1 (<< 1.9.2.180-3~), ruby (<= 4.5), rubygems1.9.1
+	Description-en: Interpreter of object-oriented scripting language Ruby
+	 Ruby is the interpreted scripting language for quick and easy
+	 object-oriented programming.  It has many features to process text
+	 files and to do system management tasks (as in perl).  It is simple,
+	 straight-forward, and extensible.
+	 .
+	 In the name of this package, \`1.9.1' indicates the Ruby library
+	 compatibility version. This package currently provides the \`1.9.3'
+	 branch of Ruby, which is compatible with the \`1.9.1' branch.
+	Homepage: http://www.ruby-lang.org/
+	Description-md5: 5a3bebf22800260bf542248151806d7c
+	Tag: devel::interpreter, devel::lang:ruby, interface::commandline,
+	 role::program, scope::utility
+	Section: ruby
+	Priority: optional
+	Filename: pool/main/r/ruby1.9.1/ruby1.9.1_1.9.3.194-7_amd64.deb
+	Size: 208232
+	MD5sum: 042621944ea84edd642758fc54f71e46
+	SHA1: 6c97de5cb4daaad9e58b91b778eb152fb928a579
+	SHA256: 7f71ce8d9be5e33fcd16cbbc6ad67ed2e15e9cf0fe78f589738c2694f9a168fd
+
+	Package: ruby1.9.1
+	Status: install ok installed
+	Priority: optional
+	Section: ruby
+	Installed-Size: 252
+	Maintainer: akira yamada <akira@debian.org>
+	Architecture: amd64
+	Version: 1.9.3.194-3
+	Replaces: irb1.9.1, rdoc1.9.1, rubygems1.9.1
+	Provides: irb1.9.1, rdoc1.9.1, ruby-interpreter, rubygems1.9.1
+	Depends: libruby1.9.1 (= 1.9.3.194-3), libc6 (>= 2.2.5)
+	Suggests: ruby1.9.1-examples, ri1.9.1, graphviz, ruby1.9.1-dev, ruby-switch
+	Conflicts: irb1.9.1 (<< 1.9.1.378-2~), rdoc1.9.1 (<< 1.9.1.378-2~), ri (<= 4.5), ri1.9.1 (<< 1.9.2.180-3~), ruby (<= 4.5), rubygems1.9.1
+	Description-en: Interpreter of object-oriented scripting language Ruby
+	 Ruby is the interpreted scripting language for quick and easy
+	 object-oriented programming.  It has many features to process text
+	 files and to do system management tasks (as in perl).  It is simple,
+	 straight-forward, and extensible.
+	 .
+	 In the name of this package, \`1.9.1' indicates the Ruby library
+	 compatibility version. This package currently provides the \`1.9.3'
+	 branch of Ruby, which is compatible with the \`1.9.1' branch.
+	Homepage: http://www.ruby-lang.org/
+
+	EOF
+	;;
+'exim4')
+	cat <<-EOF
+	Package: exim4
+	Version: 4.80-7
+	Installed-Size: 44
+	Maintainer: Exim4 Maintainers <pkg-exim4-maintainers@lists.alioth.debian.org>
+	Architecture: all
+	Depends: debconf (>= 0.5) | debconf-2.0, debconf (>= 1.4.69) | cdebconf (>= 0.39), exim4-base (>= 4.80), exim4-daemon-light | exim4-daemon-heavy | exim4-daemon-custom
+	Description-en: metapackage to ease Exim MTA (v4) installation
+	 Exim (v4) is a mail transport agent. exim4 is the metapackage depending
+	 on the essential components for a basic exim4 installation.
+	 .
+	 The Debian exim4 packages have their own web page,
+	 http://wiki.debian.org/PkgExim4. There is also a Debian-specific
+	 FAQ list. Information about the way the Debian packages are
+	 configured can be found in
+	 /usr/share/doc/exim4-base/README.Debian.gz, which additionally contains
+	 information about the way the Debian binary packages are built. The
+	 very extensive upstream documentation is shipped in
+	 /usr/share/doc/exim4-base/spec.txt.gz. To repeat the debconf-driven
+	 configuration process in a standard setup, invoke dpkg-reconfigure
+	 exim4-config. There is a Debian-centered mailing list,
+	 pkg-exim4-users@lists.alioth.debian.org. Please ask Debian-specific
+	 questions there, and only write to the upstream exim-users mailing
+	 list if you are sure that your question is not Debian-specific. You
+	 can find the subscription web page on
+	 http://lists.alioth.debian.org/mailman/listinfo/pkg-exim4-users
+	Homepage: http://www.exim.org/
+	Description-md5: 458592f74d76e446735736c1d55ce615
+	Tag: implemented-in::c, interface::daemon, mail::delivery-agent, mail::smtp,
+	 mail::transport-agent, network::service, protocol::ipv6,
+	 protocol::smtp, protocol::ssl, role::dummy, role::metapackage,
+	 works-with::mail
+	Section: mail
+	Priority: standard
+	Filename: pool/main/e/exim4/exim4_4.80-7_all.deb
+	Size: 7806
+	MD5sum: 90b93cb90290d18ee862abe07186fa95
+	SHA1: ae1df5e225651cc8638a2f6d016a3b399bf3e0d2
+	SHA256: 4764002023e6828b3b336977f8be799440ccce84d0aa19620f9a58606491fa3d
+
+	Package: exim4
+	Status: deinstall ok config-files
+	Priority: standard
+	Section: mail
+	Installed-Size: 44
+	Maintainer: Exim4 Maintainers <pkg-exim4-maintainers@lists.alioth.debian.org>
+	Architecture: all
+	Version: 4.80-5.1
+	Config-Version: 4.80-5.1
+	Depends: debconf (>= 0.5) | debconf-2.0, debconf (>= 1.4.69) | cdebconf (>= 0.39), exim4-base (>= 4.80), exim4-daemon-light | exim4-daemon-heavy | exim4-daemon-custom
+	Description-en: metapackage to ease Exim MTA (v4) installation
+	 Exim (v4) is a mail transport agent. exim4 is the metapackage depending
+	 on the essential components for a basic exim4 installation.
+	 .
+	 The Debian exim4 packages have their own web page,
+	 http://wiki.debian.org/PkgExim4. There is also a Debian-specific
+	 FAQ list. Information about the way the Debian packages are
+	 configured can be found in
+	 /usr/share/doc/exim4-base/README.Debian.gz, which additionally contains
+	 information about the way the Debian binary packages are built. The
+	 very extensive upstream documentation is shipped in
+	 /usr/share/doc/exim4-base/spec.txt.gz. To repeat the debconf-driven
+	 configuration process in a standard setup, invoke dpkg-reconfigure
+	 exim4-config. There is a Debian-centered mailing list,
+	 pkg-exim4-users@lists.alioth.debian.org. Please ask Debian-specific
+	 questions there, and only write to the upstream exim-users mailing
+	 list if you are sure that your question is not Debian-specific. You
+	 can find the subscription web page on
+	 http://lists.alioth.debian.org/mailman/listinfo/pkg-exim4-users
+	Homepage: http://www.exim.org/
+
+	EOF
+	;;
+'bogus')
+	printf "N: Unable to locate package bogus\n"
+	printf "E: No packages found\n" >&2
+	;;
+esac

@@ -1,0 +1,14 @@
+#!/bin/sh
+
+# The test suite calls this script with an invented (i.e. not standard for the
+# crontab command) "-f <filename>" option.  We use that filename as if it were
+# the user's crontab and otherwise behave as the normal crontab command.
+
+case "$3" in
+'-l')
+  cat "$2"
+  ;;
+*)
+  cp "$3" "$2"
+  ;;
+esac

@@ -1,0 +1,13 @@
+#!/bin/sh
+
+# These are example outputs captured from running the actual pkg_info
+# command on a FreeBSD system
+
+case "$2" in
+'curl-*')
+    printf "curl-7.24.0\n"
+    ;;
+'bogus')
+    printf ""
+    ;;
+esac

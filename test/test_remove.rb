@@ -13,6 +13,11 @@ class TpkgRemoveTests < Test::Unit::TestCase
     # temp dir that will automatically get deleted at end of test run, can be
     # used for storing packages
     @tempoutdir = Dir.mktmpdir('tempoutdir')
+    
+    # Pretend to be an OS with init script support
+    res = Facter::Util::Resolution.new('operatingsystem')
+    res.setcode(lambda {'RedHat'})
+    Facter.stubs(:[]).returns(res)
   end
 
   def test_remove_dep
@@ -227,65 +232,6 @@ class TpkgRemoveTests < Test::Unit::TestCase
       tpkg2.remove(['initpkg2'])
       tpkg2.init_links(metadata2).each do |link, init_script|
         assert(!File.exist?(link + '1') && !File.symlink?(link + '1'))
-      end
-    end
-    
-    # Test crontab handling
-    crontab_contents = '* * * * *  crontab'
-    pkg = nil
-    pkg2 = nil
-    Dir.mktmpdir('srcdir') do |srcdir|
-      FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
-      FileUtils.mkdir_p(File.join(srcdir, 'reloc'))
-      File.open(File.join(srcdir, 'reloc', 'mycrontab'), 'w') do |file|
-        file.puts(crontab_contents)
-      end
-      pkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'crontabpkg' }, :source_directory => srcdir, :files => { 'mycrontab' => { 'crontab' => {'user' => 'root'} } }, :remove => ['operatingsystem', 'architecture'])
-      pkg2 = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'crontabpkg2' }, :source_directory => srcdir, :files => { 'mycrontab' => { 'crontab' => {'user' => 'root'} } }, :remove => ['operatingsystem', 'architecture'])
-    end
-    Dir.mktmpdir('testroot') do |testroot|
-      tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [pkg])
-      tpkg2 = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg2'), :sources => [pkg2])
-      metadata = Tpkg::metadata_from_package(pkg)
-      metadata2 = Tpkg::metadata_from_package(pkg2)
-      tpkg.install([pkg], PASSPHRASE)
-      tpkg2.install([pkg2], PASSPHRASE)
-      tpkg.remove(['crontabpkg'])
-      tpkg.crontab_destinations(metadata).each do |crontab, destination|
-        if destination[:link]
-          assert(!File.exist?(destination[:link]) && !File.symlink?(destination[:link]))
-        end
-      end
-      # Test the handling of packages with conflicting crontabs.
-      # Systems where we put the crontab into a user file should end up
-      # with two copies of the crontab contents in that file.  Systems
-      # where we link the crontab into a directory should end up with a
-      # link ending in '1'.
-      tpkg2.crontab_destinations(metadata2).each do |crontab, destination|
-        if destination[:file]
-          # With crontabpkg removed the crontab should contain only one
-          # copy of the crontab contents
-          assert(File.file?(destination[:file]))
-          contents = IO.read(destination[:file])
-          assert(contents.include?(crontab_contents))
-          # Strip out one copy of the crontab contents and verify that no
-          # copies of the crontab contents remain
-          contents.sub!(crontab_contents, '')
-          assert(!contents.include?(crontab_contents))
-        elsif destination[:link]
-          assert(File.symlink?(destination[:link] + '1'))
-          assert_equal(crontab, File.readlink(destination[:link] + '1'))
-        end
-      end
-      # Now remove 'crontabpkg2' and verify that the crontab is gone
-      tpkg2.remove(['crontabpkg2'])
-      tpkg2.crontab_destinations(metadata2).each do |crontab, destination|
-        if destination[:file]
-          # Verify that the crontab file is empty
-          assert_equal('', IO.read(destination[:file]))
-        elsif destination[:link]
-          assert(!File.exist?(destination[:link] + '1') && !File.symlink?(destination[:link] + '1'))
-        end
       end
     end
     
@@ -538,154 +484,9 @@ EOF
       end
     end
   end
-  def test_remove_crontabs
-    metadata = nil
-    Dir.mktmpdir('srcdir') do |srcdir|
-      FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
-      create_metadata_file(File.join(srcdir, 'tpkg.xml'), :change => { 'name' => 'cronpkg'  }, :files => { 'etc/cron.d/crontab' => { 'crontab' => {'user' => 'root'} } })
-      metadata = Metadata.new(File.read(File.join(srcdir, 'tpkg.xml')), 'xml')
-    end
-    
-    Dir.mktmpdir('testroot') do |testroot|
-      tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'))
-      
-      crontab = nil
-      destination = nil
-      tpkg.crontab_destinations(metadata).each do |c, d|
-        crontab = c
-        destination = d
-      end
-      
-      # destination will be empty on platforms where tpkg
-      # doesn't have crontab support
-      if !destination.empty?
-        dest = destination[:link] || destination[:file]
-        
-        # Running as non-root, permissions issues prevent file removal, warning
-        FileUtils.mkdir_p(File.dirname(dest))
-        File.open(dest, 'w') {}
-        File.chmod(0000, File.dirname(dest))
-        assert_nothing_raised { tpkg.remove_crontabs(metadata) }
-        # FIXME: look for warning in stderr
-        File.chmod(0755, File.dirname(dest))
-        assert(File.exist?(dest) || File.symlink?(dest))
-      end
-    end
-  end
-  def test_remove_crontab_link
-    metadata = nil
-    Dir.mktmpdir('srcdir') do |srcdir|
-      FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
-      create_metadata_file(File.join(srcdir, 'tpkg.xml'), :change => { 'name' => 'cronpkg'  }, :files => { 'etc/cron.d/crontab' => { 'crontab' => {} } })
-      metadata = Metadata.new(File.read(File.join(srcdir, 'tpkg.xml')), 'xml')
-    end
-    
-    Dir.mktmpdir('testroot') do |testroot|
-      testbase = File.join(testroot, 'home', 'tpkg')
-      FileUtils.mkdir_p(testbase)
-      tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'))
-      
-      crontab = File.join(testbase, 'etc/cron.d/crontab')
-      destination = {:link => File.join(testroot, 'etc/cron.d/crontab')}
-      
-      # Standard symlink using the base name is removed
-      FileUtils.mkdir_p(File.dirname(destination[:link]))
-      File.symlink(crontab, destination[:link])
-      tpkg.remove_crontab_link(metadata, crontab, destination)
-      assert(!File.exist?(destination[:link]) && !File.symlink?(destination[:link]))
-      
-      # Links with suffixes from 1..9 are removed
-      1.upto(9) do |i|
-        FileUtils.rm(Dir.glob(destination[:link] + '*'))
-        File.symlink(crontab, destination[:link] + i.to_s)
-        File.symlink(crontab, destination[:link] + '1') if (i != 1)
-        2.upto(i-1) do |j|
-          File.symlink('somethingelse', destination[:link] + j.to_s)
-        end
-        tpkg.remove_crontab_link(metadata, crontab, destination)
-        assert(!File.exist?(destination[:link]) && !File.symlink?(destination[:link]))
-        assert(!File.exist?(destination[:link] + '1') && !File.symlink?(destination[:link] + '1'))
-        2.upto(i-1) do |j|
-          assert(File.symlink?(destination[:link] + j.to_s))
-          assert_equal('somethingelse', File.readlink(destination[:link] + j.to_s))
-        end
-      end
-      
-      # Links with suffixes of 0 or 10 are left alone
-      File.symlink(crontab, destination[:link] + '0')
-      File.symlink(crontab, destination[:link] + '10')
-      tpkg.remove_crontab_link(metadata, crontab, destination)
-      assert(File.symlink?(destination[:link] + '0'))
-      assert_equal(crontab, File.readlink(destination[:link] + '0'))
-      assert(File.symlink?(destination[:link] + '10'))
-      assert_equal(crontab, File.readlink(destination[:link] + '10'))
-    end
-  end
-  def test_remove_crontab_file
-    metadata = nil
-    Dir.mktmpdir('srcdir') do |srcdir|
-      FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
-      create_metadata_file(File.join(srcdir, 'tpkg.xml'), :change => { 'name' => 'cronpkg'  }, :files => { 'etc/cron.d/crontab' => { 'crontab' => {'user' => 'root'} } })
-      metadata = Metadata.new(File.read(File.join(srcdir, 'tpkg.xml')), 'xml')
-      metadata[:filename] = '/path/to/cronpkg-1.0.tpkg'
-    end
-    
-    Dir.mktmpdir('testroot') do |testroot|
-      testbase = File.join(testroot, 'home', 'tpkg')
-      FileUtils.mkdir_p(testbase)
-      tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'))
-      
-      crontab = File.join(testbase, 'etc/cron.d/crontab')
-      destination = {:file => File.join(testroot, 'etc/cron.d/crontab')}
-      
-      FileUtils.mkdir_p(File.dirname(destination[:file]))
-      not_my_part_one = <<EOF
-* * * * * /this/is/not/a/tpkg/cronjob
-EOF
-      my_part_one = <<EOF
-### TPKG START - #{testbase} - #{File.basename(metadata[:filename])}
-* * * * * /this/is/my/crontab
-### TPKG END - #{testbase} - #{File.basename(metadata[:filename])}
-EOF
-      not_my_part_two = <<EOF
-### TPKG START - #{testbase} - someotherpkg-2.34.tpkg
-* * * * * /this/is/not/my/crontab
-### TPKG END - #{testbase} - someotherpkg-2.34.tpkg
-### TPKG START - /path/to/other/base - #{File.basename(metadata[:filename])}
-* * * * * /this/is/not/my/crontab
-### TPKG END - /path/to/other/base - #{File.basename(metadata[:filename])}
-EOF
-      my_part_two = <<EOF
-### TPKG START - #{testbase} - #{File.basename(metadata[:filename])}
-* * * * * /this/is/my/crontab
-### TPKG END - #{testbase} - #{File.basename(metadata[:filename])}
-EOF
-      
-      File.open(destination[:file], 'w') do |file|
-        file.write not_my_part_one
-        file.write my_part_one
-        file.write not_my_part_two
-        file.write my_part_two
-      end
-      File.chmod(0707, destination[:file])
-      
-      tpkg.remove_crontab_file(metadata, crontab, destination)
-      
-      # All entries associated with this package are removed
-      assert(!File.read(destination[:file]).include?(my_part_one))
-      assert(!File.read(destination[:file]).include?(my_part_two))
-      # Entries from other packages are left alone
-      assert(File.read(destination[:file]).include?(not_my_part_one))
-      assert(File.read(destination[:file]).include?(not_my_part_two))
-      # File permissions are retained
-      assert_equal(0707, File.stat(destination[:file]).mode & 07777)
-      
-      # FIXME: Should test rescue of EPERM, but we can't trigger it without root
-      # privileges here to set the file ownership to another user.
-    end
-  end
   
-  def test_remove_native_stub_pkg
+  # Test that the remove method calls remove_crontabs as appropriate
+  def test_remove_remove_crontabs
     # FIXME
   end
   

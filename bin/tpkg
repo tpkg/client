@@ -23,6 +23,7 @@ require 'tpkg'
 @prompt = true
 @quiet = false
 @sudo = nil
+@sudo_option = nil
 @force = false
 @deploy = false
 @deploy_params = ARGV   # hold parameters for how to invoke tpkg on the machines we're deploying to
@@ -65,7 +66,7 @@ def parse_config_files
   
   # FIXME: Move config file parsing to tpkg.rb
   # https://github.com/tpkg/client/issues/22
-  fsroot = @tpkg_options[:file_system_root] ? @tpkg_options[:file_system_root] : ''
+  fsroot = @tpkg_options[:file_system_root] || ''
   settings = {:sources => []}
   [File.join(fsroot, Tpkg::DEFAULT_CONFIGDIR, 'tpkg.conf'),
    File.join(fsroot, ENV['HOME'], ".tpkg.conf")].each do |configfile|
@@ -363,7 +364,7 @@ opts.on('--quiet', 'Reduce informative but non-essential output') do |opt|
   @quiet = opt
 end
 opts.on('--no-sudo', 'No calls to sudo for operations that might need root') do |opt|
-  @sudo = opt
+  @sudo_option = opt
 end
 opts.on('--lock-force', 'Force the removal of an existing lockfile') do |opt|
   @tpkg_options[:lockforce] = opt
@@ -510,14 +511,17 @@ end
 # order:
 # - command line option
 # - config file
-# - Tpkg.sudo_default? method defined in tpkg.rb
+# - Default based on OS (Tpkg::OS#sudo_default?)
 case
-when !@sudo.nil?
-  @tpkg_options[:sudo] = @sudo
+when !@sudo_option.nil?
+  @sudo = @sudo_option
 when settings.has_key?(:sudo)
-  @sudo = @tpkg_options[:sudo] = settings[:sudo]
+  @sudo = settings[:sudo]
 else
-  @sudo = @tpkg_options[:sudo] = Tpkg.sudo_default?
+  # This bit of horribleness will be better when option parsing gets moved
+  # into tpkg.rb
+  os = Tpkg::OS.create
+  @sudo = os.sudo_default?
 end
 @tpkg_options[:force] = @force
 
@@ -529,7 +533,7 @@ if !@sudo
     # modified by other users who properly run --no-sudo as a regular user.
     raise "--no-sudo cannot be used as 'root' user or via sudo"
   end
-  fsroot = @tpkg_options[:file_system_root] ? @tpkg_options[:file_system_root] : ''
+  fsroot = @tpkg_options[:file_system_root] || ''
   base = File.join(fsroot, @tpkg_options[:base])
   if File.exist?(base)
     baseuid = File.stat(base).uid
@@ -961,7 +965,7 @@ when :query_requires
       dependencies.each do | requiree, deps |
         next if deps.nil?
         deps.each do | dep | 
-          if Tpkg::package_meets_requirement?(pkg, dep)
+          if tpkg.package_meets_requirement?(pkg, dep)
             pkgfilename = pkg[:metadata][:filename]
             if !requirees[pkgfilename]
               requirees[pkgfilename] = []
@@ -1152,8 +1156,9 @@ when :query_tpkg_metadata_available
     FileUtils.rm_rf(downloaddir)
   end
 when :query_env
-  puts "Operating System: #{Tpkg::get_os}"
-  puts "Architecture: #{Tpkg::get_arch}"
+  tpkg = Tpkg.new(@tpkg_options)
+  puts "Operating System: #{tpkg.os.os}"
+  puts "Architecture: #{tpkg.os.arch}"
   puts "Tar: #{Tpkg::find_tar}"
 when :query_conf
   # This is somewhat arbitrarily limited to the options read from the

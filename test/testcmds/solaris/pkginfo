@@ -1,0 +1,25 @@
+#!/bin/sh
+
+# These are example outputs captured from running the actual pkginfo
+# command on a Solaris system
+
+case "$2" in
+'CSWcurl')
+	cat <<-EOF
+	CSWcurl  curl - A command line tool and library for client-side URL transfers
+	         (i386) 7.25.0,REV=2012.04.26
+	EOF
+	;;
+'CSWwget')
+	printf "ERROR: information for \"CSWwget\" was not found\n" >&2
+	;;
+'SUNWzfsu')
+	cat <<-EOF
+	SUNWzfsu  ZFS (Usr)
+	          (i386) 11.10.0,REV=2006.05.18.01.46
+	EOF
+	;;
+'bogus')
+	printf "ERROR: information for \"bogus\" was not found\n" >&2
+	;;
+esac

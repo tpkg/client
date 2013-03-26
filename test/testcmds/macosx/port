@@ -1,0 +1,35 @@
+#!/bin/sh
+
+# These are example outputs captured from running the actual port
+# command on a Mac OS X system
+
+case "$1" in
+'installed')
+	case "$2" in
+	'curl')
+		printf "Warning: port definitions are more than two weeks old, consider using selfupdate\n" >&2
+		cat <<-EOF
+		The following ports are currently installed:
+		  curl @7.26.0_0+ssl
+		  curl @7.27.0_1+ssl (active)
+		EOF
+		;;
+	'ruby186')
+		printf "Warning: port definitions are more than two weeks old, consider using selfupdate\n" >&2
+		printf "None of the specified ports are installed.\n"
+		;;
+	esac
+	;;
+'list')
+	case "$2" in
+	'curl')
+		printf "Warning: port definitions are more than two weeks old, consider using selfupdate\n" >&2
+		printf "curl                           @7.28.1         net/curl\n"
+		;;
+	'ruby186')
+		printf "Warning: port definitions are more than two weeks old, consider using selfupdate\n" >&2
+		printf "ruby186                        @1.8.6-p420     lang/ruby186\n"
+		;;
+	esac
+	;;
+esac

@@ -4,16 +4,12 @@
 
 require File.expand_path('tpkgtest', File.dirname(__FILE__))
 
-# Give ourself access to some Tpkg variables
-class Tpkg
-  attr_reader :available_packages_cache
-end
-
 class TpkgDependencyTests < Test::Unit::TestCase
   include TpkgTests
   
   def setup
     Tpkg::set_prompt(false)
+    @tpkg = Tpkg.new
     
     # temp dir that will automatically get deleted at end of test run, can be
     # used for storing packages
@@ -29,7 +25,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
     File.rename(bpkg, bpkgnew)
     @pkgfiles << bpkgnew
     # b specific to this OS (should prefer this one)
-    @pkgfiles << make_package(:output_directory => @tempoutdir, :change => { 'name' => 'b', 'operatingsystem' => Tpkg::get_os }, :remove => ['architecture'])
+    @pkgfiles << make_package(:output_directory => @tempoutdir, :change => { 'name' => 'b', 'operatingsystem' => @tpkg.os.os }, :remove => ['architecture'])
     # c 1.0 to 1.3, a's dep should result in c-1.2 getting picked
     @pkgfiles << make_package(:output_directory => @tempoutdir, :change => { 'name' => 'c', 'version' => '1.0' }, :remove => ['operatingsystem', 'architecture'], :dependencies => {'d' => {'minimum_version' => '1.0', 'maximum_version' => '1.0'}})
     @pkgfiles << make_package(:output_directory => @tempoutdir, :change => { 'name' => 'c', 'version' => '1.1' }, :remove => ['operatingsystem', 'architecture'], :dependencies => {'d' => {'minimum_version' => '1.1', 'maximum_version' => '1.1'}})
@@ -42,6 +38,9 @@ class TpkgDependencyTests < Test::Unit::TestCase
     @pkgfiles << make_package(:output_directory => @tempoutdir, :change => { 'name' => 'd', 'version' => '1.3' }, :remove => ['operatingsystem', 'architecture'])
   end
   
+  def test_packages_meet_requirement
+    # FIXME
+  end
   def test_package_meets_requirement
     #
     # Test version handling
@@ -77,7 +76,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
       req[:minimum_version] = minver
       assert_equal(
         minresult,
-        Tpkg::package_meets_requirement?(pkg, req),
+        @tpkg.package_meets_requirement?(pkg, req),
         "ver >= #{minver}")
       # >=     <=     >=?    <=?
       [['6.0', '7.0', false, true], # version below range
@@ -98,7 +97,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
           # same shortcut.
           (metadata[:version].to_f != minver.to_f && minresult) ||
           (metadata[:version].to_f == minver.to_f && minresult && minpackresult),
-          Tpkg::package_meets_requirement?(pkg, req),
+          @tpkg.package_meets_requirement?(pkg, req),
           "ver >= #{minver}, packver >= #{minpackver}")
       end
       # >      <      >?     <?
@@ -116,7 +115,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
         assert_equal(
           (metadata[:version].to_f != minver.to_f && minresult) ||
           (metadata[:version].to_f == minver.to_f && minresult && gtpackverresult),
-          Tpkg::package_meets_requirement?(pkg, req),
+          @tpkg.package_meets_requirement?(pkg, req),
           "ver >= #{minver}, packver > #{gtpackver}")
       end
       
@@ -125,7 +124,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
       req[:maximum_version] = maxver
       assert_equal(
         maxresult,
-        Tpkg::package_meets_requirement?(pkg, req),
+        @tpkg.package_meets_requirement?(pkg, req),
         "ver <= #{maxver}")
       [['6.0', '7.0', false, true], # version below range
        ['5.0', '6.0', true, true],  # version at bottom of range
@@ -141,7 +140,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
        assert_equal(
          (metadata[:version].to_f != maxver.to_f && maxresult) ||
          (metadata[:version].to_f == maxver.to_f && maxresult && maxpackresult),
-         Tpkg::package_meets_requirement?(pkg, req),
+         @tpkg.package_meets_requirement?(pkg, req),
          "ver <= #{maxver}, packver <= #{maxpackver}")
       end
       [['6.0', '7.0', false, true], # version below range
@@ -158,7 +157,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
         assert_equal(
           (metadata[:version].to_f != maxver.to_f && maxresult) ||
           (metadata[:version].to_f == maxver.to_f && maxresult && ltpackverresult),
-          Tpkg::package_meets_requirement?(pkg, req),
+          @tpkg.package_meets_requirement?(pkg, req),
           "ver <= #{maxver}, packver < #{ltpackver}")
       end
       
@@ -168,7 +167,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
       req[:maximum_version] = maxver
       assert_equal(
         minresult && maxresult,
-        Tpkg::package_meets_requirement?(pkg, req),
+        @tpkg.package_meets_requirement?(pkg, req),
         "ver >= #{minver}, <= #{maxver}")
       [['6.0', '7.0', false, true], # version below range
        ['5.0', '6.0', true, true],  # version at bottom of range
@@ -185,7 +184,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
        assert_equal(
          (metadata[:version].to_f != minver.to_f && minresult && maxresult) ||
          (metadata[:version].to_f == minver.to_f && minresult && maxresult && minpackresult),
-         Tpkg::package_meets_requirement?(pkg, req),
+         @tpkg.package_meets_requirement?(pkg, req),
          "ver >= #{minver}, <= #{maxver}, packver >= #{minpackver}")
        # Maximum package version only
        req = { :name => 'testpkg' }
@@ -195,7 +194,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
        assert_equal(
          (metadata[:version].to_f != maxver.to_f && minresult && maxresult) ||
          (metadata[:version].to_f == maxver.to_f && minresult && maxresult && maxpackresult),
-         Tpkg::package_meets_requirement?(pkg, req),
+         @tpkg.package_meets_requirement?(pkg, req),
          "ver >= #{minver}, <= #{maxver}, packver <= #{maxpackver}")
        # Minimum and maximum package version
        req = { :name => 'testpkg' }
@@ -208,7 +207,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
          (metadata[:version].to_f == minver.to_f && metadata[:version].to_f != maxver.to_f && minresult && maxresult && minpackresult) ||
          (metadata[:version].to_f != minver.to_f && metadata[:version].to_f == maxver.to_f && minresult && maxresult && maxpackresult) ||
          (metadata[:version].to_f == minver.to_f && metadata[:version].to_f == maxver.to_f && minresult && maxresult && minpackresult && maxpackresult),
-         Tpkg::package_meets_requirement?(pkg, req),
+         @tpkg.package_meets_requirement?(pkg, req),
          "ver >= #{minver}, <= #{maxver}, packver >= #{minpackver}, <= #{maxpackver}")
       end
       [['6.0', '7.0', false, true], # version below range
@@ -226,7 +225,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
         assert_equal(
           (metadata[:version].to_f != minver.to_f && minresult && maxresult) ||
           (metadata[:version].to_f == minver.to_f && minresult && maxresult && gtpackverresult),
-          Tpkg::package_meets_requirement?(pkg, req),
+          @tpkg.package_meets_requirement?(pkg, req),
           "ver >= #{minver}, <= #{maxver}, packver > #{gtpackver}")
         # Just :package_version_less_than
         req = { :name => 'testpkg' }
@@ -236,7 +235,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
         assert_equal(
           (metadata[:version].to_f != maxver.to_f && minresult && maxresult) ||
           (metadata[:version].to_f == maxver.to_f && minresult && maxresult && ltpackverresult),
-          Tpkg::package_meets_requirement?(pkg, req),
+          @tpkg.package_meets_requirement?(pkg, req),
           "ver >= #{minver}, <= #{maxver}, packver < #{ltpackver}")
         # :package_version_greater_than and :package_version_less_than
         req = { :name => 'testpkg' }
@@ -249,7 +248,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
           (metadata[:version].to_f == minver.to_f && metadata[:version].to_f != maxver.to_f && minresult && maxresult && gtpackverresult) ||
           (metadata[:version].to_f != minver.to_f && metadata[:version].to_f == maxver.to_f && minresult && maxresult && ltpackverresult) ||
           (metadata[:version].to_f == minver.to_f && metadata[:version].to_f == maxver.to_f && minresult && maxresult && gtpackverresult && ltpackverresult),
-          Tpkg::package_meets_requirement?(pkg, req),
+          @tpkg.package_meets_requirement?(pkg, req),
           "ver >= #{minver}, <= #{maxver}, packver > #{gtpackver}, < #{ltpackver}")
       end
     end
@@ -271,7 +270,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
       req[:allowed_versions] = ver
       assert_equal(
         verresult,
-        Tpkg::package_meets_requirement?(pkg, req),
+        @tpkg.package_meets_requirement?(pkg, req),
         "allowed ver #{ver}")
       
       # 1.* included since it matches the version but not the package version,
@@ -287,7 +286,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
         req[:allowed_versions] = "#{ver}-#{packver}"
         assert_equal(
           verresult && packverresult,
-          Tpkg::package_meets_requirement?(pkg, req),
+          @tpkg.package_meets_requirement?(pkg, req),
           "allowed ver #{ver}, allowed package ver #{packver}")
       end
     end
@@ -309,7 +308,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
       req[:version_greater_than] = gtver
       assert_equal(
         gtverresult,
-        Tpkg::package_meets_requirement?(pkg, req),
+        @tpkg.package_meets_requirement?(pkg, req),
         "ver > #{gtver}")
       
       # Just :version_less_than
@@ -319,7 +318,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
       req.delete(:package_version_less_than)
       assert_equal(
         ltverresult,
-        Tpkg::package_meets_requirement?(pkg, req),
+        @tpkg.package_meets_requirement?(pkg, req),
         "version less than #{ltver}")
       
       # Both :version_greater_than and :version_less_than
@@ -329,7 +328,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
       req.delete(:package_version_less_than)
       assert_equal(
         gtverresult && ltverresult,
-        Tpkg::package_meets_requirement?(pkg, req),
+        @tpkg.package_meets_requirement?(pkg, req),
         "version greater than #{gtver}, less than #{ltver}")
     end
     
@@ -346,28 +345,28 @@ class TpkgDependencyTests < Test::Unit::TestCase
     req[:maximum_version] = '3.0'
     req[:minimum_package_version] = '3'
     req[:maximum_package_version] = '3'
-    assert(Tpkg::package_meets_requirement?(pkg, req))
+    assert(@tpkg.package_meets_requirement?(pkg, req))
     req[:minimum_package_version] = '1'
     req[:maximum_package_version] = '1'
-    assert(Tpkg::package_meets_requirement?(pkg, req))
+    assert(@tpkg.package_meets_requirement?(pkg, req))
     # version is same as maximum_version, so we have to look at maximum_package_version
     req[:minimum_version] = '0.5'
     req[:maximum_version] = '2.3'
     req[:minimum_package_version] = '1'
     req[:maximum_package_version] = '1'
-    assert(!Tpkg::package_meets_requirement?(pkg, req))
+    assert(!@tpkg.package_meets_requirement?(pkg, req))
     req[:minimum_package_version] = '3'
     req[:maximum_package_version] = '3'
-    assert(Tpkg::package_meets_requirement?(pkg, req))
+    assert(@tpkg.package_meets_requirement?(pkg, req))
     # version is same as minimum_version, so we have to look at minimum_package_version
     req[:minimum_version] = '2.3'
     req[:maximum_version] = '3.0'
     req[:minimum_package_version] = '3'
     req[:maximum_package_version] = '5'
-    assert(!Tpkg::package_meets_requirement?(pkg, req))
+    assert(!@tpkg.package_meets_requirement?(pkg, req))
     req[:minimum_package_version] = '2'
     req[:maximum_package_version] = '3'
-    assert(Tpkg::package_meets_requirement?(pkg, req))
+    assert(@tpkg.package_meets_requirement?(pkg, req))
 
     FileUtils.rm_f(pkgfile)
     
@@ -381,77 +380,77 @@ class TpkgDependencyTests < Test::Unit::TestCase
     pkgfile = make_package(:output_directory => @tempoutdir, :remove => ['operatingsystem'], :change => {'architecture' => Facter['hardwaremodel'].value})
     metadata = Tpkg::metadata_from_package(pkgfile)
     pkg = { :metadata => metadata, :source => pkgfile }
-    assert(Tpkg::package_meets_requirement?(pkg, req))
+    assert(@tpkg.package_meets_requirement?(pkg, req))
     FileUtils.rm_f(pkgfile)
     
     # Package with one matching OS
-    pkgfile = make_package(:output_directory => @tempoutdir, :change => {'operatingsystem' => Tpkg::get_os, 'architecture' => Facter['hardwaremodel'].value})
+    pkgfile = make_package(:output_directory => @tempoutdir, :change => {'operatingsystem' => @tpkg.os.os, 'architecture' => Facter['hardwaremodel'].value})
     metadata = Tpkg::metadata_from_package(pkgfile)
     pkg = { :metadata => metadata, :source => pkgfile }
-    assert(Tpkg::package_meets_requirement?(pkg, req))
+    assert(@tpkg.package_meets_requirement?(pkg, req))
     FileUtils.rm_f(pkgfile)
     
     # Package with a matching OS in a list of OSs
-    pkgfile = make_package(:output_directory => @tempoutdir, :change => {'operatingsystem' => "RedHat,CentOS,#{Tpkg::get_os},FreeBSD,Solaris", 'architecture' => Facter['hardwaremodel'].value})
+    pkgfile = make_package(:output_directory => @tempoutdir, :change => {'operatingsystem' => "RedHat,CentOS,#{@tpkg.os.os},FreeBSD,Solaris", 'architecture' => Facter['hardwaremodel'].value})
     metadata = Tpkg::metadata_from_package(pkgfile)
     pkg = { :metadata => metadata, :source => pkgfile }
-    assert(Tpkg::package_meets_requirement?(pkg, req))
+    assert(@tpkg.package_meets_requirement?(pkg, req))
     FileUtils.rm_f(pkgfile)
     
     # Package with one non-matching OS
     pkgfile = make_package(:output_directory => @tempoutdir, :change => {'operatingsystem' => 'bogus_os', 'architecture' => Facter['hardwaremodel'].value})
     metadata = Tpkg::metadata_from_package(pkgfile)
     pkg = { :metadata => metadata, :source => pkgfile }
-    assert(!Tpkg::package_meets_requirement?(pkg, req))
+    assert(!@tpkg.package_meets_requirement?(pkg, req))
     FileUtils.rm_f(pkgfile)
     
     # Package with a list of non-matching OSs
     pkgfile = make_package(:output_directory => @tempoutdir, :change => {'operatingsystem' => 'bogus_os1,bogus_os2', 'architecture' => Facter['hardwaremodel'].value})
     metadata = Tpkg::metadata_from_package(pkgfile)
     pkg = { :metadata => metadata, :source => pkgfile }
-    assert(!Tpkg::package_meets_requirement?(pkg, req))
+    assert(!@tpkg.package_meets_requirement?(pkg, req))
     FileUtils.rm_f(pkgfile)
     
     # Package with no architecture specified
-    pkgfile = make_package(:output_directory => @tempoutdir, :remove => ['architecture'], :change => {'operatingsystem' => Tpkg::get_os })
+    pkgfile = make_package(:output_directory => @tempoutdir, :remove => ['architecture'], :change => {'operatingsystem' => @tpkg.os.os })
     metadata = Tpkg::metadata_from_package(pkgfile)
     pkg = { :metadata => metadata, :source => pkgfile }
-    assert(Tpkg::package_meets_requirement?(pkg, req))
+    assert(@tpkg.package_meets_requirement?(pkg, req))
     FileUtils.rm_f(pkgfile)
     
     # Package with one matching architecture
-    pkgfile = make_package(:output_directory => @tempoutdir, :change => {'operatingsystem' => Tpkg::get_os, 'architecture' => Facter['hardwaremodel'].value})
+    pkgfile = make_package(:output_directory => @tempoutdir, :change => {'operatingsystem' => @tpkg.os.os, 'architecture' => Facter['hardwaremodel'].value})
     metadata = Tpkg::metadata_from_package(pkgfile)
     pkg = { :metadata => metadata, :source => pkgfile }
-    assert(Tpkg::package_meets_requirement?(pkg, req))
+    assert(@tpkg.package_meets_requirement?(pkg, req))
     FileUtils.rm_f(pkgfile)
     
     # Package with a matching architecture in a list of architectures
-    pkgfile = make_package(:output_directory => @tempoutdir, :change => {'operatingsystem' => Tpkg::get_os, 'architecture' => "i386,x86_64,#{Facter['hardwaremodel'].value},sparc,powerpc"})
+    pkgfile = make_package(:output_directory => @tempoutdir, :change => {'operatingsystem' => @tpkg.os.os, 'architecture' => "i386,x86_64,#{Facter['hardwaremodel'].value},sparc,powerpc"})
     metadata = Tpkg::metadata_from_package(pkgfile)
     pkg = { :metadata => metadata, :source => pkgfile }
-    assert(Tpkg::package_meets_requirement?(pkg, req))
+    assert(@tpkg.package_meets_requirement?(pkg, req))
     FileUtils.rm_f(pkgfile)
     
     # Package with one non-matching architecture
-    pkgfile = make_package(:output_directory => @tempoutdir, :change => {'operatingsystem' => Tpkg::get_os, 'architecture' => 'bogus_arch'})
+    pkgfile = make_package(:output_directory => @tempoutdir, :change => {'operatingsystem' => @tpkg.os.os, 'architecture' => 'bogus_arch'})
     metadata = Tpkg::metadata_from_package(pkgfile)
     pkg = { :metadata => metadata, :source => pkgfile }
-    assert(!Tpkg::package_meets_requirement?(pkg, req))
+    assert(!@tpkg.package_meets_requirement?(pkg, req))
     FileUtils.rm_f(pkgfile)
     
     # Package with a list of non-matching architectures
-    pkgfile = make_package(:output_directory => @tempoutdir, :change => {'operatingsystem' => Tpkg::get_os, 'architecture' => 'bogus_arch1,bogus_arch2'})
+    pkgfile = make_package(:output_directory => @tempoutdir, :change => {'operatingsystem' => @tpkg.os.os, 'architecture' => 'bogus_arch1,bogus_arch2'})
     metadata = Tpkg::metadata_from_package(pkgfile)
     pkg = { :metadata => metadata, :source => pkgfile }
-    assert(!Tpkg::package_meets_requirement?(pkg, req))
+    assert(!@tpkg.package_meets_requirement?(pkg, req))
     FileUtils.rm_f(pkgfile)
 
     # Package with operatingsystem and arch specified as regex
-    pkgfile = make_package(:output_directory => @tempoutdir, :change => {'operatingsystem' => "RedHat|CentOS|Fedora|#{Tpkg::get_os}|Debian|Ubuntu|Solaris|FreeBSD|Darwin",  'architecture' => "i386|x86_64|#{Facter['hardwaremodel'].value}|sparc|powerpc"})
+    pkgfile = make_package(:output_directory => @tempoutdir, :change => {'operatingsystem' => "RedHat|CentOS|Fedora|#{@tpkg.os.os}|Debian|Ubuntu|Solaris|FreeBSD|Darwin",  'architecture' => "i386|x86_64|#{Facter['hardwaremodel'].value}|sparc|powerpc"})
     metadata = Tpkg::metadata_from_package(pkgfile)
     pkg = { :metadata => metadata, :source => pkgfile }
-    assert(Tpkg::package_meets_requirement?(pkg, req))
+    assert(@tpkg.package_meets_requirement?(pkg, req))
   end
   
   def test_available_packages_that_meet_requirement
@@ -470,13 +469,13 @@ class TpkgDependencyTests < Test::Unit::TestCase
       assert_equal(4, nonnativepkgs.length)
       
       # Test that the caching logic stored the answer properly
-      assert_equal(pkgs, tpkg.available_packages_cache[nil])
+      assert_equal(pkgs, tpkg.instance_variable_get(:@available_packages_cache)[nil])
       # And test that it returns the cached value
       fakepkgs = pkgs.dup.pop
-      tpkg.available_packages_cache[nil] = fakepkgs
+      tpkg.instance_variable_get(:@available_packages_cache)[nil] = fakepkgs
       assert_equal(fakepkgs, tpkg.available_packages_that_meet_requirement)
       # Put things back to normal
-      tpkg.available_packages_cache[nil] = pkgs
+      tpkg.instance_variable_get(:@available_packages_cache)[nil] = pkgs
       
       req = { :name => 'testpkg' }
       
@@ -552,7 +551,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
       # We should end up with a-1.0, b-1.0 (the specific one, not the generic
       # one), c-1.2 and d-1.2
       assert_equal(4, solution_packages.length)
-      good = ['a-1.0-1.tpkg', "b-1.0-1-#{Metadata.clean_for_filename(Tpkg.get_os)}.tpkg", 'c-1.2-1.tpkg', 'd-1.2-1.tpkg']
+      good = ['a-1.0-1.tpkg', "b-1.0-1-#{Metadata.clean_for_filename(tpkg.os.os)}.tpkg", 'c-1.2-1.tpkg', 'd-1.2-1.tpkg']
       solution_packages.each { |pkg| assert(good.any? { |g| pkg[:source].include?(g) }) }
     end
     
@@ -635,7 +634,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
     # going to use wget for now.
     # FIXME: should have a better way of excluding platforms with no native
     # package support
-    if Tpkg.get_os !~ /windows/
+    if @tpkg.os.os !~ /windows/
       nativedep = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'nativedep' }, :dependencies => {'wget' => {'native' => true}}, :remove => ['operatingsystem', 'architecture'])
       tpkgdep = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'tpkgdep' }, :dependencies => {'wget' => {}}, :remove => ['operatingsystem', 'architecture'])
       wget = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'wget' }, :remove => ['operatingsystem', 'architecture'])
@@ -710,7 +709,7 @@ class TpkgDependencyTests < Test::Unit::TestCase
       # We should end up with a-1.0, b-1.0 (the specific one, not the generic
       # one), c-1.2 and d-1.2
       assert_equal(4, solution.length)
-      good = ['a-1.0-1.tpkg', "b-1.0-1-#{Metadata.clean_for_filename(Tpkg.get_os)}.tpkg", 'c-1.2-1.tpkg', 'd-1.2-1.tpkg']
+      good = ['a-1.0-1.tpkg', "b-1.0-1-#{Metadata.clean_for_filename(tpkg.os.os)}.tpkg", 'c-1.2-1.tpkg', 'd-1.2-1.tpkg']
       solution.each { |pkg| assert(good.any? { |g| pkg[:source].include?(g) }) }
     end
   end

@@ -138,17 +138,6 @@ YAML
     assert_equal(0, Tpkg::lookup_gid('bogusgroup'))
   end
   
-  def test_get_os
-    # Not quite sure how to test this method
-    puts "Tpkg::get_os returns '#{Tpkg::get_os}'"
-
-    # Muck with the returned variable and ensure that doesn't stick
-    os = Tpkg::get_os
-    goodos = os.dup
-    os << 'junk'
-    assert_equal(goodos, Tpkg::get_os)
-  end
-  
   def test_clean_for_filename
     assert_equal('redhat5', Metadata.clean_for_filename('RedHat-5'))
     assert_equal('i386', Metadata.clean_for_filename('i386'))
@@ -206,50 +195,68 @@ YAML
       
       Dir.mktmpdir('srcdir') do |srcdir|
         FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
-        FileUtils.mkdir_p(File.join(srcdir, 'reloc'))
-        file_contents = 'Hello world'
-        File.open(File.join(srcdir, 'reloc', 'myfile'), 'w') do |file|
-          file.puts(file_contents)
-        end
+        testfile = "#{srcdir}/reloc/myfile"
+        FileUtils.mkdir_p(File.dirname(testfile))
+        File.open(testfile, 'w') {|f| }
+        File.chmod(0623, testfile)
         
-        File.chmod(0623, File.join(srcdir, 'reloc', 'myfile'))
-        
-        # TODO: change ownership
-        # no file_defaults settings, no file posix defined, then use whatever the current 
-        # perms and ownership of the file
-        pkg1 = make_package(:source_directory => srcdir, :change => { 'name' => 'pkg1' }, :remove => ['operatingsystem', 'architecture'], :output_directory => File.join(testroot, 'tmp'))
-        metadata = Tpkg::metadata_from_package(pkg1)
-        data = {:actual_file => File.join(srcdir, 'reloc', 'myfile')}
+        # No file_defaults settings, no file posix defined, then the current
+        # perms of the file and default ownership settings are used
+        data = {:actual_file => testfile}
         predicted_perms, predicted_uid, predicted_gid = Tpkg::predict_file_perms_and_ownership(data)
-        tpkg.install([pkg1])
-        assert_equal(predicted_perms.to_i, File.stat(File.join(testroot, Tpkg::DEFAULT_BASE, 'myfile')).mode & predicted_perms.to_i)
-        # Can't test these because unit test are not run as sudo. The default file ownership wont be correct
-        # assert(File.stat(File.join(testroot, 'home', 'tpkg', 'myfile')).uid, predicted_uid)
-        # assert(File.stat(File.join(testroot, 'home', 'tpkg', 'myfile')).gid, predicted_gid)
-        tpkg.remove(['pkg1'])
+        assert_equal(File.stat(testfile).mode, predicted_perms)
+        assert_equal(Tpkg::DEFAULT_OWNERSHIP_UID, predicted_uid)
+        assert_equal(Tpkg::DEFAULT_OWNERSHIP_GID, predicted_gid)
         
-        # if metadata has file_defaults settings and nothing else, then use that
-        pkg2 = make_package(:source_directory => srcdir, :change => { 'name' => 'pkg2' }, :file_defaults => { 'perms' => '0654', 'owner' => Etc.getlogin, 'group' => Etc.getpwnam(Etc.getlogin).gid}, :remove => ['operatingsystem', 'architecture'], :output_directory => File.join(testroot, 'tmp'))
-        metadata = Tpkg::metadata_from_package(pkg2)
-        data = {:actual_file => File.join(srcdir, 'reloc', 'myfile'), :metadata => metadata}
+        # If metadata has file_defaults settings but not specific permissions
+        # for the individual file then that is used
+        pkgfile = make_package(
+          :source_directory => srcdir,
+          :file_defaults => {
+            'perms' => '0654',
+            'owner' => 'nobody',
+            'group' => 'nogroup',
+          },
+          :output_directory => "#{testroot}/tmp")
+        metadata = Tpkg::metadata_from_package(pkgfile)
+        data = {:actual_file => testfile, :metadata => metadata}
         predicted_perms, predicted_uid, predicted_gid = Tpkg::predict_file_perms_and_ownership(data)
-        tpkg.install([pkg2])
-        assert_equal(File.stat(File.join(testroot, Tpkg::DEFAULT_BASE, 'myfile')).mode & predicted_perms.to_i, predicted_perms.to_i)
-        assert_equal(File.stat(File.join(testroot, Tpkg::DEFAULT_BASE, 'myfile')).uid, predicted_uid)
-        assert_equal(File.stat(File.join(testroot, Tpkg::DEFAULT_BASE, 'myfile')).gid, predicted_gid)
-        tpkg.remove(['pkg2'])
+        assert_equal(0654, predicted_perms)
+        assert_equal(Tpkg::lookup_uid('nobody'), predicted_uid)
+        assert_equal(Tpkg::lookup_gid('nogroup'), predicted_gid)
+        FileUtils.rm_f(pkgfile)
         
-        # if metadata has the file perms & ownership explicitly defined, then that override everything
-        pkg3 = make_package(:source_directory => srcdir, :change => { 'name' => 'pkg3' }, :file_defaults => { 'perms' => '0654', 'owner' => Etc.getlogin, 'group' => Etc.getpwnam(Etc.getlogin).gid}, :files => { 'myfile' => {'perms' => '0733'}}, :remove => ['operatingsystem', 'architecture'], :output_directory => File.join(testroot, 'tmp'))
-        metadata = Tpkg::metadata_from_package(pkg3)
-        file_metadata = {:posix => { :perms => 0733}}
-        data = {:actual_file => File.join(srcdir, 'reloc', 'myfile'), :metadata => metadata, :file_metadata => file_metadata}
+        # If metadata has the file perms & ownership explicitly defined, then
+        # that overrides everything
+        pkgfile = make_package(
+          :source_directory => srcdir,
+          :file_defaults => {
+            'perms' => '0654',
+            'owner' => 'nobody',
+            'group' => 'nogroup',
+          },
+          :files => {
+            'myfile' => {
+              'perms' => '0733',
+              'owner' => 'root',
+              'group' => 'wheel',
+            },
+          },
+          :output_directory => File.join(testroot, 'tmp'))
+        metadata = Tpkg::metadata_from_package(pkgfile)
+        file_metadata = {
+          :posix => {
+            :perms => 0733,
+            :owner => 'root',
+            :group => 'wheel',
+          },
+        }
+        data = {:actual_file => testfile, :metadata => metadata, :file_metadata => file_metadata}
         predicted_perms, predicted_uid, predicted_gid = Tpkg::predict_file_perms_and_ownership(data)
-        tpkg.install([pkg3])
-        assert_equal(File.stat(File.join(testroot, Tpkg::DEFAULT_BASE, 'myfile')).mode & predicted_perms.to_i, predicted_perms.to_i)
-        assert_equal(File.stat(File.join(testroot, Tpkg::DEFAULT_BASE, 'myfile')).uid, predicted_uid)
-        assert_equal(File.stat(File.join(testroot, Tpkg::DEFAULT_BASE, 'myfile')).gid, predicted_gid)
-        tpkg.remove(['pkg3'])
+        assert_equal(0733, predicted_perms)
+        assert_equal(Tpkg::lookup_uid('root'), predicted_uid)
+        assert_equal(Tpkg::lookup_gid('wheel'), predicted_gid)
+        FileUtils.rm_f(pkgfile)
       end
     end
   end

@@ -1,0 +1,16 @@
+#!/bin/sh
+
+# These are example outputs captured from running the actual dpkg-query
+# command on a Debian system
+
+case "$3" in
+'ruby1.9.1')
+    printf "ruby1.9.1 1.9.3.194-3 install ok installed\n"
+    ;;
+'exim4')
+    printf "exim4 4.80-5.1 deinstall ok config-files\n"
+    ;;
+'bogus')
+    printf "dpkg-query: no packages found matching bogus\n" >&2
+    ;;
+esac
