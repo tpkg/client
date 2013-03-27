@@ -111,7 +111,7 @@ def copy_tpkg_files(destdir, options={})
     # All of the supporting config files go into a subdirectory
     etctpkgdir = File.join(etcdir, 'tpkg')
     mkdir_p(etctpkgdir)
-    etctpkgfiles = ['ca.pem', 'dhparams']
+    etctpkgfiles = ['ca.pem']
     etctpkgfiles.each do |etctpkgfile|
       cp(etctpkgfile, etctpkgdir, :preserve => true)
       chmod(0644, File.join(etctpkgdir, etctpkgfile))

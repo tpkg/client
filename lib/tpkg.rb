@@ -410,8 +410,6 @@ class Tpkg
       system("#{find_tar} -C #{workdir} -cf #{tpkgfile} tpkg") || raise("tpkg.tar creation failed")
       
       # Checksum the tarball
-      # Older ruby version doesn't support this
-      # digest = Digest::SHA256.file(tpkgfile).hexdigest
       digest = Digest::SHA256.hexdigest(File.read(tpkgfile))
       
       # Create checksum.xml
@@ -1373,12 +1371,6 @@ class Tpkg
     end
     http = Net::HTTP.new(uri.host, uri.port)
     if uri.scheme == 'https'
-      # Eliminate the OpenSSL "using default DH parameters" warning
-      if File.exist?(File.join(@configdir, 'tpkg', 'dhparams'))
-        dh = OpenSSL::PKey::DH.new(IO.read(File.join(@configdir, 'tpkg', 'dhparams')))
-        Net::HTTP.ssl_context_accessor(:tmp_dh_callback)
-        http.tmp_dh_callback = proc { dh }
-      end
       http.use_ssl = true
       if File.exist?(File.join(@configdir, 'tpkg', 'ca.pem'))
         http.ca_file = File.join(@configdir, 'tpkg', 'ca.pem')
