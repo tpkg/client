@@ -2678,7 +2678,7 @@ class Tpkg
     else
       uoption = "-u #{user}"
       if Process.uid != 0
-        warn "Package requests user #{user} for crontab, likely will fail due to lack of of root privileges"
+        warn "Package requests user #{user} for crontab, likely to fail due to lack of root privileges"
       end
     end
     uoption
