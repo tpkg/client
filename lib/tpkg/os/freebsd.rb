@@ -1,3 +1,6 @@
+# tpkg package management system
+# License: MIT (http://www.opensource.org/licenses/mit-license.php)
+
 require 'erb'
 
 class Tpkg::OS::FreeBSD < Tpkg::OS

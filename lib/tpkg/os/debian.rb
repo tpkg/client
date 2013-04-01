@@ -1,3 +1,6 @@
+# tpkg package management system
+# License: MIT (http://www.opensource.org/licenses/mit-license.php)
+
 class Tpkg::OS::Debian < Tpkg::OS
   def self.supported?
     Facter.loadfacts
