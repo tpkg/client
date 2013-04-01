@@ -346,9 +346,8 @@ class Tpkg
           raise "File #{tpkg_path} referenced in tpkg.yml but not found"
         end
 
-        # check permission/ownership of crontab files
-        # FIXME: only matters now for cron.d-style files
-        if tpkgfile[:crontab]
+        # check permission/ownership of cron.d-style crontab files
+        if tpkgfile[:crontab] && !tpkgfile[:crontab][:user]
           data = {:actual_file => working_path, :metadata => metadata, :file_metadata => tpkgfile}
           perms, uid, gid = predict_file_perms_and_ownership(data)
           # crontab needs to be owned by root, and is not writable by group or others
