@@ -3434,6 +3434,7 @@ class Tpkg
       elsif pkg[:source] == :native_available
         os.upgrade_native_package(pkg)
         has_updates = true
+        @available_native_packages.delete(pkg[:metadata][:name]) # to have the status of this native package reloaded
       else  # tpkg
         pkgfile = nil
         if File.file?(pkg[:source])
