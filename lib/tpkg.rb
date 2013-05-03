@@ -3693,7 +3693,7 @@ class Tpkg
         # don't remove conf files that have been modified
         next if modified_conf_files.include?(file)
         begin
-          if !File.directory?(file)
+          if File.symlink?(file) || !File.directory?(file)
             File.delete(file)
           else
             begin
