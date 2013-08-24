@@ -3433,6 +3433,7 @@ class Tpkg
       elsif pkg[:source] == :native_available
         os.upgrade_native_package(pkg)
         has_updates = true
+        @available_native_packages.delete(pkg[:metadata][:name]) # to have the status of this native package reloaded
       else  # tpkg
         pkgfile = nil
         if File.file?(pkg[:source])
@@ -3691,7 +3692,7 @@ class Tpkg
         # don't remove conf files that have been modified
         next if modified_conf_files.include?(file)
         begin
-          if !File.directory?(file)
+          if File.symlink?(file) || !File.directory?(file)
             File.delete(file)
           else
             begin

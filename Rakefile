@@ -75,10 +75,16 @@ def copy_tpkg_files(destdir, options={})
     
     tpkglibdir = File.join(libdir, 'tpkg')
     mkdir_p(tpkglibdir)
-    libs = ['deployer.rb', 'metadata.rb', 'silently.rb', 'thread_pool.rb', 'versiontype.rb']
+    libs = ['deployer.rb', 'metadata.rb', 'os.rb', 'silently.rb', 'thread_pool.rb', 'version.rb', 'versiontype.rb']
     libs.each do |lib|
       cp(File.join('lib', 'tpkg', lib), tpkglibdir, :preserve => true)
       chmod(0444, File.join(tpkglibdir, lib))
+    end
+    tpkgoslibdir = File.join(tpkglibdir, 'os')
+    mkdir_p(tpkgoslibdir)
+    Dir.glob('lib/tpkg/os/*.rb').each do |lib|
+      cp(lib, tpkgoslibdir, :preserve => true)
+      chmod(0444, File.join(tpkgoslibdir, File.basename(lib)))
     end
     
     if options[:copythirdparty]
