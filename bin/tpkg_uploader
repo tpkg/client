@@ -12,6 +12,7 @@ require 'tempfile'
 require 'optparse'
 require 'etc'
 require 'uri'
+require 'cgi'
 
 ##########################################################################
 # Set these variables to the appropriate values that suit your environment
@@ -99,7 +100,7 @@ else
   # We need to authenticate against the server first in order to get a cookie
   # To prevent username and password showing up when we call
   # curl, we will tell curl to look it up from a config file
-  config="data = \"login=#{username}&password=#{password}\""
+  config="data = \"login=#{CGI.escape(username)}&password=#{CGI.escape(password)}\""
   File.open(curl_config.path, 'w') {|f| f.write(config) }
   result = `curl #{authentication_url} -s -L -K #{curl_config.path} -k -c #{cookie_file} #{proxy}`
   if result =~ /failed/
