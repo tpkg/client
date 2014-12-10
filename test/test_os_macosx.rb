@@ -15,11 +15,11 @@ class TpkgOSMacOSXTests < Test::Unit::TestCase
   end
   
   def test_supported
-    res = Facter::Util::Resolution.new('operatingsystem')
-    Facter.expects(:[]).with('operatingsystem').returns(res).at_least_once
-    res.setcode(lambda {'Darwin'})
+    fact = Facter::Util::Fact.new('operatingsystem')
+    Facter.expects(:[]).with('operatingsystem').returns(fact).at_least_once
+    fact.stubs(:value).returns('Darwin')
     assert Tpkg::OS::MacOSX.supported?
-    res.setcode(lambda {'Other'})
+    fact.stubs(:value).returns('Other')
     refute Tpkg::OS::MacOSX.supported?
   end
   def test_initialize
@@ -71,9 +71,9 @@ class TpkgOSMacOSXTests < Test::Unit::TestCase
       {:metadata => {:name => 'curl', :version => '7.28.1', :package_version => '7'}})
   end
   def test_os_version
-    res = Facter::Util::Resolution.new('macosx_productversion')
-    Facter.expects(:[]).with('macosx_productversion').returns(res).at_least_once
-    res.setcode(lambda {'10.8.2'})
+    fact = Facter::Util::Fact.new('macosx_productversion')
+    Facter.expects(:[]).with('macosx_productversion').returns(fact).at_least_once
+    fact.stubs(:value).returns('10.8.2')
     assert_equal '10.8', Tpkg::OS::MacOSX.new.os_version
   end
 end

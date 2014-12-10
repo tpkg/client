@@ -15,8 +15,10 @@ Gem::Specification.new do |gem|
   gem.require_paths = ['lib']
   gem.version       = Tpkg::VERSION
   
-  gem.add_dependency('facter')
+  gem.add_dependency('facter', '~>2.3.0')
   gem.add_dependency('net-ssh')
   gem.add_dependency('kwalify')
+  gem.add_development_dependency('rake')
   gem.add_development_dependency('mocha')
+  gem.add_development_dependency('open4')
 end

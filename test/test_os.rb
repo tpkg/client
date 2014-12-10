@@ -19,9 +19,9 @@ class TpkgOSTests < Test::Unit::TestCase
     assert_includes Tpkg::OS.class_variable_get(:@@implementations), Tpkg::OS::TestImplementation
   end
   def test_create
-    res = Facter::Util::Resolution.new('operatingsystem')
-    Facter.stubs(:[]).returns(res)
-    res.setcode(lambda {'RedHat'})
+    fact = Facter::Util::Fact.new('operatingsystem')
+    Facter.stubs(:[]).returns(fact)
+    fact.stubs(:value).returns('RedHat')
     assert_instance_of Tpkg::OS::RedHat, Tpkg::OS.create
   end
   def test_initialize
@@ -64,9 +64,9 @@ class TpkgOSTests < Test::Unit::TestCase
     assert_nil @os.remove_native_stub_pkg({})
   end
   def test_os_version
-    verres = Facter::Util::Resolution.new('operatingsystemrelease')
-    verres.setcode(lambda {'1.2.3'})
-    Facter.expects(:[]).with('operatingsystemrelease').returns(verres).at_least_once
+    verfact = Facter::Util::Fact.new('operatingsystemrelease')
+    verfact.stubs(:value).returns('1.2.3')
+    Facter.expects(:[]).with('operatingsystemrelease').returns(verfact).at_least_once
     assert_equal '1.2.3', @os.os_version
     
     # Muck with the returned variable and ensure that doesn't stick.  I.e.
@@ -83,12 +83,12 @@ class TpkgOSTests < Test::Unit::TestCase
   end
   
   def test_os
-    osres = Facter::Util::Resolution.new('operatingsystem')
-    osres.setcode(lambda {'TestOS'})
-    Facter.expects(:[]).with('operatingsystem').returns(osres).at_least_once
-    verres = Facter::Util::Resolution.new('operatingsystemrelease')
-    verres.setcode(lambda {'1.2.3'})
-    Facter.expects(:[]).with('operatingsystemrelease').returns(verres).at_least_once
+    osfact = Facter::Util::Fact.new('operatingsystem')
+    osfact.stubs(:value).returns('TestOS')
+    Facter.expects(:[]).with('operatingsystem').returns(osfact).at_least_once
+    verfact = Facter::Util::Fact.new('operatingsystemrelease')
+    verfact.stubs(:value).returns('1.2.3')
+    Facter.expects(:[]).with('operatingsystemrelease').returns(verfact).at_least_once
     assert_equal 'TestOS-1.2.3', @os.os
     
     # Muck with the returned variable and ensure that doesn't stick.  I.e.
@@ -99,9 +99,9 @@ class TpkgOSTests < Test::Unit::TestCase
     assert_equal(goodos, @os.os)
   end
   def test_os_name
-    osres = Facter::Util::Resolution.new('operatingsystem')
-    osres.setcode(lambda {'TestOS'})
-    Facter.expects(:[]).with('operatingsystem').returns(osres).at_least_once
+    osfact = Facter::Util::Fact.new('operatingsystem')
+    osfact.stubs(:value).returns('TestOS')
+    Facter.expects(:[]).with('operatingsystem').returns(osfact).at_least_once
     assert_equal 'TestOS', @os.os_name
     
     # Muck with the returned variable and ensure that doesn't stick.  I.e.
@@ -112,9 +112,9 @@ class TpkgOSTests < Test::Unit::TestCase
     assert_equal(goodname, @os.os_name)
   end
   def test_arch
-    hwres = Facter::Util::Resolution.new('hardwaremodel')
-    hwres.setcode(lambda {'i286'})
-    Facter.expects(:[]).with('hardwaremodel').returns(hwres).at_least_once
+    hwfact = Facter::Util::Fact.new('hardwaremodel')
+    hwfact.stubs(:value).returns('i286')
+    Facter.expects(:[]).with('hardwaremodel').returns(hwfact).at_least_once
     assert_equal 'i286', @os.arch
     
     # Muck with the returned variable and ensure that doesn't stick.  I.e.
@@ -125,18 +125,18 @@ class TpkgOSTests < Test::Unit::TestCase
     assert_equal(goodarch, @os.arch)
   end
   def test_fqdn
-    fqdnres = Facter::Util::Resolution.new('fqdn')
-    fqdnres.setcode(lambda {'test.example.com'})
-    Facter.expects(:[]).with('fqdn').returns(fqdnres).at_least_once
+    fqdnfact = Facter::Util::Fact.new('fqdn')
+    fqdnfact.stubs(:value).returns('test.example.com')
+    Facter.expects(:[]).with('fqdn').returns(fqdnfact).at_least_once
     assert_equal 'test.example.com', @os.fqdn
     # Test fallback to hostname + domain
-    hostres = Facter::Util::Resolution.new('hostname')
-    hostres.setcode(lambda {'test2'})
-    domainres = Facter::Util::Resolution.new('domain')
-    domainres.setcode(lambda {'example.com'})
+    hostfact = Facter::Util::Fact.new('hostname')
+    hostfact.stubs(:value).returns('test2')
+    domainfact = Facter::Util::Fact.new('domain')
+    domainfact.stubs(:value).returns('example.com')
     Facter.expects(:[]).with('fqdn').returns(nil)
-    Facter.expects(:[]).with('hostname').returns(hostres).at_least_once
-    Facter.expects(:[]).with('domain').returns(domainres).at_least_once
+    Facter.expects(:[]).with('hostname').returns(hostfact).at_least_once
+    Facter.expects(:[]).with('domain').returns(domainfact).at_least_once
     assert_equal 'test2.example.com', @os.fqdn
   end
   def test_cron_dot_d_directory

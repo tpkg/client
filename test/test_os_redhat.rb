@@ -19,15 +19,15 @@ class TpkgOSRedHatTests < Test::Unit::TestCase
   end
   
   def test_supported
-    res = Facter::Util::Resolution.new('operatingsystem')
-    Facter.stubs(:[]).returns(res)
-    res.setcode(lambda {'RedHat'})
+    fact = Facter::Util::Fact.new('operatingsystem')
+    Facter.stubs(:[]).returns(fact)
+    fact.stubs(:value).returns('RedHat')
     assert Tpkg::OS::RedHat.supported?
-    res.setcode(lambda {'CentOS'})
+    fact.stubs(:value).returns('CentOS')
     assert Tpkg::OS::RedHat.supported?
-    res.setcode(lambda {'Fedora'})
+    fact.stubs(:value).returns('Fedora')
     assert Tpkg::OS::RedHat.supported?
-    res.setcode(lambda {'Other'})
+    fact.stubs(:value).returns('Other')
     refute Tpkg::OS::RedHat.supported?
   end
   def test_initialize
@@ -103,9 +103,9 @@ class TpkgOSRedHatTests < Test::Unit::TestCase
     redhat.remove_native_stub_pkg({:metadata => metadata})
   end
   def test_os_version
-    res = Facter::Util::Resolution.new('lsbmajdistrelease')
-    Facter.expects(:[]).with('lsbmajdistrelease').returns(res).at_least_once
-    res.setcode(lambda {'6'})
+    fact = Facter::Util::Fact.new('lsbmajdistrelease')
+    fact.stubs(:value).returns('6')
+    Facter.expects(:[]).with('lsbmajdistrelease').returns(fact).at_least_once
     assert_equal '6', Tpkg::OS::RedHat.new.os_version
   end
   def test_create_rpm

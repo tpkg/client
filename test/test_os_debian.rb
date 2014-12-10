@@ -15,13 +15,13 @@ class TpkgOSDebianTests < Test::Unit::TestCase
   end
   
   def test_supported
-    res = Facter::Util::Resolution.new('operatingsystem')
-    Facter.expects(:[]).with('operatingsystem').returns(res).at_least_once
-    res.setcode(lambda {'Debian'})
+    fact = Facter::Util::Fact.new('operatingsystem')
+    Facter.expects(:[]).with('operatingsystem').returns(fact).at_least_once
+    fact.stubs(:value).returns('Debian')
     assert Tpkg::OS::Debian.supported?
-    res.setcode(lambda {'Ubuntu'})
+    fact.stubs(:value).returns('Ubuntu')
     assert Tpkg::OS::Debian.supported?
-    res.setcode(lambda {'Other'})
+    fact.stubs(:value).returns('Other')
     refute Tpkg::OS::Debian.supported?
   end
   def test_initialize
@@ -80,20 +80,20 @@ class TpkgOSDebianTests < Test::Unit::TestCase
   def test_os_version
     # The os_version method caches its result, so we need a new object for
     # each test
-    res = Facter::Util::Resolution.new('lsbmajdistrelease')
-    Facter.expects(:[]).with('lsbmajdistrelease').returns(res).at_least_once
-    res.setcode(lambda {'6'})
+    fact = Facter::Util::Fact.new('lsbmajdistrelease')
+    Facter.expects(:[]).with('lsbmajdistrelease').returns(fact).at_least_once
+    fact.stubs(:value).returns('6')
     assert_equal '6', Tpkg::OS::Debian.new.os_version
-    res.setcode(lambda {'testing'})
+    fact.stubs(:value).returns('testing')
     assert_equal 'testing', Tpkg::OS::Debian.new.os_version
-    res.setcode(lambda {'testing/unstable'})
+    fact.stubs(:value).returns('testing/unstable')
     assert_equal 'testing', Tpkg::OS::Debian.new.os_version
     
     # Test fallback to lsbdistrelease
-    res = Facter::Util::Resolution.new('lsbdistrelease')
-    res.setcode(lambda {'6.0.7'})
+    fact = Facter::Util::Fact.new('lsbdistrelease')
+    fact.stubs(:value).returns('6.0.7')
     Facter.expects(:[]).with('lsbmajdistrelease').returns(nil)
-    Facter.expects(:[]).with('lsbdistrelease').returns(res).at_least_once
+    Facter.expects(:[]).with('lsbdistrelease').returns(fact).at_least_once
     assert_equal '6', Tpkg::OS::Debian.new.os_version
   end
 end

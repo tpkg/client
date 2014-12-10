@@ -29,9 +29,9 @@ class TpkgUnpackTests < Test::Unit::TestCase
     end
     
     # Pretend to be an OS with init script support
-    res = Facter::Util::Resolution.new('operatingsystem')
-    res.setcode(lambda {'RedHat'})
-    Facter.stubs(:[]).returns(res)
+    fact = Facter::Util::Fact.new('operatingsystem')
+    fact.stubs(:value).returns('RedHat')
+    Facter.stubs(:[]).returns(fact)
   end
   
   def test_unpack

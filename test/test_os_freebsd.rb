@@ -13,20 +13,20 @@ class TpkgOSFreeBSDTests < Test::Unit::TestCase
       )
   end
   def setup_mock_os
-    res = Facter::Util::Resolution.new('hardwaremodel')
-    res.setcode(lambda {'i386'})
-    Facter.expects(:[]).with('hardwaremodel').returns(res).at_least_once
-    res = Facter::Util::Resolution.new('operatingsystemrelease')
-    res.setcode(lambda {'9.1-RELEASE'})
-    Facter.expects(:[]).with('operatingsystemrelease').returns(res).at_least_once
+    fact = Facter::Util::Fact.new('hardwaremodel')
+    fact.stubs(:value).returns('i386')
+    Facter.expects(:[]).with('hardwaremodel').returns(fact).at_least_once
+    fact = Facter::Util::Fact.new('operatingsystemrelease')
+    fact.stubs(:value).returns('9.1-RELEASE')
+    Facter.expects(:[]).with('operatingsystemrelease').returns(fact).at_least_once
   end
   
   def test_supported
-    res = Facter::Util::Resolution.new('operatingsystem')
-    Facter.expects(:[]).with('operatingsystem').returns(res).at_least_once
-    res.setcode(lambda {'FreeBSD'})
+    fact = Facter::Util::Fact.new('operatingsystem')
+    Facter.expects(:[]).with('operatingsystem').returns(fact).at_least_once
+    fact.stubs(:value).returns('FreeBSD')
     assert Tpkg::OS::FreeBSD.supported?
-    res.setcode(lambda {'Other'})
+    fact.stubs(:value).returns('Other')
     refute Tpkg::OS::FreeBSD.supported?
   end
   def test_initialize
@@ -81,9 +81,9 @@ class TpkgOSFreeBSDTests < Test::Unit::TestCase
     @freebsd.upgrade_native_package({:metadata => {:name => 'curl', :version => '7.24.0'}})
   end
   def test_os_version
-    res = Facter::Util::Resolution.new('operatingsystemrelease')
-    res.setcode(lambda {'9.1-RELEASE'})
-    Facter.expects(:[]).with('operatingsystemrelease').returns(res).at_least_once
+    fact = Facter::Util::Fact.new('operatingsystemrelease')
+    fact.stubs(:value).returns('9.1-RELEASE')
+    Facter.expects(:[]).with('operatingsystemrelease').returns(fact).at_least_once
     assert_equal '9', Tpkg::OS::FreeBSD.new.os_version
   end
 end

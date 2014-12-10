@@ -12,11 +12,11 @@ class TpkgOSWindowsTests < Test::Unit::TestCase
   end
   
   def test_supported
-    res = Facter::Util::Resolution.new('operatingsystem')
-    Facter.expects(:[]).with('operatingsystem').returns(res).at_least_once
-    res.setcode(lambda {'windows'})
+    fact = Facter::Util::Fact.new('operatingsystem')
+    Facter.expects(:[]).with('operatingsystem').returns(fact).at_least_once
+    fact.stubs(:value).returns('windows')
     assert Tpkg::OS::Windows.supported?
-    res.setcode(lambda {'Other'})
+    fact.stubs(:value).returns('Other')
     refute Tpkg::OS::Windows.supported?
   end
   
