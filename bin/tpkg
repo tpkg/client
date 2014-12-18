@@ -844,7 +844,7 @@ when :query_list_files_available
       elsif File.directory?(pkg[:source])
         pkgfile = File.join(pkg[:source], pkg[:metadata][:filename])
       else
-        pkgfile = download(pkg[:source], pkg[:metadata][:filename], downloaddir)
+        pkgfile = tpkg.download(pkg[:source], pkg[:metadata][:filename], downloaddir)
       end
       puts "#{pkg[:metadata][:filename]}:"
       fip = Tpkg.files_in_package(pkgfile)
@@ -1149,7 +1149,7 @@ when :query_tpkg_metadata_available
       elsif File.directory?(pkg[:source])
         pkgfile = File.join(pkg[:source], pkg[:metadata][:filename])
       else
-        pkgfile = download(pkg[:source], pkg[:metadata][:filename], downloaddir)
+        pkgfile = tpkg.download(pkg[:source], pkg[:metadata][:filename], downloaddir)
       end
       puts Tpkg::extract_tpkg_metadata_file(pkgfile)
     end
