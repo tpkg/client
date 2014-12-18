@@ -445,7 +445,7 @@ end
 if @groups
   settings = parse_config_files
   if settings[:host_group_script]
-    if !File.executable?(settings[:host_group_script])
+    if !File.executable?(settings[:host_group_script].split(' ').first)
       warn "Warning: host group script #{settings[:host_group_script]} is not executable, execution will likely fail"
     end
     servers = []
