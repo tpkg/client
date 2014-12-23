@@ -669,7 +669,21 @@ class Tpkg
     Dir.mkdir(tmpdir)
     tmpdir
   end
-  
+
+  # Backward compatibility method. Use tpkg.os.arch instead.
+  @@arch = nil
+  def self.get_arch
+    @@arch = Tpkg::OS.create().arch if @@arch.nil?
+    @@arch.dup
+  end
+
+  # Backward compatibility method. Use tpkg.os.os instead.
+  @@os = nil
+  def self.get_os
+    @@os = Tpkg::OS.create().os if @@os.nil?
+    @@os.dup
+  end
+
   # Given an array of pkgs. Determine if any of those package
   # satisfy the requirement specified by req
   def packages_meet_requirement?(pkgs, req)
