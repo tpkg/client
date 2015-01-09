@@ -3525,6 +3525,12 @@ class Tpkg
   def remove(requests=nil, options={})
     ret_val = 0
     lock
+
+    if options[:upgrade]
+       ENV['TPKG_ACTION'] = "upgrade"
+    else
+       ENV['TPKG_ACTION'] = "remove"
+    end
     
     packages_to_remove = nil
     if requests
