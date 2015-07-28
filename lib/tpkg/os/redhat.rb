@@ -63,7 +63,7 @@ class Tpkg::OS::RedHat < Tpkg::OS
           end
         end
         stderr_first_line = stderr.gets
-        exit_status = wait_thr ? wait_thr.value : $?	# Pre-1.9 Ruby's peopen3 doesn't return the thread. $? is not correct, but it was used here instead of Thread.value for a long time.
+        exit_status = wait_thr ? wait_thr.value : $?	# Pre-1.9 Ruby's popen3 doesn't return the thread. $? is not correct, but it was used here instead of Thread.value for a long time.
       end
       if !exit_status.success?
         # Ignore 'no matching packages', raise anything else
