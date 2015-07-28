@@ -28,7 +28,8 @@ class Tpkg::OS::Debian < Tpkg::OS
     cmd = "#{@dpkgquerycmd} -W -f='${Package} ${Version} ${Status}\n' #{pkgname}"
     puts "available_native_packages running #{cmd}" if @debug
     stderr_first_line = nil
-    Open3.popen3(cmd) do |stdin, stdout, stderr|
+    exit_status = nil
+    Open3.popen3(cmd) do |stdin, stdout, stderr, wait_thr|
       stdin.close
       stdout.each_line do |line|
         name, debversion, status = line.split(' ', 3)
@@ -52,9 +53,9 @@ class Tpkg::OS::Debian < Tpkg::OS
         end
       end
       stderr_first_line = stderr.gets
+      exit_status = wait_thr ? wait_thr.value : $?	# Pre-1.9 Ruby's peopen3 doesn't return the thread. $? is not correct, but it was used here instead of Thread.value for a long time.
     end
-    # FIXME: popen3 doesn't set $?
-    if !$?.success?
+    if !exit_status.success?
       # Ignore 'no matching packages', raise anything else
       if stderr_first_line !~ 'No packages found matching'
         raise "available_native_packages error running dpkg-query"

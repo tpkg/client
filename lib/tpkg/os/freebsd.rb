@@ -43,7 +43,8 @@ class Tpkg::OS::FreeBSD < Tpkg::OS
     native_packages = []
     cmd = "#{@pkginfocmd} -E #{pkgname}-*"
     puts "available_native_packages running '#{cmd}'" if @debug
-    Open3.popen3(cmd) do |stdin, stdout, stderr|
+    exit_status = nil
+    Open3.popen3(cmd) do |stdin, stdout, stderr, wait_thr|
       stdin.close
       stdout.each_line do |line|
         fbversion = line.sub("#{pkgname}-", '').chomp
@@ -56,9 +57,9 @@ class Tpkg::OS::FreeBSD < Tpkg::OS
             pkgname, version, package_version, :native_installed)
       end
       stderr_first_line = stderr.gets
+      exit_status = wait_thr ? wait_thr.value : $?	# Pre-1.9 Ruby's peopen3 doesn't return the thread. $? is not correct, but it was used here instead of Thread.value for a long time.
     end
-    # FIXME: popen3 doesn't set $?
-    if !$?.success?
+    if !exit_status.success?
       # Ignore 'no matching packages', raise anything else
       if stderr_first_line !~ 'No match'
         raise "available_native_packages error running pkg_info"
