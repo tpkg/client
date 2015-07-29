@@ -30,7 +30,8 @@ class Tpkg::OS::RedHat < Tpkg::OS
       cmd = "#{@yumcmd} info #{yum[:arg]} #{pkgname}"
       puts "available_native_packages running '#{cmd}'" if @debug
       stderr_first_line = nil
-      Open3.popen3(cmd) do |stdin, stdout, stderr|
+      exit_status = nil
+      Open3.popen3(cmd) do |stdin, stdout, stderr, wait_thr|
         stdin.close
         read_packages = false
         name = version = package_version = nil
@@ -62,9 +63,9 @@ class Tpkg::OS::RedHat < Tpkg::OS
           end
         end
         stderr_first_line = stderr.gets
+        exit_status = wait_thr ? wait_thr.value : $?	# Pre-1.9 Ruby's popen3 doesn't return the thread. $? is not correct, but it was used here instead of Thread.value for a long time.
       end
-      # FIXME: popen3 doesn't set $?
-      if !$?.success?
+      if !exit_status.success?
         # Ignore 'no matching packages', raise anything else
         if stderr_first_line != "Error: No matching Packages to list\n"
           raise "available_native_packages error running yum"
