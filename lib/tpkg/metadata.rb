@@ -141,6 +141,15 @@ class HashWithIndifferentAccess < Hash
     end
 end
 
+module ActionController
+end
+
+class ActionController::Parameters < HashWithIndifferentAccess
+  def dup
+    super.dup
+  end
+end
+
 module IndifferentAccess 
   def with_indifferent_access
     hash = HashWithIndifferentAccess.new(self)
