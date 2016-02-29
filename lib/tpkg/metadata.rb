@@ -21,7 +21,7 @@ end
 # With yaml, keys are stored as string. But when we convert xml to hash, we store the key as
 # symbol. To make it more convenient, we'll be subclassing our metadata hash with this class. 
 # That way, we can access our metadata using either string or symbol as the key.
-class HashWithIndifferentAccess < Hash
+class HashWithAwesomeAccess < Hash
   def initialize(constructor = {})
     if constructor.is_a?(Hash)
       super()
@@ -44,7 +44,7 @@ class HashWithIndifferentAccess < Hash
     
   # Assigns a new value to the hash:
   #
-  #   hash = HashWithIndifferentAccess.new
+  #   hash = HashWithAwesomeAccess.new
   #   hash[:key] = "value"
   #
   def []=(key, value)
@@ -53,10 +53,10 @@ class HashWithIndifferentAccess < Hash
   
   # Updates the instantized hash with values from the second:
   # 
-  #   hash_1 = HashWithIndifferentAccess.new
+  #   hash_1 = HashWithAwesomeAccess.new
   #   hash_1[:key] = "value"
   # 
-  #   hash_2 = HashWithIndifferentAccess.new
+  #   hash_2 = HashWithAwesomeAccess.new
   #   hash_2[:key] = "New Value!"
   # 
   #   hash_1.update(hash_2) # => {"key"=>"New Value!"}
@@ -70,7 +70,7 @@ class HashWithIndifferentAccess < Hash
 
   # Checks the hash for a key matching the argument passed in:
   #
-  #   hash = HashWithIndifferentAccess.new
+  #   hash = HashWithAwesomeAccess.new
   #   hash["key"] = "value"
   #   hash.key? :key  # => true
   #   hash.key? "key" # => true
@@ -90,7 +90,7 @@ class HashWithIndifferentAccess < Hash
 
   # Returns an array of the values at the specified indices:
   #
-  #   hash = HashWithIndifferentAccess.new
+  #   hash = HashWithAwesomeAccess.new
   #   hash[:a] = "x"
   #   hash[:b] = "y"
   #   hash.values_at("a", "b") # => ["x", "y"]
@@ -101,7 +101,7 @@ class HashWithIndifferentAccess < Hash
 
   # Returns an exact copy of the hash.
   def dup
-    HashWithIndifferentAccess.new(self)
+    HashWithAwesomeAccess.new(self)
   end
 
   # Merges the instantized and the specified hashes together, giving precedence to the values from the second hash
@@ -132,27 +132,18 @@ class HashWithIndifferentAccess < Hash
     def convert_value(value)
       case value
       when Hash
-        value.with_indifferent_access
+        value.with_awesome_access
       when Array
-        value.collect { |e| e.is_a?(Hash) ? e.with_indifferent_access : e }
+        value.collect { |e| e.is_a?(Hash) ? e.with_awesome_access : e }
       else
         value
       end
     end
 end
 
-module ActionController
-end
-
-class ActionController::Parameters < HashWithIndifferentAccess
-  def dup
-    super.dup
-  end
-end
-
-module IndifferentAccess 
-  def with_indifferent_access
-    hash = HashWithIndifferentAccess.new(self)
+module AwesomeAccess 
+  def with_awesome_access
+    hash = HashWithAwesomeAccess.new(self)
     hash.default = self.default
     hash
   end
@@ -221,16 +212,16 @@ end
 
 # Adding new capabilities to hash
 class Hash
-  include IndifferentAccess
+  include AwesomeAccess
   include HashUtils
 end
 
 # This is needed for backward compatibility
-# We were using SymbolizeKeys rather than the HashWithIndifferentAccess
+# We were using SymbolizeKeys rather than the HashWithAwesomeAccess
 # class
 module SymbolizeKeys 
   def self.extended(hash)
-    hash.extend(HashWithIndifferentAccess)
+    hash.extend(HashWithAwesomeAccess)
   end
 end
 
@@ -309,7 +300,7 @@ class Metadata
     
     if @format == 'yml'
       hash = YAML::load(@text)
-      @hash = hash.with_indifferent_access
+      @hash = hash.with_awesome_access
       
       # We need this for backward compatibility. With xml, we specify
       # native dependency as type: :native rather then native: true
@@ -340,7 +331,7 @@ class Metadata
         end
       end if @hash[:files] && @hash[:files][:files]
     elsif @format == 'xml'
-      @hash = metadata_xml_to_hash.with_indifferent_access
+      @hash = metadata_xml_to_hash.with_awesome_access
     else
       raise "Unknown metadata format"
     end
@@ -477,8 +468,8 @@ class Metadata
     # Kwalify generates lots of warnings, silence it
     Silently.silently do
       schema = Kwalify::Yaml.load_file(schema)
-      validator = Kwalify::Validator.new(schema.with_indifferent_access)
-      errors = validator.validate(YAML::load(yaml_text).with_indifferent_access)
+      validator = Kwalify::Validator.new(schema.with_awesome_access)
+      errors = validator.validate(YAML::load(yaml_text).with_awesome_access)
     end
     errors
   end
@@ -762,10 +753,10 @@ class FileMetadata < Metadata
 
     if @format == 'bin'
       hash = Marshal::load(@text)
-      @hash = hash.with_indifferent_access
+      @hash = hash.with_awesome_access
     elsif @format == 'yml'
       hash = YAML::load(@text)
-      @hash = hash.with_indifferent_access
+      @hash = hash.with_awesome_access
     elsif @format == 'xml'
       @hash = file_metadata_xml_to_hash
     end
