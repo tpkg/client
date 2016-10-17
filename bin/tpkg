@@ -35,7 +35,7 @@ require 'tpkg'
 @sources = []
 @tpkg_options = {}	# options for instantiating Tpkg object
 @init_options = {}      # options for how to run init scripts
-@other_options = {}     
+@other_options = {}
 @compress = "gzip"
 
 #
@@ -63,7 +63,7 @@ def parse_config_files
   if @config_file_settings
     return @config_file_settings
   end
-  
+
   # FIXME: Move config file parsing to tpkg.rb
   # https://github.com/tpkg/client/issues/22
   fsroot = @tpkg_options[:file_system_root] || ''
@@ -107,14 +107,14 @@ def parse_config_files
       end
     end
   end
-  
+
   @config_file_settings = settings
 end
 
 passphrase_callback = lambda do | package |
 #  ask("Passphrase for #{package}: ", true)
   begin
-    system 'stty -echo;' 
+    system 'stty -echo;'
     print "Passphrase for #{package}: "
     input = STDIN.gets.chomp
   ensure
@@ -403,7 +403,7 @@ opts.on('--compress [TYPE]',
         acceptable_compress_arguments,
         "Compress files when making packages " +
         "(#{acceptable_compress_arguments.join(',')})") do |opt|
-  # Acceptable 
+  # Acceptable
   if opt == nil  # No argument specified by user
     @compress = true
   elsif opt == "no"
@@ -578,7 +578,7 @@ if @deploy
     end
   end
 
-  Tpkg::deploy(@deploy_params, @deploy_options,  @servers) 
+  Tpkg::deploy(@deploy_params, @deploy_options,  @servers)
   exit
 end
 
@@ -636,8 +636,8 @@ when :verify
         puts "#{file}: Failed (Reasons: #{errors.join(", ")})"
         success = false
       end
-    end 
-    puts "Package verification failed" unless success 
+    end
+    puts "Package verification failed" unless success
   end
 when :execute_init
   tpkg = Tpkg.new(@tpkg_options)
@@ -925,13 +925,13 @@ when :query_available
   end
 when :query_requires
   tpkg = Tpkg.new(@tpkg_options)
-  
+
   # Parse the request
-  requirements = [] 
+  requirements = []
   packages = {}
   tpkg.parse_requests([@action_value], requirements, packages,
     :installed_only => true)
-  
+
   # Note that we don't stop here in the case of this switch, but continue to
   # check if anything depends on the package the user asked about.  There
   # shouldn't be a situation where there's another package installed that
@@ -949,13 +949,13 @@ when :query_requires
     # suppressing this for @quiet
     $stderr.puts "No packages matching '#{@action_value}' installed"
   end
-  
+
   # Get dependencies of all installed packages
   dependencies = {}
   tpkg.metadata_for_installed_packages.each do |metadata|
     dependencies[metadata[:filename]] = metadata[:dependencies]
   end
-  
+
   # Check to see if any dependencies match with what the user specified in the
   # request
   requirees = {}
@@ -964,7 +964,7 @@ when :query_requires
       next if pkg[:source] != :currently_installed
       dependencies.each do | requiree, deps |
         next if deps.nil?
-        deps.each do | dep | 
+        deps.each do | dep |
           if tpkg.package_meets_requirement?(pkg, dep)
             pkgfilename = pkg[:metadata][:filename]
             if !requirees[pkgfilename]
@@ -976,7 +976,7 @@ when :query_requires
       end
     end
   end
-  
+
   if !requirees.empty?
     requirees.keys.sort.each do |pkgfilename|
       puts "The following package(s) require #{pkgfilename}:"
@@ -990,12 +990,12 @@ when :query_requires
   end
 when :query_depends
   tpkg = Tpkg.new(@tpkg_options)
-  
+
   requirements = []
   packages = {}
   tpkg.parse_requests([@action_value], requirements, packages,
     :installed_only => true)
-  
+
   if packages.values.all? {|pkg| pkg.empty?}
     ret_val = 1
     # --qd --quiet doesn't seem like a meaningful combination, so I'm not
@@ -1016,7 +1016,7 @@ when :query_depends
         end
       end
     end
-    
+
     if !depends.empty?
       outputs = []
       depends.keys.sort.each do |pkgfilename|
@@ -1052,7 +1052,7 @@ when :query_depends_available
     pkg[:source] != :native_available &&
     pkg[:source] != :currently_installed
   end
-  
+
   if available.empty?
     ret_val = 1
     # --qds --quiet doesn't seem like a meaningful combination, so I'm not
@@ -1071,7 +1071,7 @@ when :query_depends_available
         end
       end
     end
-    
+
     if !depends.empty?
       outputs = []
       depends.keys.sort.each do |pkgfilename|
@@ -1099,7 +1099,7 @@ when :query_tpkg_metadata
   packages = {}
   tpkg.parse_requests([@action_value], requirements, packages,
     :installed_only => true)
-  
+
   if packages.values.all? {|pkg| pkg.empty?}
     ret_val = 1
     # --qX --quiet doesn't seem like a meaningful combination, so I'm not
@@ -1132,7 +1132,7 @@ when :query_tpkg_metadata_available
     pkg[:source] != :native_available &&
     pkg[:source] != :currently_installed
   end
-  
+
   if available.empty?
     ret_val = 1
     # --qXs --quiet doesn't seem like a meaningful combination, so I'm not

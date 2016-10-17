@@ -59,14 +59,14 @@ module Net; module SSH
       def load(path, host, settings={})
         file = File.expand_path(path)
         return settings unless File.readable?(file)
-        
+
         globals = {}
         matched_host = nil
         multi_host = []
         seen_host = false
         IO.foreach(file) do |line|
           next if line =~ /^\s*(?:#.*)?$/
-          
+
           if line =~ /^\s*(\S+)\s*=(.*)$/
             key, value = $1, $2
           else
@@ -78,14 +78,14 @@ module Net; module SSH
 
           key.downcase!
           value = $1 if value =~ /^"(.*)"$/
-          
+
           value = case value.strip
             when /^\d+$/ then value.to_i
             when /^no$/i then false
             when /^yes$/i then true
             else value
             end
-          
+
           if key == 'host'
             # Support "Host host1 host2 hostN".
             # See http://github.com/net-ssh/net-ssh/issues#issue/6
@@ -106,9 +106,9 @@ module Net; module SSH
             end
           end
         end
-        
+
         settings = globals.merge(settings) if globals
-        
+
         return settings
       end
 

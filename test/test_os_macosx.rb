@@ -6,14 +6,14 @@ require File.expand_path('tpkgtest', File.dirname(__FILE__))
 
 class TpkgOSMacOSXTests < Test::Unit::TestCase
   include TpkgTests
-  
+
   def setup
     @testport = File.join(TESTCMDDIR, 'macosx/port')
     @macosx = Tpkg::OS::MacOSX.new(
       :portcmd => @testport,
       )
   end
-  
+
   def test_supported
     fact = Facter::Util::Fact.new('operatingsystem')
     Facter.expects(:[]).with('operatingsystem').returns(fact).at_least_once

@@ -18,15 +18,15 @@ class TpkgCompressTests < Test::Unit::TestCase
     @uncompressed_pkgfile = make_package(:change => {'name' => 'uncompressed_pkg'}, :remove => ['operatingsystem', 'architecture'], :compress => false)
   end
 
-  # Given a .tpkg file, verify that we can figure out how the inner level archive tpkg.tar 
-  # was compressed 
+  # Given a .tpkg file, verify that we can figure out how the inner level archive tpkg.tar
+  # was compressed
   def test_get_compression
     assert(Tpkg::get_compression(@pkgfile).nil?)
     assert_equal('gzip', Tpkg::get_compression(@gzip_pkgfile))
     assert_equal('bz2', Tpkg::get_compression(@bz2_pkgfile))
     assert(['bz2', 'gzip'].include?(Tpkg::get_compression(@default_compression_pkgfile)))
     assert(Tpkg::get_compression(@uncompressed_pkgfile).nil?)
-  end 
+  end
 
   def test_install_compressed_pkg
     Dir.mktmpdir('testroot') do |testroot|
@@ -39,8 +39,8 @@ class TpkgCompressTests < Test::Unit::TestCase
   end
 
   def test_bad_compression_type
-    assert_raise(RuntimeError, 'verify bad compression type')  { 
-      make_package(:change => {'name' => 'bogus_compression_pkg'}, 
+    assert_raise(RuntimeError, 'verify bad compression type')  {
+      make_package(:change => {'name' => 'bogus_compression_pkg'},
                    :remove => ['operatingsystem', 'architecture'], :compress => 'bogus')
     }
   end
@@ -51,5 +51,5 @@ class TpkgCompressTests < Test::Unit::TestCase
     FileUtils.rm_f(@bz2_pkgfile)
     FileUtils.rm_f(@default_compression_pkgfile)
     FileUtils.rm_f(@uncompressed_pkgfile)
-  end 
-end 
+  end
+end

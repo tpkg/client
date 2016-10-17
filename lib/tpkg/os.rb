@@ -20,7 +20,7 @@ class Tpkg::OS
     impl = @@implementations.detect{|i| i.supported?} || raise(NotImplementedError)
     impl.new(options)
   end
-  
+
   def initialize(options={})
     @debug = options[:debug]
     @os = nil
@@ -29,11 +29,11 @@ class Tpkg::OS
     @arch = nil
     Facter.loadfacts
   end
-  
+
   #
   # OS-specific classes should (must?) implement these methods
   #
-  
+
   # Given info for a init script from a package's metadata return an array
   # of paths where that init script should linked to on the system
   def init_links(installed_path, tpkgfile)
@@ -97,12 +97,12 @@ class Tpkg::OS
     end
     pkgname
   end
-  
+
   #
   # These methods have implementations that work in most cases, but
   # OS-specific classes may modify these definitions if needed.
   #
-  
+
   def os
     if !@os
       @os = "#{os_name}-#{os_version}"
@@ -138,11 +138,11 @@ class Tpkg::OS
   def sudo_default?
     true
   end
-  
+
   #
   # Utility methods
   #
-  
+
   def sys_v_init_links(installed_path, tpkgfile, default_levels, init_directory)
     start = '99'
     if tpkgfile[:init][:start]

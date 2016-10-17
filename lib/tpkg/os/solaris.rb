@@ -7,13 +7,13 @@ class Tpkg::OS::Solaris < Tpkg::OS
     Facter['operatingsystem'].value == 'Solaris'
   end
   register_implementation(self)
-  
+
   def initialize(options={})
     @pkginfocmd = options[:pkginfocmd] || options[:testcmd] || 'pkginfo'
     @pkgutilcmd = options[:pkgutilcmd] || options[:testcmd] || '/opt/csw/bin/pkgutil'
     super
   end
-  
+
   def init_links(installed_path, tpkgfile)
     sys_v_init_links(installed_path, tpkgfile, ['2', '3'], '/etc')
   end

@@ -7,12 +7,12 @@ class Tpkg::OS::MacOSX < Tpkg::OS
     Facter['operatingsystem'].value == 'Darwin'
   end
   register_implementation(self)
-  
+
   def initialize(options={})
     @portcmd = options[:portcmd] || options[:testcmd] || '/opt/local/bin/port'
     super
   end
-  
+
   def available_native_packages(pkgname)
     native_packages = []
     if File.exist?(@portcmd)
@@ -97,7 +97,7 @@ class Tpkg::OS::MacOSX < Tpkg::OS
       raise "No supported native package tool available on #{os}"
     end
   end
-  
+
   def os_version
     if !@os_version
       if Facter['macosx_productversion'] &&

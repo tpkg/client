@@ -182,7 +182,7 @@ module Net; module SSH
       consume!
       data
     end
-      
+
     # Return the next 8 bytes as a 64-bit integer (in network byte order).
     # Returns nil if there are less than 8 bytes remaining to be read in the
     # buffer.

@@ -20,15 +20,15 @@ module Net; module SSH; module Transport
       "arcfour512"                  => "rc4",
       "none"                        => "none"
     }
-    
+
     # Ruby's OpenSSL bindings always return a key length of 16 for RC4 ciphers
-    # resulting in the error: OpenSSL::CipherError: key length too short. 
-    # The following ciphers will override this key length. 
+    # resulting in the error: OpenSSL::CipherError: key length too short.
+    # The following ciphers will override this key length.
     KEY_LEN_OVERRIDE = {
       "arcfour256"                  => 32,
       "arcfour512"                  => 64
     }
-    
+
     # Returns true if the underlying OpenSSL library supports the given cipher,
     # and false otherwise.
     def self.supported?(name)
@@ -70,7 +70,7 @@ module Net; module SSH; module Transport
       cipher = OpenSSL::Cipher::Cipher.new(ossl_name)
       key_len = KEY_LEN_OVERRIDE[name] || cipher.key_len
       cipher.key_len = key_len
-      
+
       return [key_len, ossl_name=="rc4" ? 8 : cipher.block_size]
     end
 
@@ -79,7 +79,7 @@ module Net; module SSH; module Transport
       # Generate a key value in accordance with the SSH2 specification.
       def self.make_key(bytes, start, options={})
         k = start[0, bytes]
-        
+
         digester = options[:digester] or raise 'No digester supplied'
         shared   = options[:shared] or raise 'No shared secret supplied'
         hash     = options[:hash] or raise 'No hash supplied'

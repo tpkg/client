@@ -13,7 +13,7 @@ TPKG_EXECUTABLE = File.expand_path('../bin/tpkg', File.dirname(__FILE__))
 
 class TpkgOptionTests < Test::Unit::TestCase
   include TpkgTests
-  
+
   def setup
     Tpkg::set_prompt(false)
     @testroot = Dir.mktmpdir('testroot')
@@ -23,7 +23,7 @@ class TpkgOptionTests < Test::Unit::TestCase
     # Make up our regular test package
     @pkgfile = make_package(:remove => ['operatingsystem', 'architecture'])
   end
-  
+
   def test_help
     output = nil
     # The File.join(blah) is roughly equivalent to '../bin/tpkg'
@@ -38,11 +38,11 @@ class TpkgOptionTests < Test::Unit::TestCase
     # Too many options for 23 lines
     #assert(output.size <= 23, 'help output lines')
   end
-  
+
   # --query/-q
   def test_query
     metadata = Tpkg::metadata_from_package(@pkgfile)
-    
+
     Dir.mktmpdir('testroot') do |testroot|
       # Query with no package installed
       [File.basename(@pkgfile), metadata[:name]].each do |query|
@@ -65,19 +65,19 @@ class TpkgOptionTests < Test::Unit::TestCase
           assert_equal(1, status.exitstatus, "#{switch} #{query} --quiet, not installed, exitstatus")
         end
       end
-      
+
       pkgfile2 = make_package(:change => {'name' => 'querypkg'},
                               :remove => ['operatingsystem', 'architecture'],
                               :output_directory => File.join(testroot, 'tmp'))
       metadata2 = Tpkg::metadata_from_package(pkgfile2)
-      
+
       # Install packages and try again
       tpkg = Tpkg.new(:file_system_root => testroot, :sources => [@pkgfile, pkgfile2])
       tpkg.install([@pkgfile, pkgfile2], PASSPHRASE)
-      
+
       # TPKG_HOME ends up set in our environment due to use of the tpkg library
       ENV.delete('TPKG_HOME')
-      
+
       [File.basename(@pkgfile), metadata[:name]].each do |query|
         ['-q', '--query'].each do |switch|
           status = Open4.popen4("#{RUBY} #{TPKG_EXECUTABLE} #{switch} #{query} --test-root #{testroot}") do |pid, stdin, stdout, stderr|
@@ -128,8 +128,8 @@ class TpkgOptionTests < Test::Unit::TestCase
         assert_equal("No packages installed\n", stderr.read, "--qa, not installed, stderr")
       end
       assert_equal(1, status.exitstatus)
-      
-      # Make up a few more packages to install so we give --qa a fair test. 
+
+      # Make up a few more packages to install so we give --qa a fair test.
       # Use names that will allow us to make sure the package names are output
       # in sorted order.
       pkgfile2 = make_package(:change => {'name' => 'aqapkg'},
@@ -138,14 +138,14 @@ class TpkgOptionTests < Test::Unit::TestCase
       pkgfile3 = make_package(:change => {'name' => 'zqapkg'},
                               :remove => ['operatingsystem', 'architecture'],
                               :output_directory => File.join(testroot, 'tmp'))
-      
+
       # Install packages and try again
       tpkg = Tpkg.new(:file_system_root => testroot, :sources => [@pkgfile, pkgfile2, pkgfile3])
       tpkg.install([@pkgfile, pkgfile2, pkgfile3], PASSPHRASE)
-      
+
       # TPKG_HOME ends up set in our environment due to use of the tpkg library
       ENV.delete('TPKG_HOME')
-      
+
       status = Open4.popen4("#{RUBY} #{TPKG_EXECUTABLE} --qa --test-root #{testroot}") do |pid, stdin, stdout, stderr|
         stdin.close
         pkgshortnames = [pkgfile2, @pkgfile, pkgfile3].collect {|pkg| File.basename(pkg)}
@@ -157,7 +157,7 @@ class TpkgOptionTests < Test::Unit::TestCase
   end
   def test_qi
     metadata = Tpkg::metadata_from_package(@pkgfile)
-    
+
     Dir.mktmpdir('testroot') do |testroot|
       # Query with no package installed
       # Queries for installed packages should return nothing
@@ -188,7 +188,7 @@ class TpkgOptionTests < Test::Unit::TestCase
         assert_equal("", stderr.read, "--qi #{@pkgfile}, not installed, stderr")
       end
       assert_equal(0, status.exitstatus, "--qi #{@pkgfile}, not installed, exitstatus")
-      
+
       # Make up more packages to install so we give --qi a fair test.
       pkgfile2 = make_package(
         :change => {
@@ -204,20 +204,20 @@ class TpkgOptionTests < Test::Unit::TestCase
         :dependencies => {'qipkg' => {}},
         :remove => ['operatingsystem', 'architecture'],
         :output_directory => File.join(testroot, 'tmp'))
-      
+
       # FIXME: test when multiple versions of same package are installed
-      
+
       # Install packages and try again
       tpkg = Tpkg.new(
         :file_system_root => testroot,
         :sources => [@pkgfile, pkgfile2, pkgfile3])
       tpkg.install([@pkgfile, pkgfile2, pkgfile3], PASSPHRASE)
-      
+
       # TPKG_HOME ends up set in our environment due to use of the tpkg library
       ENV.delete('TPKG_HOME')
-      
+
       metadata2 = Tpkg::metadata_from_package(pkgfile2)
-      
+
       {@pkgfile => metadata, pkgfile2 => metadata2}.each do |pfile, mdata|
         [File.basename(pfile), mdata[:name]].each do |query|
           status = Open4.popen4("#{RUBY} #{TPKG_EXECUTABLE} --qi #{query} --test-root #{testroot}") do |pid, stdin, stdout, stderr|
@@ -259,7 +259,7 @@ class TpkgOptionTests < Test::Unit::TestCase
   end
   def test_qis
     metadata = Tpkg::metadata_from_package(@pkgfile)
-    
+
     Dir.mktmpdir('testroot') do |testroot|
       # Make up more packages to install so we give --qis a fair test.
       pkgfile2 = make_package(
@@ -278,7 +278,7 @@ class TpkgOptionTests < Test::Unit::TestCase
         :remove => ['operatingsystem', 'architecture'],
         :output_directory => File.join(testroot, 'tmp'))
       metadata3 = Tpkg::metadata_from_package(pkgfile3)
-      
+
       # Query a package that is not available, should get nothing
       [File.basename(@pkgfile), metadata[:name]].each do |query|
         status = Open4.popen4(
@@ -296,7 +296,7 @@ class TpkgOptionTests < Test::Unit::TestCase
           1, status.exitstatus,
           "--qis #{query}, not available or installed, exitstatus")
       end
-      
+
       # Query packages that are available but not installed, should get data
       [File.basename(@pkgfile), metadata[:name]].each do |query|
         status = Open4.popen4(
@@ -380,17 +380,17 @@ class TpkgOptionTests < Test::Unit::TestCase
           "", stderr.read,
           "--qis package with dependencies, stderr")
       end
-      
+
       # Install packages and try again
       tpkg = Tpkg.new(
         :file_system_root => testroot,
         :sources => [@pkgfile, pkgfile2, pkgfile3])
       tpkg.install([@pkgfile, pkgfile2, pkgfile3], PASSPHRASE)
-      
+
       # TPKG_HOME ends up set in our environment due to use of the tpkg
       # library
       ENV.delete('TPKG_HOME')
-      
+
       # Query a package that is installed but not available, should get
       # nothing
       [File.basename(@pkgfile), metadata[:name]].each do |query|
@@ -409,7 +409,7 @@ class TpkgOptionTests < Test::Unit::TestCase
           1, status.exitstatus,
           "--qis #{query}, installed, not available, exitstatus")
       end
-      
+
       # Query a package that is installed and available, should get the data
       # for the available package
       # pkgfile2 and pkgfile4 have the same name but other differences
@@ -454,7 +454,7 @@ class TpkgOptionTests < Test::Unit::TestCase
   end
   def test_ql
     metadata = Tpkg::metadata_from_package(@pkgfile)
-    
+
     Dir.mktmpdir('testroot') do |testroot|
       # Query with no package installed
       # Queries for installed packages should return nothing
@@ -485,18 +485,18 @@ class TpkgOptionTests < Test::Unit::TestCase
         Dir.chdir(oldpwd)
       end
       assert_equal(0, status.exitstatus, "--ql #{@pkgfile}, not installed, exitstatus")
-      
+
       # FIXME: test when multiple versions of same package are installed
-      
+
       # Install a package and try again
       tpkg = Tpkg.new(
         :file_system_root => testroot,
         :sources => [@pkgfile])
       tpkg.install([@pkgfile], PASSPHRASE)
-      
+
       # TPKG_HOME ends up set in our environment due to use of the tpkg library
       ENV.delete('TPKG_HOME')
-      
+
       [File.basename(@pkgfile), metadata[:name]].each do |query|
         status = Open4.popen4("#{RUBY} #{TPKG_EXECUTABLE} --ql #{query} --test-root #{testroot}") do |pid, stdin, stdout, stderr|
           stdin.close
@@ -522,14 +522,14 @@ class TpkgOptionTests < Test::Unit::TestCase
   end
   def test_qls
     metadata = Tpkg::metadata_from_package(@pkgfile)
-    
+
     Dir.mktmpdir('testroot') do |testroot|
       pkgfile2 = make_package(
         :change => {'name' => 'qlspkg'},
         :remove => ['operatingsystem', 'architecture'],
         :output_directory => File.join(testroot, 'tmp'))
       metadata2 = Tpkg::metadata_from_package(pkgfile2)
-      
+
       # Query a package that is not available, should get nothing
       [File.basename(@pkgfile), metadata[:name]].each do |query|
         status = Open4.popen4(
@@ -547,7 +547,7 @@ class TpkgOptionTests < Test::Unit::TestCase
           1, status.exitstatus,
           "--qls #{query}, not available or installed, exitstatus")
       end
-      
+
       # Query package that is available but not installed, should get data
       [File.basename(@pkgfile), metadata[:name]].each do |query|
         status = Open4.popen4(
@@ -574,17 +574,17 @@ class TpkgOptionTests < Test::Unit::TestCase
           0, status.exitstatus,
           "--qls #{query}, available, not installed, exitstatus")
       end
-      
+
       # Install packages and try again
       tpkg = Tpkg.new(
         :file_system_root => testroot,
         :sources => [@pkgfile, pkgfile2])
       tpkg.install([@pkgfile, pkgfile2], PASSPHRASE)
-      
+
       # TPKG_HOME ends up set in our environment due to use of the tpkg
       # library
       ENV.delete('TPKG_HOME')
-      
+
       # Query a package that is installed but not available, should get
       # nothing
       [File.basename(@pkgfile), metadata[:name]].each do |query|
@@ -603,7 +603,7 @@ class TpkgOptionTests < Test::Unit::TestCase
           1, status.exitstatus,
           "--qls #{query}, installed, not available, exitstatus")
       end
-      
+
       # Query a package that is installed and available, should get the data
       # for the available package
       # pkgfile2 and pkgfile4 have the same name but other differences
@@ -652,18 +652,18 @@ class TpkgOptionTests < Test::Unit::TestCase
           stderr.read, "--qf, not installed, stderr")
       end
       assert_equal(1, status.exitstatus, "--qf, not installed, exitstatus")
-      
+
       # FIXME: test when multiple versions of same package are installed
-      
+
       # Install a package and try again
       tpkg = Tpkg.new(
         :file_system_root => testroot,
         :sources => [@pkgfile])
       tpkg.install([@pkgfile], PASSPHRASE)
-      
+
       # TPKG_HOME ends up set in our environment due to use of the tpkg library
       ENV.delete('TPKG_HOME')
-      
+
       status = Open4.popen4("#{RUBY} #{TPKG_EXECUTABLE} --qf #{queryfile} --test-root #{testroot}") do |pid, stdin, stdout, stderr|
         stdin.close
         assert_equal("#{queryfile}: #{File.basename(@pkgfile)}\n", stdout.read, "--qf, installed, stdout")
@@ -681,7 +681,7 @@ class TpkgOptionTests < Test::Unit::TestCase
   #   # - Multiple packages available with the queried file
   #   # - Some available packages don't contain the queried file (need to make a package with no files)
   #   # - For the "Installed and available" case make the installed and available packages different to make sure that we're getting the data for the available package instead of the installed package
-  #   
+  #
   #   Dir.mktmpdir('testroot') do |testroot|
   #     # Neither available nor installed
   #     queryfile = File.join(testroot, Tpkg::DEFAULT_BASE, 'file')
@@ -697,7 +697,7 @@ class TpkgOptionTests < Test::Unit::TestCase
   #     assert_equal(
   #       1, status.exitstatus,
   #       "--qfs, not available, not installed, exitstatus")
-  #     
+  #
   #     # Available but not installed
   #     status = Open4.popen4(
   #       "#{RUBY} #{TPKG_EXECUTABLE} --qfs #{queryfile} " +
@@ -712,16 +712,16 @@ class TpkgOptionTests < Test::Unit::TestCase
   #     end
   #     assert_equal(
   #       0, status.exitstatus, "--qfs, available, not installed, exitstatus")
-  #     
+  #
   #     # Install a package and try again
   #     tpkg = Tpkg.new(
   #       :file_system_root => testroot,
   #       :sources => [@pkgfile])
   #     tpkg.install([@pkgfile], PASSPHRASE)
-  #     
+  #
   #     # TPKG_HOME ends up set in our environment due to use of the tpkg library
   #     ENV.delete('TPKG_HOME')
-  #     
+  #
   #     # Installed and available
   #     status = Open4.popen4(
   #       "#{RUBY} #{TPKG_EXECUTABLE} --qfs #{queryfile} " +
@@ -735,7 +735,7 @@ class TpkgOptionTests < Test::Unit::TestCase
   #         "", stderr.read, "--qfs, installed and available, stderr")
   #     end
   #     assert_equal(0, status.exitstatus, "--qfs, installed, exitstatus")
-  #     
+  #
   #     # Installed but not available
   #     queryfile = File.join(testroot, Tpkg::DEFAULT_BASE, 'file')
   #     status = Open4.popen4(
@@ -754,13 +754,13 @@ class TpkgOptionTests < Test::Unit::TestCase
   # end
   def test_qs
     metadata = Tpkg::metadata_from_package(@pkgfile)
-    
+
     Dir.mktmpdir('testroot') do |testroot|
       pkgfile2 = make_package(:change => {'name' => 'qvpkg'},
                               :remove => ['operatingsystem', 'architecture'],
                               :output_directory => File.join(testroot, 'tmp'))
       metadata2 = Tpkg::metadata_from_package(pkgfile2)
-      
+
       # Query with no package installed
       # Query for an available package
       [File.basename(@pkgfile), metadata[:name]].each do |query|
@@ -828,14 +828,14 @@ class TpkgOptionTests < Test::Unit::TestCase
           1, status.exitstatus,
           "--qs #{query} --quiet, not installed, exitstatus")
       end
-      
+
       # Install package and try again
       tpkg = Tpkg.new(:file_system_root => testroot, :sources => [@pkgfile])
       tpkg.install([@pkgfile], PASSPHRASE)
-      
+
       # TPKG_HOME ends up set in our environment due to use of the tpkg library
       ENV.delete('TPKG_HOME')
-      
+
       # Query package that's installed (should still be available)
       [File.basename(@pkgfile), metadata[:name]].each do |query|
         status = Open4.popen4(
@@ -870,7 +870,7 @@ class TpkgOptionTests < Test::Unit::TestCase
           0, status.exitstatus,
           "--qs #{query} --quiet, installed, exitstatus")
       end
-      
+
       # Query package that's available but not installed
       [File.basename(pkgfile2), metadata2[:name]].each do |query|
         status = Open4.popen4(
@@ -905,7 +905,7 @@ class TpkgOptionTests < Test::Unit::TestCase
           0, status.exitstatus,
           "--qs #{query} --quiet, installed, exitstatus")
       end
-      
+
       # Query package that's installed but no longer available
       [File.basename(@pkgfile), metadata[:name]].each do |query|
         status = Open4.popen4(
@@ -944,7 +944,7 @@ class TpkgOptionTests < Test::Unit::TestCase
   end
   def test_qas
     metadata = Tpkg::metadata_from_package(@pkgfile)
-    
+
     Dir.mktmpdir('testroot') do |testroot|
       # Names chosen so as to test sorting of output
       pkgfile2 = make_package(:change => {'name' => 'aqvapkg'},
@@ -955,7 +955,7 @@ class TpkgOptionTests < Test::Unit::TestCase
                               :remove => ['operatingsystem', 'architecture'],
                               :output_directory => File.join(testroot, 'tmp'))
       metadata3 = Tpkg::metadata_from_package(pkgfile3)
-      
+
       # Query with no package installed or available
       status = Open4.popen4(
         "#{RUBY} #{TPKG_EXECUTABLE} --qas " +
@@ -985,7 +985,7 @@ class TpkgOptionTests < Test::Unit::TestCase
       assert_equal(
         1, status.exitstatus,
         "--qas --quiet, not installed or available, exitstatus")
-      
+
       # Query with no package installed
       status = Open4.popen4(
         "#{RUBY} #{TPKG_EXECUTABLE} --qas " +
@@ -1009,14 +1009,14 @@ class TpkgOptionTests < Test::Unit::TestCase
       end
       assert_equal(
         0, status.exitstatus, "--qas --quiet, not installed, exitstatus")
-      
+
       # Install package and try again
       tpkg = Tpkg.new(:file_system_root => testroot, :sources => [@pkgfile])
       tpkg.install([@pkgfile], PASSPHRASE)
-      
+
       # TPKG_HOME ends up set in our environment due to use of the tpkg library
       ENV.delete('TPKG_HOME')
-      
+
       # Installed packages should still show up as available
       status = Open4.popen4(
         "#{RUBY} #{TPKG_EXECUTABLE} --qas " +
@@ -1041,7 +1041,7 @@ class TpkgOptionTests < Test::Unit::TestCase
       end
       assert_equal(
         0, status.exitstatus, "--qas --quiet, installed, exitstatus")
-      
+
       # A package that's installed but no longer available should not show up
       # as available
       status = Open4.popen4(
@@ -1068,7 +1068,7 @@ class TpkgOptionTests < Test::Unit::TestCase
       end
       assert_equal(
         0, status.exitstatus, "--qas --quiet, installed, exitstatus")
-        
+
       # No available packages should still be reported as such even if
       # packages are installed
       status = Open4.popen4(
@@ -1103,7 +1103,7 @@ class TpkgOptionTests < Test::Unit::TestCase
   end
   def test_qr
     metadata = Tpkg::metadata_from_package(@pkgfile)
-    
+
     Dir.mktmpdir('testroot') do |testroot|
       # Query with no package installed
       [File.basename(@pkgfile), metadata[:name]].each do |query|
@@ -1118,23 +1118,23 @@ class TpkgOptionTests < Test::Unit::TestCase
         end
         assert_equal(1, status.exitstatus, "--qr #{query}, not installed, exitstatus")
       end
-      
+
       pkgfile2 = make_package(
         :change => {'name' => 'qrdepspkg'},
         :dependencies => {metadata[:name] => {}},
         :remove => ['operatingsystem', 'architecture'],
         :output_directory => File.join(testroot, 'tmp'))
       metadata2 = Tpkg::metadata_from_package(pkgfile2)
-      
+
       # Install packages and try again
       tpkg = Tpkg.new(
         :file_system_root => testroot,
         :sources => [@pkgfile, pkgfile2])
       tpkg.install([@pkgfile, pkgfile2], PASSPHRASE)
-      
+
       # TPKG_HOME ends up set in our environment due to use of the tpkg library
       ENV.delete('TPKG_HOME')
-      
+
       [File.basename(@pkgfile), metadata[:name]].each do |query|
         status = Open4.popen4("#{RUBY} #{TPKG_EXECUTABLE} --qr #{query} --test-root #{testroot}") do |pid, stdin, stdout, stderr|
           stdin.close
@@ -1160,7 +1160,7 @@ class TpkgOptionTests < Test::Unit::TestCase
   end
   def test_qd
     metadata = Tpkg::metadata_from_package(@pkgfile)
-    
+
     Dir.mktmpdir('testroot') do |testroot|
       pkgfile2 = make_package(
         :change => {'name' => 'qdslavepkg'},
@@ -1173,7 +1173,7 @@ class TpkgOptionTests < Test::Unit::TestCase
         :remove => ['operatingsystem', 'architecture'],
         :output_directory => File.join(testroot, 'tmp'))
       metadata3 = Tpkg::metadata_from_package(pkgfile3)
-      
+
       # Query with no package installed
       # Queries for installed packages should return nothing
       [File.basename(@pkgfile), metadata[:name]].each do |query|
@@ -1206,16 +1206,16 @@ class TpkgOptionTests < Test::Unit::TestCase
         assert_equal("", stderr.read, "--qd #{pkgfile3}, not installed, stderr")
       end
       assert_equal(0, status.exitstatus, "--qd #{pkgfile3}, not installed, exitstatus")
-      
+
       # Install packages and try again
       tpkg = Tpkg.new(
         :file_system_root => testroot,
         :sources => [@pkgfile, pkgfile2, pkgfile3])
       tpkg.install([@pkgfile, pkgfile2, pkgfile3], PASSPHRASE)
-      
+
       # TPKG_HOME ends up set in our environment due to use of the tpkg library
       ENV.delete('TPKG_HOME')
-      
+
       [File.basename(@pkgfile), metadata[:name]].each do |query|
         status = Open4.popen4("#{RUBY} #{TPKG_EXECUTABLE} --qd #{query} --test-root #{testroot}") do |pid, stdin, stdout, stderr|
           stdin.close
@@ -1246,7 +1246,7 @@ class TpkgOptionTests < Test::Unit::TestCase
     #   - Some available packages have dependencies, some done
     # - For the "Installed and available" case make the installed and available packages different to make sure that we're getting the data for the available package instead of the installed package
     metadata = Tpkg::metadata_from_package(@pkgfile)
-    
+
     Dir.mktmpdir('testroot') do |testroot|
       pkgfile2 = make_package(
         :change => {'name' => 'qdsslavepkg'},
@@ -1259,7 +1259,7 @@ class TpkgOptionTests < Test::Unit::TestCase
         :remove => ['operatingsystem', 'architecture'],
         :output_directory => File.join(testroot, 'tmp'))
       metadata3 = Tpkg::metadata_from_package(pkgfile3)
-      
+
       # Not available, not installed
       [File.basename(@pkgfile), metadata[:name]].each do |query|
         status = Open4.popen4(
@@ -1277,7 +1277,7 @@ class TpkgOptionTests < Test::Unit::TestCase
           1, status.exitstatus,
           "--qds #{query}, not available, not installed, exitstatus")
       end
-      
+
       # Available, not installed
       # This package has no dependencies
       [File.basename(@pkgfile), metadata[:name]].each do |query|
@@ -1316,16 +1316,16 @@ class TpkgOptionTests < Test::Unit::TestCase
           0, status.exitstatus,
           "--qds #{query}, available, not installed, exitstatus")
       end
-      
+
       # Install packages and try again
       tpkg = Tpkg.new(
         :file_system_root => testroot,
         :sources => [@pkgfile, pkgfile2, pkgfile3])
       tpkg.install([@pkgfile, pkgfile2, pkgfile3], PASSPHRASE)
-      
+
       # TPKG_HOME ends up set in our environment due to use of the tpkg library
       ENV.delete('TPKG_HOME')
-      
+
       # Installed and available
       [File.basename(@pkgfile), metadata[:name]].each do |query|
         status = Open4.popen4(
@@ -1360,7 +1360,7 @@ class TpkgOptionTests < Test::Unit::TestCase
           0, status.exitstatus,
           "--qds #{query}, available, installed, exitstatus")
       end
-      
+
       # Not available but installed
       [File.basename(@pkgfile), metadata[:name]].each do |query|
         status = Open4.popen4(
@@ -1382,7 +1382,7 @@ class TpkgOptionTests < Test::Unit::TestCase
   end
   def test_qX
     metadata = Tpkg::metadata_from_package(@pkgfile)
-    
+
     Dir.mktmpdir('testroot') do |testroot|
       # Query with no package installed
       # Queries for installed packages should return nothing
@@ -1402,16 +1402,16 @@ class TpkgOptionTests < Test::Unit::TestCase
         assert_equal("", stderr.read, "--qX #{@pkgfile}, not installed, stderr")
       end
       assert_equal(0, status.exitstatus, "--qX #{@pkgfile}, not installed, exitstatus")
-      
+
       # Install package and try again
       tpkg = Tpkg.new(
         :file_system_root => testroot,
         :sources => [@pkgfile])
       tpkg.install([@pkgfile], PASSPHRASE)
-      
+
       # TPKG_HOME ends up set in our environment due to use of the tpkg library
       ENV.delete('TPKG_HOME')
-      
+
       [File.basename(@pkgfile), metadata[:name]].each do |query|
         status = Open4.popen4("#{RUBY} #{TPKG_EXECUTABLE} --qX #{query} --test-root #{testroot}") do |pid, stdin, stdout, stderr|
           stdin.close
@@ -1428,7 +1428,7 @@ class TpkgOptionTests < Test::Unit::TestCase
     # - Multiple packages available matching package name
     # - For the "Installed and available" case make the installed and available packages different to make sure that we're getting the data for the available package instead of the installed package
     metadata = Tpkg::metadata_from_package(@pkgfile)
-    
+
     Dir.mktmpdir('testroot') do |testroot|
       # Not available, not installed
       [File.basename(@pkgfile), metadata[:name]].each do |query|
@@ -1445,7 +1445,7 @@ class TpkgOptionTests < Test::Unit::TestCase
         assert_equal(1, status.exitstatus,
           "--qXs #{query}, not available, not installed, exitstatus")
       end
-      
+
       # Available, not installed
       [File.basename(@pkgfile), metadata[:name]].each do |query|
         status = Open4.popen4(
@@ -1461,16 +1461,16 @@ class TpkgOptionTests < Test::Unit::TestCase
         assert_equal(0, status.exitstatus,
           "--qXs #{query}, available, not installed, exitstatus")
       end
-      
+
       # Install package and try again
       tpkg = Tpkg.new(
         :file_system_root => testroot,
         :sources => [@pkgfile])
       tpkg.install([@pkgfile], PASSPHRASE)
-      
+
       # TPKG_HOME ends up set in our environment due to use of the tpkg library
       ENV.delete('TPKG_HOME')
-      
+
       # Installed and available
       [File.basename(@pkgfile), metadata[:name]].each do |query|
         status = Open4.popen4(
@@ -1486,7 +1486,7 @@ class TpkgOptionTests < Test::Unit::TestCase
         assert_equal(0, status.exitstatus,
           "--qXs #{query}, installed and available, exitstatus")
       end
-      
+
       # Installed, not available
       [File.basename(@pkgfile), metadata[:name]].each do |query|
         status = Open4.popen4(
@@ -1504,7 +1504,7 @@ class TpkgOptionTests < Test::Unit::TestCase
       end
     end
   end
-  
+
   def test_qenv
     output = nil
     # The File.join(blah) is roughly equivalent to '../bin/tpkg'
@@ -1517,7 +1517,7 @@ class TpkgOptionTests < Test::Unit::TestCase
     assert(output.any? {|line| line.include?('Architecture:')})
     assert(output.any? {|line| line.include?('Tar:')})
   end
-  
+
   def test_qconf
     output = nil
     # The File.join(blah) is roughly equivalent to '../bin/tpkg'
@@ -1530,7 +1530,7 @@ class TpkgOptionTests < Test::Unit::TestCase
     assert(output.any? {|line| line.include?('Sources:')})
     assert(output.any? {|line| line.include?('Report server:')})
   end
-  
+
   def test_use_ssh_key
     # Test --use-ssh-key with argument
     error = nil
@@ -1542,7 +1542,7 @@ class TpkgOptionTests < Test::Unit::TestCase
     end
     # Make sure the expected lines are there
     assert(error.any? {|line| line.include?('Unable to read ssh key from no_such_file')})
-    
+
     # Test --use-ssh-key without argument
     output = nil
     error = nil
@@ -1555,7 +1555,7 @@ class TpkgOptionTests < Test::Unit::TestCase
     end
     # Make sure that tpkg didn't prompt for a password
     assert(!output.any? {|line| line.include?('SSH Password (leave blank if using ssh key):')})
-    
+
     # Just to make sure our previous test is valid, check that we are prompted
     # for a password if we don't specify --use-ssh-key
     output = nil
@@ -1570,7 +1570,7 @@ class TpkgOptionTests < Test::Unit::TestCase
     # Make sure that tpkg did prompt for a password this time
     assert(output.any? {|line| line.include?('SSH Password (leave blank if using ssh key):')})
   end
-  
+
   def test_base
     # Test the --base switch
     output = nil
@@ -1585,18 +1585,18 @@ class TpkgOptionTests < Test::Unit::TestCase
       assert_equal("Base: #{clibase}\n", baseline)
     end
   end
-    
+
   def test_base_precedence
     # Test precedence of various methods of setting base directory
-    
+
     # TPKG_HOME ends up set in our environment due to use of the tpkg library
     ENV.delete('TPKG_HOME')
-    
+
     FileUtils.mkdir_p(File.join(@testroot, Tpkg::DEFAULT_CONFIGDIR))
     File.open(File.join(@testroot, Tpkg::DEFAULT_CONFIGDIR, 'tpkg.conf'), 'w') do |file|
       file.puts "base = /confbase"
     end
-    
+
     output = nil
     # The File.join(blah) is roughly equivalent to '../bin/tpkg'
     parentdir = File.dirname(File.dirname(__FILE__))
@@ -1607,7 +1607,7 @@ class TpkgOptionTests < Test::Unit::TestCase
     # Make sure the expected line is there
     baseline = output.find {|line| line.include?('Base: ')}
     assert_equal("Base: #{File.join(@testroot, 'clibase')}\n", baseline)
-    
+
     # The File.join(blah) is roughly equivalent to '../bin/tpkg'
     parentdir = File.dirname(File.dirname(__FILE__))
     # TPKG_HOME and config file all set
@@ -1617,7 +1617,7 @@ class TpkgOptionTests < Test::Unit::TestCase
     # Make sure the expected line is there
     baseline = output.find {|line| line.include?('Base: ')}
     assert_equal("Base: #{File.join(@testroot, 'envbase')}\n", baseline)
-    
+
     # The File.join(blah) is roughly equivalent to '../bin/tpkg'
     parentdir = File.dirname(File.dirname(__FILE__))
     # Only config file set
@@ -1627,7 +1627,7 @@ class TpkgOptionTests < Test::Unit::TestCase
     # Make sure the expected line is there
     baseline = output.find {|line| line.include?('Base: ')}
     assert_equal("Base: #{File.join(@testroot, 'confbase')}\n", baseline)
-    
+
     # The File.join(blah) is roughly equivalent to '../bin/tpkg'
     parentdir = File.dirname(File.dirname(__FILE__))
     # Nothing is set
@@ -1639,11 +1639,11 @@ class TpkgOptionTests < Test::Unit::TestCase
     baseline = output.find {|line| line.include?('Base: ')}
     assert_equal("Base: #{File.join(@testroot, Tpkg::DEFAULT_BASE)}\n", baseline)
   end
-  
+
   def test_test_root
     # Test the --test-root switch
     output = nil
-    
+
     # With --test-root the base directory will be /<testroot>/opt/tpkg
     # The File.join(blah) is roughly equivalent to '../bin/tpkg'
     parentdir = File.dirname(File.dirname(__FILE__))
@@ -1653,7 +1653,7 @@ class TpkgOptionTests < Test::Unit::TestCase
     # Make sure the expected line is there
     baseline = output.find {|line| line.include?('Base: ')}
     assert_equal("Base: #{File.join(@testroot, Tpkg::DEFAULT_BASE)}\n", baseline)
-    
+
     # Without --test-root the base directory will be something else (depending
     # on what config files are on the system)
     # The File.join(blah) is roughly equivalent to '../bin/tpkg'
@@ -1666,32 +1666,32 @@ class TpkgOptionTests < Test::Unit::TestCase
     baseline = output.find {|line| line.include?('Base: ')}
     assert_not_equal("Base: #{File.join(@testroot, Tpkg::DEFAULT_BASE)}\n", baseline)
   end
-  
+
   def test_compress
     Dir.mktmpdir('pkgdir') do |pkgdir|
       FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(pkgdir, 'tpkg.xml'))
-      
+
       parentdir = File.dirname(File.dirname(__FILE__))
-      
+
       # The argument to the --compress switch should be optional
       Dir.mktmpdir('outdir') do |outdir|
         system("#{RUBY} #{File.join(parentdir, 'bin', 'tpkg')} --compress --make #{pkgdir} --out #{outdir}")
         pkgfile = Dir.glob(File.join(outdir, '*.tpkg')).first
         assert(['bz2', 'gzip'].include?(Tpkg::get_compression(pkgfile)))
       end
-      
+
       Dir.mktmpdir('outdir') do |outdir|
         system("#{RUBY} #{File.join(parentdir, 'bin', 'tpkg')} --compress gzip --make #{pkgdir} --out #{outdir}")
         pkgfile = Dir.glob(File.join(outdir, '*.tpkg')).first
         assert_equal('gzip', Tpkg::get_compression(pkgfile))
       end
-      
+
       Dir.mktmpdir('outdir') do |outdir|
         system("#{RUBY} #{File.join(parentdir, 'bin', 'tpkg')} --compress bz2 --make #{pkgdir} --out #{outdir}")
         pkgfile = Dir.glob(File.join(outdir, '*.tpkg')).first
         assert_equal('bz2', Tpkg::get_compression(pkgfile))
       end
-      
+
       # Invalid argument rejected
       Dir.mktmpdir('outdir') do |outdir|
         system("#{RUBY} #{File.join(parentdir, 'bin', 'tpkg')} --compress bogus --make #{pkgdir} --out #{outdir}")
@@ -1702,7 +1702,7 @@ class TpkgOptionTests < Test::Unit::TestCase
       end
     end
   end
-  
+
   def teardown
     FileUtils.rm_rf(@testroot)
     FileUtils.rm_f(@pkgfile)

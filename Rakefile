@@ -53,11 +53,11 @@ def copy_tpkg_files(destdir, options={})
       chmod(0555, File.join(bindir, binapp))
     end
   end
-  
+
   if options[:libdir]
     libdir = File.join(destdir, options[:libdir])
     mkdir_p(libdir)
-    
+
     # Substitute TPKGVER into tpkg.rb
     # Substitute proper path into DEFAULT_CONFIGDIR in tpkg.rb if appropriate
     File.open(File.join(libdir, 'tpkg.rb'), 'w') do |newfile|
@@ -72,7 +72,7 @@ def copy_tpkg_files(destdir, options={})
       end
     end
     chmod(0444, File.join(libdir, 'tpkg.rb'))
-    
+
     tpkglibdir = File.join(libdir, 'tpkg')
     mkdir_p(tpkglibdir)
     libs = ['deployer.rb', 'metadata.rb', 'os.rb', 'silently.rb', 'thread_pool.rb', 'version.rb', 'versiontype.rb']
@@ -86,13 +86,13 @@ def copy_tpkg_files(destdir, options={})
       cp(lib, tpkgoslibdir, :preserve => true)
       chmod(0444, File.join(tpkgoslibdir, File.basename(lib)))
     end
-    
+
     if options[:copythirdparty]
       # All the nice consistent usage of FileUtils and then this...
       system("cd lib/tpkg && find thirdparty -name .svn -prune -o -print | cpio -pdum #{tpkglibdir}")
     end
   end
-  
+
   if options[:mandir]
     mandir = File.join(destdir, options[:mandir])
     Dir.chdir('man')
@@ -108,7 +108,7 @@ def copy_tpkg_files(destdir, options={})
     end
     Dir.chdir('..')
   end
-  
+
   if options[:etcdir]
     etcdir = File.join(destdir, options[:etcdir])
     mkdir_p(etcdir)
@@ -123,7 +123,7 @@ def copy_tpkg_files(destdir, options={})
       chmod(0644, File.join(etctpkgdir, etctpkgfile))
     end
   end
-  
+
   if options[:externalsdir]
     externalsdir = File.join(destdir, options[:externalsdir])
     mkdir_p(externalsdir)
@@ -141,7 +141,7 @@ def copy_tpkg_files(destdir, options={})
       chmod(0555, File.join(schemadir, File.basename(schema)))
     end
   end
-  
+
   if options[:profiledir]
     profiledir = File.join(BUILDROOT, options[:profiledir])
     mkdir_p(profiledir)
@@ -200,9 +200,9 @@ task :rpm do
   #
   # Create package file structure in build root
   #
-  
+
   rm_rf(BUILDROOT)
-  
+
   bindir = File.join('usr', 'bin')
   libdir = File.join('usr', 'lib', 'ruby', 'site_ruby', '1.8')
   mandir = File.join('usr', 'share', 'man')
@@ -219,27 +219,27 @@ task :rpm do
                   :schemadir => schemadir,
                   :profiledir => profiledir,
                   :copythirdparty => true)
-  
+
   #
   # Prep spec file
   #
-  
+
   spec = Tempfile.new('tpkgrpm')
   IO.foreach('tpkg.spec') do |line|
     line.sub!('%VER%', TPKGVER)
     spec.puts(line)
   end
   spec.flush
-  
+
   #
   # Build the package
   #
   system("rpmbuild -bb --buildroot #{BUILDROOT} #{spec.path}")
-  
+
   #
   # Cleanup
   #
-  
+
   rm_rf(BUILDROOT)
 end
 
@@ -248,9 +248,9 @@ task :deb do
   #
   # Create package file structure in build root
   #
-  
+
   system("sudo rm -rf #{BUILDROOT}")
-  
+
   mkdir_p(File.join(BUILDROOT, 'DEBIAN'))
   File.open(File.join(BUILDROOT, 'DEBIAN', 'control'), 'w') do |control|
     IO.foreach('control') do |line|
@@ -259,7 +259,7 @@ task :deb do
       control.puts(line)
     end
   end
-  
+
   bindir = File.join('usr', 'bin')
   libdir = File.join('usr', 'local', 'lib', 'site_ruby')
   mandir = File.join('usr', 'share', 'man')
@@ -274,23 +274,23 @@ task :deb do
                   :externalsdir => externalsdir,
                   :schemadir => schemadir,
                   :copythirdparty => true)
-  
+
   #
   # Set permissions
   #
-  
+
   system("sudo chown -R 0:0 #{BUILDROOT}")
-  
+
   #
   # Build the package
   #
-  
+
   system("dpkg --build #{BUILDROOT} tpkg-#{TPKGVER}.deb")
-  
+
   #
   # Cleanup
   #
-  
+
   system("sudo rm -rf #{BUILDROOT}")
 end
 
@@ -301,9 +301,9 @@ task :sysvpkg do
   #
   # Create package file structure in build root
   #
-  
+
   rm_rf(BUILDROOT)
-  
+
   bindir = File.join('usr', 'bin')
   libdir = File.join('opt', 'csw', 'lib', 'ruby', 'site_ruby', '1.8')
   mandir = File.join('usr', 'share', 'man')
@@ -321,11 +321,11 @@ task :sysvpkg do
                   :profiledir => profiledir,
                   :copythirdparty => true,
                   :ruby => '/opt/csw/bin/ruby')
-  
+
   #
   # Prep packaging files
   #
-  
+
   rm_rf('solbuild')
   mkdir('solbuild')
   File.open(File.join('solbuild', 'pkginfo'), 'w') do |pkginfo|
@@ -356,18 +356,18 @@ task :sysvpkg do
       end
     end
   end
-  
+
   #
   # Build the package
   #
-  
+
   system("cd solbuild && pkgmk -r #{BUILDROOT} -d $PWD/solbuild")
   system("pkgtrans solbuild ../OSStpkg-#{TPKGVER}.pkg OSStpkg")
-  
+
   #
   # Cleanup
   #
-  
+
   rm_rf('solbuild')
   rm_rf(BUILDROOT)
 end
@@ -409,7 +409,7 @@ task :macport => :fetch do
   sha1 = `openssl sha1 #{TARBALL}`.chomp.split.last
   rmd160 = `openssl rmd160 #{TARBALL}`.chomp.split.last
   sha256 = `openssl sha256 #{TARBALL}`.chomp.split.last
-  
+
   portfile = File.join(Dir.tmpdir, 'Portfile')
   rm_f(portfile)
   File.open(portfile, 'w') do |newfile|
@@ -435,7 +435,7 @@ task :tpkgpkg do
   #
   # Create package file structure in build root
   #
-  
+
   rm_rf(BUILDROOT)
 
   libdir = ENV['libdir'].nil?? File.join('root', 'opt', 'tpkg', 'lib', 'site_ruby', '1.8') : File.join('root', ENV['libdir'])
@@ -443,7 +443,7 @@ task :tpkgpkg do
   copy_tpkg_files(BUILDROOT,
                   :libdir => libdir,
                   :copythirdparty => true)
-  
+
   #
   # Prep tpkg.xml
   #
@@ -453,17 +453,17 @@ task :tpkgpkg do
       tpkgxml.puts(line)
     end
   end
-  
+
   #
   # Build the package
   #
-  
+
   system("tpkg --make #{BUILDROOT}")
-  
+
   #
   # Cleanup
   #
-  
+
   rm_rf(BUILDROOT)
 end
 

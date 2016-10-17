@@ -207,11 +207,11 @@ ENV['GEM_PATH'] = @gemdir
 @already_packaged = []
 def package(gem)
   pkgfiles = []
-  
+
   return pkgfiles if @already_packaged.include?(gem)
-  
+
   puts "Packaging #{gem}"
-  
+
   gemsdir = nil
   globdirs = Dir.glob(File.join(@gemdir, 'gems', "#{gem}-[0-9]*"))
   if globdirs.length == 1
@@ -233,10 +233,10 @@ def package(gem)
   gemspecfile = File.join(@gemdir,
                           'specifications',
                            File.basename(gemsdir) + '.gemspec')
-  
+
   # Load the gemspec
   gemspec = Gem::Specification.load(gemspecfile)
-  
+
   # Package any dependencies
   # Example output:
   # Gem rails-2.3.2
@@ -354,7 +354,7 @@ def package(gem)
   if !$?.success?
     abort 'gem dependency failed'
   end
-  
+
   # The directory where we make our package
   pkgdir = tempdir('gem2tpkg')
   pkgbasedir = File.join(pkgdir, "/root/#{@geminstallpath}")
@@ -363,10 +363,10 @@ def package(gem)
   FileUtils.mkdir_p(pkggemdir)
   pkgspecdir = File.join(pkgbasedir, 'specifications')
   FileUtils.mkdir_p(pkgspecdir)
-  
+
   # Copy the gems directory over
   system("#{Tpkg::find_tar} -C #{File.dirname(gemsdir)} -cf - #{File.basename(gemsdir)} | #{Tpkg::find_tar} -C #{pkggemdir} -xpf -")
-  
+
   # If a gem flags any files as executables a wrapper script is
   # created by gem for each executable in a bin directory at
   # the top level of the gem directory structure.  We want to
@@ -382,10 +382,10 @@ def package(gem)
       FileUtils.cp(binfile, bindir, :preserve => true)
     end
   end
-  
+
   # Copy over the gemspec file
   FileUtils.cp(gemspecfile, pkgspecdir, :preserve => true)
-  
+
   pkgnamesuffix = ''
   if @extrapkgname
     pkgnamesuffix = '-' + @extrapkgname
@@ -394,7 +394,7 @@ def package(gem)
     # that indicates the alternate ruby/gem used
     pkgnamesuffix = '-' + @gemdep.first.sub(/\W/, '')
   end
-  
+
   # Determine if we're packaging a gem the user requested or a dependency gem.
   # If we're packaging a dependency gem we don't want to add @extradeps or
   # @nativedeps.  Say you run gem2tpkg for gem foo. You specify some extra
@@ -409,7 +409,7 @@ def package(gem)
   if @gems.include?(gem)
     packaging_requested_gem = true
   end
-  
+
   # Add tpkg.yml
   os = nil
   arch = nil
@@ -473,14 +473,14 @@ def package(gem)
       end
     end
   end
-  
+
   # Make package
   pkgfile = Tpkg::make_package(pkgdir)
   pkgfiles << pkgfile
-  
+
   # Cleanup
   FileUtils.rm_rf(pkgdir)
-  
+
   @already_packaged << gem
   pkgfiles
 end

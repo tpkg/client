@@ -11,13 +11,13 @@ end
 
 class TpkgOSRedHatTests < Test::Unit::TestCase
   include TpkgTests
-  
+
   def setup
     @redhat = Tpkg::OS::RedHat.new(
       :yumcmd => File.join(TESTCMDDIR, 'redhat/yum'),
       )
   end
-  
+
   def test_supported
     fact = Facter::Util::Fact.new('operatingsystem')
     Facter.stubs(:[]).returns(fact)

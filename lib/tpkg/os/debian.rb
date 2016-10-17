@@ -7,14 +7,14 @@ class Tpkg::OS::Debian < Tpkg::OS
     ['Debian', 'Ubuntu'].include?(Facter['operatingsystem'].value)
   end
   register_implementation(self)
-  
+
   def initialize(options={})
     @dpkgquerycmd = options[:dpkgquerycmd] || options[:testcmd] || 'dpkg-query'
     @aptcachecmd = options[:aptcachecmd] || options[:testcmd] || 'apt-cache'
     @aptgetcmd = options[:aptgetcmd] || options[:testcmd] || 'apt-get'
     super
   end
-  
+
   def init_links(installed_path, tpkgfile)
     sys_v_init_links(installed_path, tpkgfile, ['2', '3', '4', '5'], '/etc')
   end
@@ -61,7 +61,7 @@ class Tpkg::OS::Debian < Tpkg::OS
         raise "available_native_packages error running dpkg-query"
       end
     end
-    
+
     cmd = "#{@aptcachecmd} show #{pkgname}"
     puts "available_native_packages running '#{cmd}'" if @debug
     stderr_first_line = nil
@@ -132,7 +132,7 @@ class Tpkg::OS::Debian < Tpkg::OS
     puts "Running '#{cmd}' to upgrade native package" if @debug
     system(cmd)
   end
-  
+
   def os_version
     if !@os_version
       if Facter['lsbmajdistrelease'] &&

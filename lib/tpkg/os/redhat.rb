@@ -7,7 +7,7 @@ class Tpkg::OS::RedHat < Tpkg::OS
     ['RedHat', 'CentOS', 'Fedora'].include?(Facter['operatingsystem'].value)
   end
   register_implementation(self)
-  
+
   def initialize(options={})
     @yumcmd = options[:yumcmd] || options[:testcmd] || 'yum'
     @rpmcmd = options[:rpmcmd] || options[:testcmd] || 'rpm'
@@ -16,7 +16,7 @@ class Tpkg::OS::RedHat < Tpkg::OS
     @quiet = options[:quiet]
     super
   end
-  
+
   def init_links(installed_path, tpkgfile)
     sys_v_init_links(installed_path, tpkgfile, ['2', '3', '4', '5'], '/etc/rc.d')
   end
@@ -89,10 +89,10 @@ class Tpkg::OS::RedHat < Tpkg::OS
   def stub_native_pkg(pkg)
     native_deps = pkg[:metadata].get_native_deps
     return if native_deps.empty?
-    
+
     rpm = create_rpm("stub_for_#{pkg[:metadata][:name]}", native_deps)
     return if rpm.nil?
-    
+
     cmd = "#{@rpmcmd} -i #{rpm}"
     puts "Running '#{cmd} to install native dependency stub" if @debug
     system(cmd)
@@ -103,7 +103,7 @@ class Tpkg::OS::RedHat < Tpkg::OS
   def remove_native_stub_pkg(pkg)
     native_deps = pkg[:metadata].get_native_deps
     return if native_deps.empty?
-    
+
     stub_pkg_name = "stub_for_#{pkg[:metadata][:name]}"
     cmd = "#{@yumcmd} -y remove #{stub_pkg_name}"
     puts "Running '#{cmd} to remove native dependency stub" if @debug
@@ -113,7 +113,7 @@ class Tpkg::OS::RedHat < Tpkg::OS
       warn "Warning: Failed to remove native stub package for #{pkg[:metadata][:name]}" unless @quiet
     end
   end
-  
+
   def os_version
     if !@os_version
       if Facter['lsbmajdistrelease'] &&
@@ -124,16 +124,16 @@ class Tpkg::OS::RedHat < Tpkg::OS
     end
     super
   end
-  
+
   private
   def create_rpm(name, deps=[])
     topdir = Tpkg::tempdir('rpmbuild')
     %w[BUILD RPMS SOURCES SPECS SRPMS].each do |dir|
       FileUtils.mkdir_p(File.join(topdir, dir))
     end
-    
+
     dep_list = deps.collect{|dep|dep[:name]}.join(",")
-    
+
     spec = <<-EOS.gsub(/^\s+/, "")
     Name: #{name}
     Summary: stub pkg created by tpkg
@@ -152,7 +152,7 @@ class Tpkg::OS::RedHat < Tpkg::OS
     File.open(spec_file, 'w') do |file|
       file.puts(spec)
     end
-    
+
     system("#{@rpmbuildcmd} -bb --define '_topdir #{topdir}' #{spec_file}")
     if !$?.success?
       warn "Warning: Failed to create native stub package for #{name}" unless @quiet
@@ -167,8 +167,8 @@ class Tpkg::OS::RedHat < Tpkg::OS
     FileUtils.cp(result, tmpfile.path)
     rpm = tmpfile.path
     FileUtils.rm_rf(topdir)
-    
+
     return rpm
   end
-  
+
 end

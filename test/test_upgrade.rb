@@ -10,10 +10,10 @@ require File.expand_path('tpkgtest', File.dirname(__FILE__))
 
 class TpkgUpgradeTests < Test::Unit::TestCase
   include TpkgTests
-  
+
   def setup
     Tpkg::set_prompt(false)
-    
+
     @pkgfiles = []
     ['a', 'b'].each do |pkgname|
       # Make sure the files in the a packages don't conflict with
@@ -46,7 +46,7 @@ class TpkgUpgradeTests < Test::Unit::TestCase
       @pkgfiles << make_package(:change => {'name' => 'c', 'version' => '1.2', 'package_version' => '3'}, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture'])
       @pkgfiles << make_package(:change => {'name' => 'c', 'version' => '2.3', 'package_version' => '1'}, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture'])
     end
-    
+
     @testroot = Dir.mktmpdir('testroot')
     @testbase = File.join(@testroot, 'home', 'tpkg')
     FileUtils.mkdir_p(@testbase)
@@ -55,7 +55,7 @@ class TpkgUpgradeTests < Test::Unit::TestCase
   end
 
   # pkg ordera-1 and orderb-1 are installed. Package orderb depends on ordera.
-  # Now if we were to upgrade orderb-1 to orderb-2, which depends on ordera-2, then 
+  # Now if we were to upgrade orderb-1 to orderb-2, which depends on ordera-2, then
   # tpkg should do things in the following order:
   # remove orderb-1, remove ordera-1, install ordera-2, install orderb-2
   def test_upgrade_order
@@ -66,7 +66,7 @@ class TpkgUpgradeTests < Test::Unit::TestCase
       pkgfiles <<  make_package(:change => { 'name' => 'ordera', 'version' => '1' }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture'])
       deps = {'ordera'=> {'minimum_version' => '1.0'}}
       pkgfiles <<  make_package(:change => { 'name' => 'orderb', 'version' => '1' }, :source_directory => srcdir, :dependencies => deps, :remove => ['operatingsystem', 'architecture'])
-      
+
       # Create pkg ordera-2, which has a file called pkga2
       FileUtils.mkdir(File.join(srcdir, 'reloc'))
       File.open(File.join(srcdir, 'reloc', 'pkga2'), 'w') do |file|
@@ -74,7 +74,7 @@ class TpkgUpgradeTests < Test::Unit::TestCase
       end
       pkgfiles <<  make_package(:change => { 'name' => 'ordera', 'version' => '2' }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture'])
       FileUtils.rm(File.join(srcdir, 'reloc', 'pkga2'))
-      
+
       # Create pkg orderb-2, which test that a file called pkga2 exists. We will use this
       # to ensure that during the upgrade, pkg b-2 is installed after pkg a-2
       deps = {'ordera'=> {'minimum_version' => '2.0'}}
@@ -91,10 +91,10 @@ class TpkgUpgradeTests < Test::Unit::TestCase
     tpkg.upgrade(['ordera=1.0', 'orderb=1.0'], PASSPHRASE)
 
     assert_nothing_raised { tpkg.upgrade(['orderb']) }
-    
+
     pkgfiles.each { |pkgfile| FileUtils.rm_f(pkgfile) }
   end
-  
+
   def test_upgrade
     assert_nothing_raised { @tpkg.upgrade(['a']) }
     # Should have two packages installed:  a-2.0 and b-1.0
@@ -113,7 +113,7 @@ class TpkgUpgradeTests < Test::Unit::TestCase
     assert_equal('2.0', apkg[:version])
     assert_not_nil(bpkg)
     assert_equal('1.0', bpkg[:version])
-    
+
     assert_nothing_raised { @tpkg.upgrade }
     # Should have two packages installed:  a-2.0 and b-2.0
     metadata = @tpkg.metadata_for_installed_packages
@@ -148,7 +148,7 @@ class TpkgUpgradeTests < Test::Unit::TestCase
       end
     end
   end
-  
+
   # Test an upgrade using a filename rather than a package spec ('a')
   def test_upgrade_by_filename
     a2pkgfile = @pkgfiles.find {|pkgfile| pkgfile =~ /a-2.0/}
@@ -170,7 +170,7 @@ class TpkgUpgradeTests < Test::Unit::TestCase
     assert_not_nil(bpkg)
     assert_equal('1.0', bpkg[:version])
   end
-  
+
   # Test upgrading all packages by passing no arguments to upgrade
   def test_upgrade_all
     assert_nothing_raised { @tpkg.upgrade }
@@ -191,7 +191,7 @@ class TpkgUpgradeTests < Test::Unit::TestCase
     assert_not_nil(bpkg)
     assert_equal('2.0', bpkg[:version])
   end
-  
+
   def test_upgrade_with_externals_add
     oldpkg = nil
     newpkg = nil
@@ -226,7 +226,7 @@ class TpkgUpgradeTests < Test::Unit::TestCase
     FileUtils.rm_f(oldpkg)
     FileUtils.rm_f(newpkg)
   end
-  
+
   def test_upgrade_with_externals_add_second
     oldpkg = nil
     newpkg = nil
@@ -279,7 +279,7 @@ class TpkgUpgradeTests < Test::Unit::TestCase
     FileUtils.rm_f(oldpkg)
     FileUtils.rm_f(newpkg)
   end
-  
+
   def test_upgrade_with_externals_different_data
     oldpkg = nil
     newpkg = nil
@@ -315,7 +315,7 @@ class TpkgUpgradeTests < Test::Unit::TestCase
     FileUtils.rm_f(oldpkg)
     FileUtils.rm_f(newpkg)
   end
- 
+
   # Install pkgA and pkgB, both of version 1.0. pkgB depends on pkgA, min and
   # max version 1.0. Try to upgrade pkgA to 2.0. This should not be allowed.
   def test_upgrade_with_strict_dependency
@@ -348,10 +348,10 @@ class TpkgUpgradeTests < Test::Unit::TestCase
     end
     # Package stricta should still be of version 1.0
     assert_equal('1.0', apkg[:version])
-    
+
     pkgfiles.each { |pkgfile| FileUtils.rm_f(pkgfile) }
   end
-  
+
   # b-1 depends on a-2
   # b-2 depends on a-1
   # Can we upgrade from b-1 to b-2?
@@ -364,15 +364,15 @@ class TpkgUpgradeTests < Test::Unit::TestCase
       pkgfiles <<  make_package(:change => { 'name' => 'deprollb', 'version' => '1' }, :source_directory => srcdir, :dependencies => {'deprolla' => {'minimum_version' => '2', 'maximum_version' => '2'}}, :remove => ['operatingsystem', 'architecture'])
       pkgfiles <<  make_package(:change => { 'name' => 'deprollb', 'version' => '2' }, :source_directory => srcdir, :dependencies => {'deprolla' => {'minimum_version' => '1', 'maximum_version' => '1'}}, :remove => ['operatingsystem', 'architecture'])
     end
-    
+
     tpkg = Tpkg.new(:file_system_root => @testroot, :base => File.join('home', 'tpkg'), :sources => pkgfiles)
     tpkg.upgrade(['deprollb=1.0'], PASSPHRASE)
     metadata = @tpkg.metadata_for_installed_packages
-    
+
     tpkg.upgrade(['deprollb'])
-    
+
     metadata = @tpkg.metadata_for_installed_packages
-    
+
     apkg = nil
     bpkg = nil
     metadata.each do |m|
@@ -386,10 +386,10 @@ class TpkgUpgradeTests < Test::Unit::TestCase
     assert_equal('2', bpkg[:version])
     # Package a should version 1
     assert_equal('1', apkg[:version])
-    
+
     pkgfiles.each { |pkgfile| FileUtils.rm_f(pkgfile) }
   end
-  
+
   def teardown
     @pkgfiles.each { |pkgfile| FileUtils.rm_f(pkgfile) }
     FileUtils.rm_rf(@testroot)

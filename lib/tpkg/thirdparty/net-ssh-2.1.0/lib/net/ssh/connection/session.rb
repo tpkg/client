@@ -320,7 +320,7 @@ module Net; module SSH; module Connection
       open_channel do |channel|
         channel.exec(command) do |ch, success|
           raise "could not execute command: #{command.inspect}" unless success
-          
+
           channel.on_data do |ch2, data|
             if block
               block.call(ch2, :stdout, data)

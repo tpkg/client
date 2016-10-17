@@ -293,7 +293,7 @@ MODULE: foreach my $name ($extinst->modules)
 					print "Prereq $dep is a core module, skipping\n";
 					next PREREQ;
 				}
-				
+
 				my $deppkgname = module_to_pkg_name($depmod);
 				$deps{$deppkgname} = {};
 				if ($prereqs{$dep} ne '0')

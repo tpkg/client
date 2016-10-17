@@ -30,7 +30,7 @@ module Net; module SSH; module Transport
                          idea-cbc none arcfour128 arcfour256),
       :hmac        => %w(hmac-sha1 hmac-md5 hmac-sha1-96 hmac-md5-96 none),
       :compression => %w(none zlib@openssh.com zlib),
-      :language    => %w() 
+      :language    => %w()
     }
 
     # The underlying transport layer session that supports this object
@@ -337,7 +337,7 @@ module Net; module SSH; module Transport
         @session_id ||= hash
 
         key = Proc.new { |salt| digester.digest(secret + hash + salt + @session_id) }
-        
+
         iv_client = key["A"]
         iv_server = key["B"]
         key_client = key["C"]
@@ -347,7 +347,7 @@ module Net; module SSH; module Transport
 
         parameters = { :iv => iv_client, :key => key_client, :shared => secret,
           :hash => hash, :digester => digester }
-        
+
         cipher_client = CipherFactory.get(encryption_client, parameters.merge(:encrypt => true))
         cipher_server = CipherFactory.get(encryption_server, parameters.merge(:iv => iv_server, :key => key_server, :decrypt => true))
 

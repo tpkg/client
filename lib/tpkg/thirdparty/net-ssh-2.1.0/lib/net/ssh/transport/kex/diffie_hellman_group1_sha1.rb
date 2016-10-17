@@ -69,14 +69,14 @@ module Net; module SSH; module Transport; module Kex
       session_id = verify_signature(result)
       confirm_newkeys
 
-      return { :session_id        => session_id, 
+      return { :session_id        => session_id,
                :server_key        => result[:server_key],
                :shared_secret     => result[:shared_secret],
                :hashing_algorithm => digester }
     end
 
     private
-    
+
       # Returns the DH key parameters for the current connection.
       def get_parameters
         [p, g]

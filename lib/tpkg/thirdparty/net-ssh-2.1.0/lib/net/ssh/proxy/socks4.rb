@@ -50,7 +50,7 @@ module Net
         def open(host, port)
           socket = TCPSocket.new(proxy_host, proxy_port)
           ip_addr = IPAddr.new(Resolv.getaddress(host))
-          
+
           packet = [VERSION, CONNECT, port.to_i, ip_addr.to_i, options[:user]].pack("CCnNZ*")
           socket.send packet, 0
 

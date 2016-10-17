@@ -8,10 +8,10 @@ require File.expand_path('tpkgtest', File.dirname(__FILE__))
 
 class TpkgQueryTests < Test::Unit::TestCase
   include TpkgTests
-  
+
   def setup
     Tpkg::set_prompt(false)
-    
+
     # temp dir that will automatically get deleted at end of test run, can be
     # used for storing packages
     @tempoutdir = Dir.mktmpdir('tempoutdir')
@@ -31,30 +31,30 @@ class TpkgQueryTests < Test::Unit::TestCase
       FileUtils.rm_f(apkg)
     end
   end
-  
+
   def test_installed_packages
     Dir.mktmpdir('testbase') do |testbase|
       apkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'a', 'version' => '2.0' }, :remove => ['operatingsystem', 'architecture'])
       bpkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'b', 'version' => '2.0' }, :remove => ['operatingsystem', 'architecture'])
       tpkg = Tpkg.new(:base => testbase, :sources => [apkg, bpkg])
       tpkg.install(['a', 'b'], PASSPHRASE)
-      
+
       instpkgs = tpkg.installed_packages
       assert_equal(2, instpkgs.length)
       assert(instpkgs.any? {|instpkg| instpkg[:metadata][:name] == 'a'})
       assert(instpkgs.any? {|instpkg| instpkg[:metadata][:name] == 'b'})
       assert(instpkgs.all? {|instpkg| instpkg[:source] == :currently_installed})
       assert(instpkgs.all? {|instpkg| instpkg[:prefer] == true})
-      
+
       instpkgs = tpkg.installed_packages('b')
       assert_equal(1, instpkgs.length)
       assert_equal('b', instpkgs.first[:metadata][:name])
-      
+
       FileUtils.rm_f(apkg)
       FileUtils.rm_f(bpkg)
     end
   end
-  
+
   def test_installed_packages_that_meet_requirement
     Dir.mktmpdir('testbase') do |testbase|
       tpkg = Tpkg.new(:base => testbase)
@@ -76,7 +76,7 @@ class TpkgQueryTests < Test::Unit::TestCase
       pkgfiles.each { |pkg| FileUtils.rm_f(pkg) }
     end
   end
-  
+
   def test_files_for_installed_packages
     pkgfiles = []
     # Make up a couple of packages with different files in them so that
@@ -91,11 +91,11 @@ class TpkgQueryTests < Test::Unit::TestCase
         pkgfiles << make_package(:output_directory => @tempoutdir, :change => {'name' => pkgname}, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture'])
       end
     end
-    
+
     Dir.mktmpdir('testbase') do |testbase|
       tpkg = Tpkg.new(:base => testbase, :sources => pkgfiles)
       tpkg.install(['a', 'b'], PASSPHRASE)
-      
+
       files = tpkg.files_for_installed_packages
       assert_equal(2, files.length)
       files.each do |pkgfile, fip|
@@ -107,14 +107,14 @@ class TpkgQueryTests < Test::Unit::TestCase
         assert_equal(File.join(testbase, 'directory', ''), fip[:normalized].first)
         assert_equal(File.join(testbase, 'directory', pkgname), fip[:normalized].last)
       end
-      
+
       files = tpkg.files_for_installed_packages(pkgfiles.first)
       assert_equal(1, files.length)
     end
-    
+
     pkgfiles.each { |pkg| FileUtils.rm_f(pkg) }
   end
-  
+
   def test_files_in_package
     files = Tpkg::files_in_package(@pkgfile)
     assert_equal(0, files[:root].length)
@@ -126,7 +126,7 @@ class TpkgQueryTests < Test::Unit::TestCase
     reloc_expected.each { |r| assert(files[:reloc].include?(r)) }
     files[:reloc].each { |r| assert(reloc_expected.include?(r)) }
   end
-  
+
   def teardown
     FileUtils.rm_rf(@tempoutdir)
   end

@@ -9,18 +9,18 @@ require 'webrick/https'
 
 class TpkgMiscTests < Test::Unit::TestCase
   include TpkgTests
-  
+
   def setup
     Tpkg::set_prompt(false)
-    
+
     # Make up our regular test package
     @pkgfile = make_package()
   end
-  
+
   def test_package_toplevel_directory
     # Verify normal operation
     assert_equal('testpkg-1.0-1-os-architecture', Tpkg::package_toplevel_directory(@pkgfile))
-    
+
     # Verify that it works on a package with top level directory with an
     # unusually long name
     longpkg = nil
@@ -48,7 +48,7 @@ YAML
       end
       assert_equal("#{longpkgname}-1", Tpkg::package_toplevel_directory(longpkg))
     end
-    
+
     # Verify that it fails in the expected way on something that isn't a tarball
     boguspkg = Tempfile.new('boguspkg')
     boguspkg.puts('xxxxxx')
@@ -59,7 +59,7 @@ YAML
     rescue RuntimeError => e
       assert_match(/Error reading top level directory/, e.message)
     end
-    
+
     # Verify that it fails on a bogus package due to the unexpected
     # directory structure
     boguspkg = Tempfile.new('tpkgtest')
@@ -74,17 +74,17 @@ YAML
       assert_match(/top level is more than one directory deep/, e.message)
     end
   end
-  
+
   def test_source_to_local_directory
     Dir.mktmpdir('testbase') do |testbase|
       tpkg = Tpkg.new(:base => testbase)
-      
+
       srca = 'http://example.com/pkgs'
       srca_as_ld = tpkg.source_to_local_directory(srca)
-      
+
       srcb = 'http://www.example.com/pkgs'
       srcb_as_ld = tpkg.source_to_local_directory(srcb)
-      
+
       assert_match(/^http/, File.basename(srca_as_ld))
       assert_match(/^http/, File.basename(srcb_as_ld))
       assert_no_match(/[^a-zA-Z0-9]/, File.basename(srca_as_ld))
@@ -92,7 +92,7 @@ YAML
       assert_not_equal(srca_as_ld, srcb_as_ld)
     end
   end
-  
+
   def test_gethttp
     Dir.mktmpdir('serverdir') do |serverdir|
       http_server = WEBrick::HTTPServer.new(:Port => 3500, :DocumentRoot => serverdir)
@@ -108,7 +108,7 @@ YAML
       # dirty route.
       t1 = Thread.new { http_server.start }
       t2 = Thread.new { https_server.start }
-      
+
       # This is necessary to ensure that any SSL configuration in /etc/tpkg
       # doesn't throw us off
       Dir.mktmpdir('testroot') do |testroot|
@@ -123,27 +123,27 @@ YAML
       t2.kill
     end
   end
-  
+
   def test_lookup_uid
     assert_equal(0, Tpkg::lookup_uid('0'))
     assert_equal(Process.uid, Tpkg::lookup_uid(Etc.getlogin))
     # Should return 0 if it can't find the specified user
     assert_equal(0, Tpkg::lookup_uid('bogususer'))
   end
-  
+
   def test_lookup_gid
     assert_equal(0, Tpkg::lookup_gid('0'))
     assert_equal(Process.gid, Tpkg::lookup_gid(Etc.getgrgid(Process.gid).name))
     # Should return 0 if it can't find the specified group
     assert_equal(0, Tpkg::lookup_gid('bogusgroup'))
   end
-  
+
   def test_clean_for_filename
     assert_equal('redhat5', Metadata.clean_for_filename('RedHat-5'))
     assert_equal('i386', Metadata.clean_for_filename('i386'))
     assert_equal('x86_64', Metadata.clean_for_filename('x86_64'))
   end
-  
+
   def test_normalize_paths
     Dir.mktmpdir('testroot') do |testroot|
       FileUtils.mkdir_p(File.join(testroot, 'home', 'tpkg'))
@@ -154,11 +154,11 @@ YAML
       assert(files[:normalized].include?(File.join(testroot, 'home', 'tpkg', 'file')))
     end
   end
-  
+
   def test_conflicting_files
     Dir.mktmpdir('testroot') do |testroot|
       tpkg = Tpkg.new(:file_system_root => testroot)
-      
+
       pkg1 = make_package(:change => { 'version' => '2.0' }, :remove => ['operatingsystem', 'architecture'], :output_directory => File.join(testroot, 'tmp'))
       pkg2 = make_package(:change => { 'version' => '3.0' }, :remove => ['operatingsystem', 'architecture'], :output_directory => File.join(testroot, 'tmp'))
       # The check for conflicting files shouldn't complain when nothing
@@ -172,7 +172,7 @@ YAML
       assert(!conflicts.empty?)
       FileUtils.rm_f(pkg1)
       FileUtils.rm_f(pkg2)
-      
+
       # Make a package with non-relocatable files that end up in the same
       # place as relocatable files in an installed package.  That should
       # also raise an error.
@@ -192,14 +192,14 @@ YAML
   def test_predict_file_permissions_and_ownership
     Dir.mktmpdir('testroot') do |testroot|
       tpkg = Tpkg.new(:file_system_root => testroot)
-      
+
       Dir.mktmpdir('srcdir') do |srcdir|
         FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
         testfile = "#{srcdir}/reloc/myfile"
         FileUtils.mkdir_p(File.dirname(testfile))
         File.open(testfile, 'w') {|f| }
         File.chmod(0623, testfile)
-        
+
         # No file_defaults settings, no file posix defined, then the current
         # perms of the file and default ownership settings are used
         data = {:actual_file => testfile}
@@ -207,7 +207,7 @@ YAML
         assert_equal(File.stat(testfile).mode, predicted_perms)
         assert_equal(Tpkg::DEFAULT_OWNERSHIP_UID, predicted_uid)
         assert_equal(Tpkg::DEFAULT_OWNERSHIP_GID, predicted_gid)
-        
+
         # If metadata has file_defaults settings but not specific permissions
         # for the individual file then that is used
         pkgfile = make_package(
@@ -225,7 +225,7 @@ YAML
         assert_equal(Tpkg::lookup_uid('nobody'), predicted_uid)
         assert_equal(Tpkg::lookup_gid('nogroup'), predicted_gid)
         FileUtils.rm_f(pkgfile)
-        
+
         # If metadata has the file perms & ownership explicitly defined, then
         # that overrides everything
         pkgfile = make_package(
@@ -282,7 +282,7 @@ YAML
       assert(!Tpkg::valid_pkg_filename?(filename))
     end
   end
-  
+
   def test_run_external
     extname = 'testext'
     extdata = "This is a test of an external hook\nwith multiple lines\nof data"
@@ -311,20 +311,20 @@ YAML
       File.chmod(0755, extscript)
       tpkg = Tpkg.new(:file_system_root => testroot, :base => relative_base)
       tpkg_force = Tpkg.new(:file_system_root => testroot, :base => relative_base, :force => true)
-      
+
       # Test install
       assert_nothing_raised { tpkg.run_external('pkgfile', :install, extname, extdata) }
       assert_equal("pkgfile\ninstall\n#{testbase}\n#{extdata}", IO.read(exttmpfile.path))
       # Test remove
       assert_nothing_raised { tpkg.run_external('pkgfile', :remove, extname, extdata) }
       assert_equal("pkgfile\nremove\n#{testbase}\n#{extdata}", IO.read(exttmpfile.path))
-      
+
       # A non-existent external raises an exception
       File.delete(extscript)
       assert_raise(RuntimeError) { tpkg.run_external('pkgfile', :install, extname, extdata) }
       # Unless forced
       assert_nothing_raised { tpkg_force.run_external('pkgfile', :install, extname, extdata) }
-      
+
       # A non-executable external raises an exception
       File.open(extscript, 'w') do |file|
         file.puts('#!/bin/sh')
@@ -334,7 +334,7 @@ YAML
       assert_raise(RuntimeError) { tpkg.run_external('pkgfile', :install, extname, extdata) }
       # Unless forced
       assert_nothing_raised { tpkg_force.run_external('pkgfile', :install, extname, extdata) }
-      
+
       # An external that exits non-zero should raise an exception
       File.open(extscript, 'w') do |file|
         file.puts('#!/bin/sh')
@@ -346,21 +346,21 @@ YAML
       assert_raise(RuntimeError) { tpkg.run_external('pkgfile', :install, extname, extdata) }
       # Unless forced
       assert_nothing_raised { tpkg_force.run_external('pkgfile', :install, extname, extdata) }
-      
+
       # An invalid operation should raise an exception
       assert_raise(RuntimeError) { tpkg.run_external('pkgfile', :bogus, extname, extdata) }
       # The externals operation to perform is determined within tpkg.  If an
       # invalid operation is specified that's a significant tpkg bug, not
       # something we have any reason to expect a user to see and thus no
       # reason to allow a force to override raising that exception.
-      
+
       # An invalid external name should raise an exception
       assert_raise(RuntimeError) { tpkg.run_external('pkgfile', :install, 'bogus', extdata) }
       # Unless forced
       assert_nothing_raised { tpkg_force.run_external('pkgfile', :install, 'bogus', extdata) }
     end
   end
-  
+
   def test_wrap_exception
     original_message = 'original message'
     original_backtrace = ['a', 'b']
@@ -372,7 +372,7 @@ YAML
     assert_equal(new_message, eprime.message)
     assert_equal(original_backtrace, eprime.backtrace)
   end
-  
+
   def teardown
     FileUtils.rm_f(@pkgfile)
   end
