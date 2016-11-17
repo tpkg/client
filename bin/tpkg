@@ -450,7 +450,7 @@ if @groups
     end
     servers = []
     @groups.each do |group|
-      IO.popen(settings[:host_group_script]<<" "<<group.chomp) do |pipe|
+      IO.popen(settings[:host_group_script] << " " << group.chomp) do |pipe|
         pipe.each_line do |line|
           servers << line.chomp
         end
