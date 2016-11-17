@@ -3336,6 +3336,18 @@ class Tpkg
     return ret_val
   end
 
+  def report
+    unless report_server
+      puts "no report server given"
+      return 1
+    end
+
+    lock
+    send_update_to_server || 1
+  ensure
+    unlock if @locks > 0
+  end
+
   # This method can also be used for doing downgrade
   def upgrade(requests=nil, passphrase=nil, options={})
     downgrade = options[:downgrade] || false
@@ -4206,6 +4218,7 @@ class Tpkg
       case response
       when Net::HTTPSuccess
        puts "Successfully send update to reporter server"
+       return 0
       else
         $stderr.puts response.body
         #response.error!

@@ -264,6 +264,10 @@ opts.on('--init-cmd', '=CMD', 'Invoke specified init script command') do |opt|
   @rerun_with_sudo = true
   @init_options[:cmd] = opt
 end
+opts.on('--report [SERVER_URL]', 'Send client info to, or set report server') do |opt|
+  @action = :report
+  @tpkg_options[:report_server] = opt
+end
 opts.on('--query', '-q', '=NAMES', 'Check if a package is installed', Array) do |opt|
   # People mistype -qa instead of --qa frequently
   if opt == ['a']
@@ -506,7 +510,7 @@ end
 @sources.concat(settings[:sources]).uniq!
 @tpkg_options[:sources] = @sources
 
-@tpkg_options[:report_server] = settings[:report_server]
+@tpkg_options[:report_server] ||= settings[:report_server]
 # sudo can come from three possible places.  They take precedence in this
 # order:
 # - command line option
@@ -645,6 +649,9 @@ when :execute_init
     raise "You didn't specify what init command to run"
   end
   ret_val = tpkg.execute_init(@init_options)
+when :report
+  tpkg = Tpkg.new(@tpkg_options)
+  ret_val = tpkg.report
 when :query_installed
   tpkg = Tpkg.new(@tpkg_options)
   matches = []
