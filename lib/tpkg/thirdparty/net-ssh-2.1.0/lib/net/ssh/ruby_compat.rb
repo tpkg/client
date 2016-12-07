@@ -9,11 +9,11 @@ class String
 end
 
 module Net; module SSH
-  
+
   # This class contains miscellaneous patches and workarounds
   # for different ruby implementations.
   class Compat
-    
+
     # A workaround for an IO#select threading bug in certain versions of MRI 1.8.
     # See: http://net-ssh.lighthouseapp.com/projects/36253/tickets/1-ioselect-threading-bug-in-ruby-18
     # The root issue is documented here: http://redmine.ruby-lang.org/issues/show/1993
@@ -37,7 +37,7 @@ module Net; module SSH
         end
       end
     end
-    
+
   end
-  
+
 end; end

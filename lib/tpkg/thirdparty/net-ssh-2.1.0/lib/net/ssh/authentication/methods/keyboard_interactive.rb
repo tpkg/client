@@ -40,7 +40,7 @@ module Net
 
                 lang_tag = message.read_string
                 responses =[]
-  
+
                 message.read_long.times do
                   text = message.read_string
                   echo = message.read_bool

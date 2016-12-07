@@ -6,7 +6,7 @@ require File.expand_path('tpkgtest', File.dirname(__FILE__))
 
 class TpkgOSSolarisTests < Test::Unit::TestCase
   include TpkgTests
-  
+
   def setup
     @pkginfo = File.join(TESTCMDDIR, 'solaris/pkginfo')
     @pkgutil = File.join(TESTCMDDIR, 'solaris/pkgutil')
@@ -15,7 +15,7 @@ class TpkgOSSolarisTests < Test::Unit::TestCase
       :pkgutilcmd => @pkgutil,
       )
   end
-  
+
   def test_supported
     fact = Facter::Util::Fact.new('operatingsystem')
     Facter.expects(:[]).with('operatingsystem').returns(fact).at_least_once

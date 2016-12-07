@@ -12,26 +12,26 @@ require File.expand_path('tpkgtest', File.dirname(__FILE__))
 
 class TpkgEncryptTests < Test::Unit::TestCase
   include TpkgTests
-  
+
   def setup
     Tpkg::set_prompt(false)
   end
-  
+
   def test_encrypt
     plaintext = 'This is the plaintext'
     cipher = 'aes-256-cbc'
-    
+
     tmpfile = Tempfile.new('tpkgtest')
     tmpfile.write(plaintext)
     tmpfile.close
     File.chmod(0604, tmpfile.path)
-    
+
     # Test encrypt
     Tpkg::encrypt('tpkgtest', tmpfile.path, PASSPHRASE, cipher)
     decrypted = `openssl enc -d -#{cipher} -pass pass:#{PASSPHRASE} -in #{tmpfile.path}`
     assert_equal(plaintext, decrypted)
     assert_equal(0604, File.stat(tmpfile.path).mode & 07777)
-    
+
     # Test using a callback to supply the passphrase
     File.open(tmpfile.path, 'w') do |file|
       file.write(plaintext)
@@ -55,21 +55,21 @@ class TpkgEncryptTests < Test::Unit::TestCase
       decrypted = `openssl enc -d -#{cipher} -pass pass:#{PASSPHRASE} -in #{File.join(testdir, 'file2')}`
       assert_equal(plaintext, decrypted)
     end
-    
+
     # Test encrypting an empty file
     File.open(tmpfile.path, 'w') do |file|
     end
     Tpkg::encrypt('tpkgtest', tmpfile.path, callback, cipher)
   end
-  
+
   def test_decrypt
     plaintext = 'This is the plaintext'
     cipher = 'aes-256-cbc'
-    
+
     tmpfile = Tempfile.new('tpkgtest')
     tmpfile.close
     File.chmod(0604, tmpfile.path)
-    
+
     # Test decrypt
     IO.popen(
       "openssl enc -#{cipher} -salt -pass pass:#{PASSPHRASE} -out #{tmpfile.path}",
@@ -80,7 +80,7 @@ class TpkgEncryptTests < Test::Unit::TestCase
     decrypted = IO.read(tmpfile.path)
     assert_equal(plaintext, decrypted)
     assert_equal(0604, File.stat(tmpfile.path).mode & 07777)
-    
+
     # Test using a callback to supply the passphrase
     IO.popen(
       "openssl enc -#{cipher} -salt -pass pass:#{PASSPHRASE} -out #{tmpfile.path}",
@@ -103,7 +103,7 @@ class TpkgEncryptTests < Test::Unit::TestCase
       decrypted = IO.read(File.join(testdir, 'file1'))
       assert_equal(plaintext, decrypted)
     end
-    
+
     # Test decrypting an empty file
     IO.popen(
       "openssl enc -#{cipher} -salt -pass pass:#{PASSPHRASE} -out #{tmpfile.path}",
@@ -111,26 +111,26 @@ class TpkgEncryptTests < Test::Unit::TestCase
     end
     Tpkg::decrypt('tpkgtest', tmpfile.path, callback, cipher)
   end
-  
+
   def test_verify_precrypt_file
     plaintext = 'This is the plaintext'
     cipher = 'aes-256-cbc'
-    
+
     tmpfile = Tempfile.new('tpkgtest')
     tmpfile.close
-    
+
     IO.popen(
       "openssl enc -#{cipher} -salt -pass pass:#{PASSPHRASE} -out #{tmpfile.path}",
       'w') do |pipe|
       pipe.write(plaintext)
     end
-    
+
     assert(Tpkg::verify_precrypt_file(tmpfile.path))
-    
+
     File.open(tmpfile.path, 'w') do |file|
       file.puts plaintext
     end
-    
+
     assert_raise(RuntimeError) { Tpkg::verify_precrypt_file(tmpfile.path) }
   end
 end

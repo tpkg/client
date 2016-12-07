@@ -117,7 +117,7 @@ module Net
     #   host to a known_hosts dictionary file
     # * :host_name => the real host name or IP to log into. This is used
     #   instead of the +host+ parameter, and is primarily only useful when
-    #   specified in an SSH configuration file. It lets you specify an 
+    #   specified in an SSH configuration file. It lets you specify an
     #   "alias", similarly to adding an entry in /etc/hosts but without needing
     #   to modify /etc/hosts.
     # * :kex => the key exchange algorithm (or algorithms) to use
@@ -212,7 +212,7 @@ module Net
         when false, nil then return {}
         else Array(use_ssh_config)
         end
-      
+
       Net::SSH::Config.for(host, files)
     end
   end

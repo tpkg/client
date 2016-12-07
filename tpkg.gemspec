@@ -14,7 +14,7 @@ Gem::Specification.new do |gem|
   gem.name          = 'tpkg'
   gem.require_paths = ['lib']
   gem.version       = Tpkg::VERSION
-  
+
   gem.add_dependency('facter', '~>2.3.0')
   gem.add_dependency('net-ssh')
   gem.add_dependency('kwalify')

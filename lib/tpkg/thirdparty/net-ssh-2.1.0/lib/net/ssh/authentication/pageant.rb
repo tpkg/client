@@ -17,15 +17,15 @@ module Net; module SSH; module Authentication
     # From Putty pageant.c
     AGENT_MAX_MSGLEN = 8192
     AGENT_COPYDATA_ID = 0x804e50ba
-    
+
     # The definition of the Windows methods and data structures used in
     # communicating with the pageant process.
     module Win
       extend DL::Importable
-      
+
       dlload 'user32'
       dlload 'kernel32'
-      
+
       typealias("LPCTSTR", "char *")         # From winnt.h
       typealias("LPVOID", "void *")          # From winnt.h
       typealias("LPCVOID", "const void *")   # From windef.h
@@ -54,7 +54,7 @@ module Net; module SSH; module Authentication
       extern 'HANDLE CreateFileMapping(HANDLE, void *, DWORD, DWORD, ' +
                                       'DWORD, LPCTSTR)'
 
-      # args: hFileMappingObject, dwDesiredAccess, dwFileOffsetHigh, 
+      # args: hFileMappingObject, dwDesiredAccess, dwFileOffsetHigh,
       #           dwfileOffsetLow, dwNumberOfBytesToMap
       extern 'LPVOID MapViewOfFile(HANDLE, DWORD, DWORD, DWORD, DWORD)'
 
@@ -84,7 +84,7 @@ module Net; module SSH; module Authentication
         new
       end
 
-      # Create a new instance that communicates with the running pageant 
+      # Create a new instance that communicates with the running pageant
       # instance. If no such instance is running, this will cause an error.
       def initialize
         @win = Win.findWindow("Pageant", "Pageant")
@@ -97,7 +97,7 @@ module Net; module SSH; module Authentication
         @res = nil
         @pos = 0
       end
-      
+
       # Forwards the data to #send_query, ignoring any arguments after
       # the first. Returns 0.
       def send(data, *args)
@@ -115,16 +115,16 @@ module Net; module SSH; module Authentication
         id = DL::PtrData.malloc(DL.sizeof("L"))
 
         mapname = "PageantRequest%08x\000" % Win.getCurrentThreadId()
-        filemap = Win.createFileMapping(Win::INVALID_HANDLE_VALUE, 
+        filemap = Win.createFileMapping(Win::INVALID_HANDLE_VALUE,
                                         Win::NULL,
-                                        Win::PAGE_READWRITE, 0, 
+                                        Win::PAGE_READWRITE, 0,
                                         AGENT_MAX_MSGLEN, mapname)
         if filemap == 0
           raise Net::SSH::Exception,
             "Creation of file mapping failed"
         end
 
-        ptr = Win.mapViewOfFile(filemap, Win::FILE_MAP_WRITE, 0, 0, 
+        ptr = Win.mapViewOfFile(filemap, Win::FILE_MAP_WRITE, 0, 0,
                                 AGENT_MAX_MSGLEN)
 
         if ptr.nil? || ptr.null?
@@ -132,7 +132,7 @@ module Net; module SSH; module Authentication
         end
 
         ptr[0] = query
-        
+
         cds = [AGENT_COPYDATA_ID, mapname.size + 1, mapname].
           pack("LLp").to_ptr
         succ = Win.sendMessageTimeout(@win, Win::WM_COPYDATA, Win::NULL,
@@ -141,7 +141,7 @@ module Net; module SSH; module Authentication
         if succ > 0
           retlen = 4 + ptr.to_s(4).unpack("N")[0]
           res = ptr.to_s(retlen)
-        end        
+        end
 
         return res
       ensure

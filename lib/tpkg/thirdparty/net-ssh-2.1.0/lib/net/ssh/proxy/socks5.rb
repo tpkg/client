@@ -94,7 +94,7 @@ module Net
 
           packet << [port].pack("n")
           socket.send packet, 0
-          
+
           version, reply, = socket.recv(2).unpack("C*")
           socket.recv(1)
           address_type = socket.recv(1).getbyte(0)
@@ -111,7 +111,7 @@ module Net
             raise ConnectionError, "Illegal response type"
           end
           portnum = socket.recv(2)
-          
+
           unless reply == SUCCESS
             socket.close
             raise ConnectError, "#{reply}"

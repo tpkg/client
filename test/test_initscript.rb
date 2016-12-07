@@ -8,10 +8,10 @@ require File.expand_path('tpkgtest', File.dirname(__FILE__))
 
 class TpkgInitScriptsTests < Test::Unit::TestCase
   include TpkgTests
-  
+
   def setup
     Tpkg::set_prompt(false)
-    
+
     # temp dir that will automatically get deleted at end of test run, can be
     # used for storing packages
     @tempoutdir = Dir.mktmpdir('tempoutdir')
@@ -29,7 +29,7 @@ class TpkgInitScriptsTests < Test::Unit::TestCase
       @pkgfile = make_package(:output_directory => @tempoutdir, :source_directory => srcdir, :files => {'/etc/rootfile' => {'perms' => '0666'}})
     end
   end
-  
+
   # Test init script start/stop init scripts in correct order
   def test_order
     pkg = nil
@@ -43,9 +43,9 @@ class TpkgInitScriptsTests < Test::Unit::TestCase
         end
         File.chmod(0755, File.join(srcdir, 'reloc', "myinit#{i}"))
       end
-      
-      pkg  = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'initpkg'  }, :source_directory => srcdir, 
-                          :files => { "myinit1" => { 'init' => {'start' => '1' }} , "myinit2" => { 'init' => {'start' => '2' }}, "myinit3" => { 'init' => {'start' => '3' }}}, 
+
+      pkg  = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'initpkg'  }, :source_directory => srcdir,
+                          :files => { "myinit1" => { 'init' => {'start' => '1' }} , "myinit2" => { 'init' => {'start' => '2' }}, "myinit3" => { 'init' => {'start' => '3' }}},
                           :remove => ['operatingsystem', 'architecture'])
     end
     Dir.mktmpdir('testroot') do |testroot|
@@ -59,14 +59,14 @@ class TpkgInitScriptsTests < Test::Unit::TestCase
           assert(File.symlink?(link))
           assert_equal(init_script, File.readlink(link))
         end
-        
+
         # check that init scripts are started in correct order
         tpkg.execute_init(["initpkg"], "start")
         lines = File.open(tmpfile.path).readlines
         assert_equal("myinit1", lines[0].chomp)
         assert_equal("myinit2", lines[1].chomp)
         assert_equal("myinit3", lines[2].chomp)
-        
+
         # clear out the file
         system("cat /dev/null > #{tmpfile.path}")
         # check that init scripts are stopped in correct order
@@ -85,7 +85,7 @@ class TpkgInitScriptsTests < Test::Unit::TestCase
     end
     FileUtils.rm_f(pkg)
   end
-  
+
   def teardown
     FileUtils.rm_rf(@tempoutdir)
   end

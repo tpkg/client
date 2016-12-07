@@ -6,12 +6,12 @@ require File.expand_path('tpkgtest', File.dirname(__FILE__))
 
 class TpkgMakeTests < Test::Unit::TestCase
   include TpkgTests
-  
+
   def setup
     Tpkg::set_prompt(false)
-    
+
     @tar = Tpkg::find_tar
-    
+
     @pkgdir = Dir.mktmpdir('pkgdir')
     system("#{@tar} -C #{TESTPKGDIR} --exclude .svn --exclude tpkg-*.xml --exclude tpkg*.yml -cf - . | #{@tar} -C #{@pkgdir} -xf -")
     # Set special permissions on a file so that we can verify they are
@@ -24,16 +24,16 @@ class TpkgMakeTests < Test::Unit::TestCase
     Dir.mkdir(File.join(@pkgdir, 'reloc', 'directory'))
     File.symlink('linktarget', File.join(@pkgdir, 'reloc', 'directory', 'link'))
   end
-  
+
   def verify_pkg(pkgfile)
     Dir.mktmpdir('workdir') do |workdir|
       assert(!pkgfile.nil? && pkgfile.kind_of?(String) && !pkgfile.empty?, 'make_package returned package filename')
       assert(File.exist?(pkgfile), 'make_package returned package filename that exists')
-      
+
       # Verify checksum.xml
       #  We test verify_package_checksum in checksum.rb to make sure it works
       assert_nothing_raised('checksum verify') { Tpkg::verify_package_checksum(pkgfile) }
-      
+
       # Unpack the package
       assert(system("#{@tar} -C #{workdir} -xf #{pkgfile}"), 'unpack package')
       unpackdir = File.join(workdir, 'testpkg-1.0-1-os-architecture')
@@ -47,7 +47,7 @@ class TpkgMakeTests < Test::Unit::TestCase
       assert_equal(4, Dir.entries(unpackdir).length, 'nothing else in package directory')
       # Now unpack the tarball with the rest of the package contents
       assert(system("#{@tar} -C #{unpackdir} -xf #{File.join(unpackdir, 'tpkg.tar')}"), 'unpack tpkg.tar')
-    
+
       # Verify that tpkg.xml and our various test files were included in the
       # package
       assert(File.exist?(File.join(unpackdir, 'tpkg', 'tpkg.xml')), 'tpkg.xml in package')
@@ -61,7 +61,7 @@ class TpkgMakeTests < Test::Unit::TestCase
       assert_equal(@srcmode, dstmode, 'mode preserved')
       dstmtime = File.stat(File.join(unpackdir, 'tpkg', 'reloc', 'file')).mtime
       assert_equal(@srcmtime, dstmtime, 'mtime preserved')
-    
+
       # Verify that the file we specified should be encrypted was encrypted
       testname = 'encrypted file is encrypted'
       encrypted_contents = IO.read(File.join(unpackdir, 'tpkg', 'reloc', 'encfile'))
@@ -79,7 +79,7 @@ class TpkgMakeTests < Test::Unit::TestCase
       assert_equal(unencrypted_contents, decrypted_contents, testname)
     end
   end
-  
+
   def test_make_required_fields
     # Verify that you can't make a package without one of the required fields
     Metadata::REQUIRED_FIELDS.each do |r|
@@ -105,7 +105,7 @@ class TpkgMakeTests < Test::Unit::TestCase
       assert_raise(RuntimeError, testname) { Tpkg.make_package(@pkgdir, PASSPHRASE) }
     end
   end
-  
+
   def test_make_optional_fields
     # Verify that you can make a package without the optional fields
     testname = 'make package without optional fields'
@@ -124,7 +124,7 @@ class TpkgMakeTests < Test::Unit::TestCase
     assert_nothing_raised(testname) { pkgfile = Tpkg.make_package(@pkgdir, PASSPHRASE) }
     FileUtils.rm_rf(pkgfile)
   end
-  
+
   def test_make_nonexistent_file
     # Insert a non-existent file into tpkg.xml and verify that it throws
     # an exception
@@ -148,19 +148,19 @@ class TpkgMakeTests < Test::Unit::TestCase
   def test_group_owner
     # Ensure a warning given if file owner and group set to non-existing accounts
     FileUtils.cp("#{TESTPKGDIR}/tpkg-bad-ownergroup.xml", "#{@pkgdir}/tpkg.xml")
-    out = capture_stdout do 
+    out = capture_stdout do
       Tpkg.make_package(@pkgdir,nil)
     end
     expectederr = "Package requests user baduser, but that user can't be found.  Using UID 0.\nPackage requests group badgroup, but that group can't be found.  Using GID 0.\n"
     assert_equal(expectederr,out.string)
     FileUtils.cp("#{TESTPKGDIR}/tpkg-good-ownergroup.xml", "#{@pkgdir}/tpkg.xml")
-    out = capture_stdout do 
+    out = capture_stdout do
       Tpkg.make_package(@pkgdir,nil)
     end
     assert_equal("",out.string)
   end
- 
-  
+
+
   def test_make_nil_passphrase
     # Pass a nil passphrase with a package that requests encryption,
     # verify that it throws an exception
@@ -182,7 +182,7 @@ class TpkgMakeTests < Test::Unit::TestCase
     FileUtils.cp(File.join(TESTPKGDIR, 'reloc', 'encfile'), File.join(@pkgdir, 'reloc'))
     assert_raise(RuntimeError, testname) { Tpkg.make_package(@pkgdir, nil) }
   end
-  
+
   def test_make_bad_precrypt
     # Include an unencrypted file flagged as precrypt=true,
     # verify that it throws an exception
@@ -204,7 +204,7 @@ class TpkgMakeTests < Test::Unit::TestCase
     FileUtils.cp(File.join(TESTPKGDIR, 'reloc', 'precryptfile.plaintext'), File.join(@pkgdir, 'reloc', 'precryptfile'))
     assert_raise(RuntimeError, testname) { Tpkg.make_package(@pkgdir, nil) }
   end
-  
+
   def test_make_already_exists
     # Try to make a package where the output file already exists, verify that it is overwritten
     pkgfile = File.join(Dir::tmpdir, 'testpkg-1.0-1.tpkg')
@@ -218,7 +218,7 @@ class TpkgMakeTests < Test::Unit::TestCase
     FileUtils.rm_f(pkgfile)
     # It would be nice to test that if the user is prompted and answers no that the file is not overwritten
   end
-  
+
   def test_make_full_path
     # Test using a full path to the package directory
     pkgfile = nil
@@ -229,7 +229,7 @@ class TpkgMakeTests < Test::Unit::TestCase
       FileUtils.rm_f(pkgfile)
     end
   end
-  
+
   def test_make_relative_path
     # Test using a relative path to the directory
     pkgfile = nil
@@ -244,7 +244,7 @@ class TpkgMakeTests < Test::Unit::TestCase
       FileUtils.rm_f(pkgfile)
     end
   end
-  
+
   def test_make_dot_path
     # Test from within the directory, passing '.' to make_package
     pkgfile = nil
@@ -259,7 +259,7 @@ class TpkgMakeTests < Test::Unit::TestCase
       FileUtils.rm_f(pkgfile)
     end
   end
-  
+
   def test_make_passphrase_callback
     # Test using a callback to supply the passphrase
     callback = lambda { |pkgname| PASSPHRASE }
@@ -271,17 +271,17 @@ class TpkgMakeTests < Test::Unit::TestCase
       FileUtils.rm_f(pkgfile)
     end
   end
-  
+
   def test_make_osarch_names
     # Test that make_package properly names packages that are specific to
     # particular operating systems or architectures.
     pkgfile = nil
-    
+
     # The default tpkg.xml is tied to OS "OS" and architecture "Architecture"
     assert_nothing_raised { pkgfile = Tpkg.make_package(@pkgdir, PASSPHRASE) }
     FileUtils.rm_f(pkgfile)
     assert_match(/testpkg-1.0-1-os-architecture.tpkg/, pkgfile)
-    
+
     # Add another OS
     File.open(File.join(@pkgdir, 'tpkg.xml'), 'w') do |pkgxmlfile|
       IO.foreach(File.join(TESTPKGDIR, 'tpkg-nofiles.xml')) do |line|
@@ -294,7 +294,7 @@ class TpkgMakeTests < Test::Unit::TestCase
     assert_nothing_raised { pkgfile = Tpkg.make_package(@pkgdir, PASSPHRASE) }
     FileUtils.rm_f(pkgfile)
     assert_match(/testpkg-1.0-1-multios-architecture.tpkg/, pkgfile)
-    
+
     # Add another architecture
     File.open(File.join(@pkgdir, 'tpkg.xml'), 'w') do |pkgxmlfile|
       IO.foreach(File.join(TESTPKGDIR, 'tpkg-nofiles.xml')) do |line|
@@ -307,7 +307,7 @@ class TpkgMakeTests < Test::Unit::TestCase
     assert_nothing_raised { pkgfile = Tpkg.make_package(@pkgdir, PASSPHRASE) }
     FileUtils.rm_f(pkgfile)
     assert_match(/testpkg-1.0-1-os-multiarch.tpkg/, pkgfile)
-    
+
     # Remove the OS
     File.open(File.join(@pkgdir, 'tpkg.xml'), 'w') do |pkgxmlfile|
       IO.foreach(File.join(TESTPKGDIR, 'tpkg-nofiles.xml')) do |line|
@@ -319,7 +319,7 @@ class TpkgMakeTests < Test::Unit::TestCase
     assert_nothing_raised { pkgfile = Tpkg.make_package(@pkgdir, PASSPHRASE) }
     FileUtils.rm_f(pkgfile)
     assert_match(/testpkg-1.0-1-architecture.tpkg/, pkgfile)
-    
+
     # Remove the architecture
     File.open(File.join(@pkgdir, 'tpkg.xml'), 'w') do |pkgxmlfile|
       IO.foreach(File.join(TESTPKGDIR, 'tpkg-nofiles.xml')) do |line|
@@ -331,7 +331,7 @@ class TpkgMakeTests < Test::Unit::TestCase
     assert_nothing_raised { pkgfile = Tpkg.make_package(@pkgdir, PASSPHRASE) }
     FileUtils.rm_f(pkgfile)
     assert_match(/testpkg-1.0-1-os.tpkg/, pkgfile)
-    
+
     # Set OS to a set of Red Hat variants, they get special treatment
     File.open(File.join(@pkgdir, 'tpkg.xml'), 'w') do |pkgxmlfile|
       IO.foreach(File.join(TESTPKGDIR, 'tpkg-nofiles.xml')) do |line|
@@ -344,7 +344,7 @@ class TpkgMakeTests < Test::Unit::TestCase
     assert_nothing_raised { pkgfile = Tpkg.make_package(@pkgdir, PASSPHRASE) }
     FileUtils.rm_f(pkgfile)
     assert_match(/testpkg-1.0-1-redhat5-architecture.tpkg/, pkgfile)
-    
+
     # Red Hat variants with different versions
     File.open(File.join(@pkgdir, 'tpkg.xml'), 'w') do |pkgxmlfile|
       IO.foreach(File.join(TESTPKGDIR, 'tpkg-nofiles.xml')) do |line|
@@ -357,7 +357,7 @@ class TpkgMakeTests < Test::Unit::TestCase
     assert_nothing_raised { pkgfile = Tpkg.make_package(@pkgdir, PASSPHRASE) }
     FileUtils.rm_f(pkgfile)
     assert_match(/testpkg-1.0-1-redhat-architecture.tpkg/, pkgfile)
-    
+
     # Same OS with different versions
     File.open(File.join(@pkgdir, 'tpkg.xml'), 'w') do |pkgxmlfile|
       IO.foreach(File.join(TESTPKGDIR, 'tpkg-nofiles.xml')) do |line|
@@ -392,7 +392,7 @@ class TpkgMakeTests < Test::Unit::TestCase
       assert(File.exists?(pkgfile))
     end
   end
-  
+
   def test_make_tpkg_version
     # FIXME
     testname = 'make_package added tpkg_version to metadata'
@@ -402,7 +402,7 @@ class TpkgMakeTests < Test::Unit::TestCase
     # that fact but not fail.
     testname = 'make_package warned if adding tpkg_version failed due to permissions'
   end
-  
+
   def teardown
     FileUtils.rm_rf(@pkgdir)
   end

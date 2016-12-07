@@ -8,15 +8,15 @@
 
 class Version
   include Comparable
-  
+
   def initialize(version)
     @version = version.to_s
   end
-  
+
   def to_s
     @version
   end
-  
+
   def <=>(other)
     ourfields = @version.split('.')
     otherfields = other.to_s.split('.')
@@ -27,17 +27,17 @@ class Version
         fields[0] = '0'
       end
     end
-    
+
     convert_and_split!(ourfields, otherfields)
-    
+
     # Array conveniently implements <=>
     ourfields <=> otherfields
   end
-  
+
   # Private methods below
   private
-  
-  
+
+
   # Loops over two arrays in parallel.  If the entry at a given
   # position in both arrays is numeric it is converted from a string to
   # a number, or if either entry is a mixture of numeric and
@@ -53,11 +53,11 @@ class Version
       (fields0.length...larger).each { fields0 << '0' }
       (fields1.length...larger).each { fields1 << '0' }
     end
-    
+
     # Squish both arrays together
     bothfields = []
     (0...fields0.length).each { |i| bothfields << [fields0[i], fields1[i]] }
-    
+
     bothfields.map! do |fields|
       # Convert fields of all digits from string to number to get a numeric
       # rather than string comparison.  This ensures that 5.9 < 5.10

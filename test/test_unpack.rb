@@ -7,10 +7,10 @@ require 'find'
 
 class TpkgUnpackTests < Test::Unit::TestCase
   include TpkgTests
-  
+
   def setup
     Tpkg::set_prompt(false)
-    
+
     # temp dir that will automatically get deleted at end of test run, can be
     # used for storing packages
     @tempoutdir = Dir.mktmpdir('tempoutdir')
@@ -27,13 +27,13 @@ class TpkgUnpackTests < Test::Unit::TestCase
       end
       @pkgfile = make_package(:output_directory => @tempoutdir, :source_directory => srcdir, :files => {'/etc/rootfile' => {'perms' => '0666'}})
     end
-    
+
     # Pretend to be an OS with init script support
     fact = Facter::Util::Fact.new('operatingsystem')
     fact.stubs(:value).returns('RedHat')
     Facter.stubs(:[]).returns(fact)
   end
-  
+
   def test_unpack
     Dir.mktmpdir('testroot') do |testroot|
       FileUtils.mkdir_p(File.join(testroot, 'home', 'tpkg'))
@@ -50,7 +50,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
       assert(File.exist?(File.join(testroot, 'etc', 'rootfile')))
       assert_equal(0666, File.stat(File.join(testroot, 'etc', 'rootfile')).mode & 07777)
     end
-      
+
     # Change the package base and unpack
     Dir.mktmpdir('testroot2') do |testroot2|
       tpkg2 = Tpkg.new(:file_system_root => testroot2, :base => File.join('home', 'tpkg'), :sources => [@pkgfile])
@@ -58,7 +58,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
       # Check that the files from the package ended up in the right place
       assert(File.exist?(File.join(testroot2, 'home', 'tpkg', 'file')))
     end
-    
+
     # Pass a nil passphrase to unpack and verify that it installs the
     # package, skipping the unencrypted files
     Dir.mktmpdir('testroot') do |testroot|
@@ -68,7 +68,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
       assert(File.exist?(File.join(testroot, 'home', 'tpkg', 'file')))
       assert(!File.exist?(File.join(testroot, 'home', 'tpkg', 'encfile')))
     end
-    
+
     # Test permissions with no default permissions specified in tpkg.xml
     # The stock test package has default permissions specified, so start
     # with the -nofiles template which doesn't have default permissions.
@@ -112,7 +112,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
       assert_equal(0755, File.stat(File.join(testroot, 'home', 'tpkg', 'etc')).mode & 07777)
     end
     FileUtils.rm_f(pkg)
-    
+
     # Test file_defaults and dir_defaults usage in a package
     pkg = nil
     Dir.mktmpdir('srcdir') do |srcdir|
@@ -165,7 +165,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
       end
     end
     FileUtils.rm_f(pkg)
-    
+
     # Test that applying standard default permissions works in the face of
     # symlinks in the package
     pkg = nil
@@ -195,7 +195,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
       assert_equal(Tpkg::DEFAULT_DIR_PERMS, File.stat(File.join(testbase, 'dir')).mode & 07777)
     end
     FileUtils.rm_f(pkg)
-    
+
     # Test that applying specified default permissions works in the face of
     # symlinks in the package
     pkg = nil
@@ -251,7 +251,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
       end
     end
     FileUtils.rm_f(pkg)
-    
+
     # Test that symlinks are not followed when applying permissions to
     # specific files
     pkg = nil
@@ -292,7 +292,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
       end
     end
     FileUtils.rm_f(pkg)
-    
+
     # Test that preinstall/postinstall are run at the right points
     #   Make up a package with scripts that create files so we can check timestamps
     # Also, test that tpkg will chdir to package unpack directory before
@@ -302,12 +302,12 @@ class TpkgUnpackTests < Test::Unit::TestCase
     Dir.mktmpdir('srcdir') do |srcdir|
       # Include the stock test package contents
       system("#{Tpkg::find_tar} -C #{TESTPKGDIR} --exclude .svn -cf - . | #{Tpkg::find_tar} -C #{srcdir} -xf -")
-      
+
       # Add some dummy file for testing relative path
       File.open(File.join(srcdir, "dummyfile"), 'w') do |file|
         file.puts("hello world")
       end
-      
+
       # Then add scripts
       ['preinstall', 'postinstall'].each do |script|
         File.open(File.join(srcdir, script), 'w') do |scriptfile|
@@ -387,7 +387,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
     FileUtils.rm_f(pkg)
     FileUtils.rm_f(pkg2)
     FileUtils.rm_f(pkg3)
-    
+
     # Test external handling
     extname = 'testext'
     extdata = "This is a test of an external hook\nwith multiple lines\nof data"
@@ -418,7 +418,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
       assert_equal(extdata, IO.read(exttmpfile.path))
     end
     FileUtils.rm_f(pkg)
-    
+
     # Test handling of external with datafile
     extname = 'testext'
     extdata = "This is a test of an external hook\nwith multiple lines\nof data from a datafile"
@@ -454,7 +454,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
       assert_equal(extdata, IO.read(exttmpfile.path))
     end
     FileUtils.rm_f(pkg)
-    
+
     # Test handling of external with datascript
     extname = 'testext'
     extdata = "This is a test of an external hook\nwith multiple lines\nof data from a datascript"
@@ -493,48 +493,48 @@ class TpkgUnpackTests < Test::Unit::TestCase
       assert_equal(extdata, IO.read(exttmpfile.path))
     end
     FileUtils.rm_f(pkg)
-    
+
     # Test that existing files/directories' perm and ownership are preserved
     # unless specified by user
     Dir.mktmpdir('testroot') do |testroot|
       FileUtils.mkdir_p(File.join(testroot, 'home', 'tpkg'))
       FileUtils.mkdir_p(File.join(testroot, 'etc'))
       tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [@pkgfile])
-      
+
       # set up 2 existing files for the test
       File.open(File.join(testroot, 'home', 'tpkg', 'file'), 'w') do |file|
         file.puts "Hello"
       end
       #system("chmod 707 #{File.join(testroot, 'home', 'tpkg', 'file')}")
       File.chmod(0707, File.join(testroot, 'home', 'tpkg', 'file'))
-      
+
       File.open(File.join(testroot, 'etc', 'rootfile'), 'w') do |file|
         file.puts "Hello"
       end
       File.chmod(0707, File.join(testroot, 'etc', 'rootfile'))
   #    system("chmod 707 #{File.join(testroot, 'etc', 'rootfile')}")
-      
+
       assert_nothing_raised { tpkg.unpack(@pkgfile, :passphrase => PASSPHRASE) }
-      
+
       # This file should have the default 0444 perms
       # but the file already exists. So it should keep its old perms, which is 707
       assert(File.exist?(File.join(testroot, 'home', 'tpkg', 'file')))
       assert_equal(0707, File.stat(File.join(testroot, 'home', 'tpkg', 'file')).mode & 07777)
-      
+
       # Even if this file exists, we specifically set the perm. So the perm should be set to what
       # we want
       assert(File.exist?(File.join(testroot, 'etc', 'rootfile')))
       assert_equal(0666, File.stat(File.join(testroot, 'etc', 'rootfile')).mode & 07777)
     end
   end
-  
+
   # Test that the unpack method calls install_crontabs as appropriate
   def test_unpack_install_crontabs
     # FIXME
   end
-  
+
   # Check that if a config file already existed in the system, then we don't
-  # overwrite it. Instead we save the new one with a .tpkgnew extension. 
+  # overwrite it. Instead we save the new one with a .tpkgnew extension.
   def test_config_files_handling
     pkgfile = nil
     Dir.mktmpdir('srcdir') do |srcdir|
@@ -547,7 +547,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
           file.puts conf
         end
       end
-      pkgfile = make_package(:output_directory => @tempoutdir, :source_directory => srcdir, 
+      pkgfile = make_package(:output_directory => @tempoutdir, :source_directory => srcdir,
                               :files => {'/conf1' => {'config' => true}, '/conf2' => {'config' => true}})
     end
 
@@ -556,7 +556,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
       File.open(File.join(testroot, 'conf1'), 'w') do |file|
         file.puts "Existing conf file"
       end
-      
+
       tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [@pkgfile])
       assert_nothing_raised { tpkg.unpack(pkgfile, :passphrase => PASSPHRASE) }
       assert(File.exists?(File.join(testroot, 'conf1.tpkgnew')))
@@ -571,19 +571,19 @@ class TpkgUnpackTests < Test::Unit::TestCase
       create_metadata_file(File.join(srcdir, 'tpkg.xml'), :change => { 'name' => 'initpkg'  }, :files => { 'etc/init.d/initscript' => { 'init' => {} } })
       metadata = Metadata.new(File.read(File.join(srcdir, 'tpkg.xml')), 'xml')
     end
-    
+
     Dir.mktmpdir('testroot') do |testroot|
       testbase = File.join(testroot, 'home', 'tpkg')
       FileUtils.mkdir_p(testbase)
       tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'))
-      
+
       link = nil
       init_script = nil
       tpkg.init_links(metadata).each do |l, is|
         link = l
         init_script = is
       end
-      
+
       # init_links returns an empty list on platforms where tpkg doesn't have
       # init script support
       if link
@@ -591,7 +591,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
         tpkg.install_init_scripts(metadata)
         assert(File.symlink?(link))
         assert_equal(init_script, File.readlink(link))
-        
+
         # Link already exists, nothing is done
         sleep 2
         beforetime = File.lstat(link).mtime
@@ -599,7 +599,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
         assert(File.symlink?(link))
         assert_equal(init_script, File.readlink(link))
         assert_equal(beforetime, File.lstat(link).mtime)
-        
+
         # Existing files or links up to 8 already exist, link created with appropriate suffix
         File.delete(link)
         File.symlink('somethingelse', link)
@@ -610,12 +610,12 @@ class TpkgUnpackTests < Test::Unit::TestCase
           assert(File.symlink?(link + (i + 1).to_s))
           assert_equal(init_script, File.readlink(link + (i + 1).to_s))
         end
-        
+
         # Existing files or links up to 9 already exist, exception raised
         File.delete(link + '9')
         File.symlink('somethingelse', link + '9')
         assert_raise(RuntimeError) { tpkg.install_init_scripts(metadata) }
-        
+
         # Running as non-root, permissions issues prevent link creation, warning
         FileUtils.rm(Dir.glob(link + '*'))
         File.chmod(0000, File.dirname(link))
@@ -624,7 +624,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
         # FIXME: look for warning in stderr
         assert(!File.exist?(link) && !File.symlink?(link))
         File.chmod(0755, File.dirname(link))
-        
+
         # Running as root, permissions issues prevent link creation, exception raised
         # FIXME: I don't actually know of a way to trigger EACCES in this
         # situation when running as root, and we never run the unit tests as
@@ -635,19 +635,19 @@ class TpkgUnpackTests < Test::Unit::TestCase
   def test_install_init_script
     # FIXME
   end
-  
+
   def test_run_preinstall
     Dir.mktmpdir('testroot') do |testroot|
       testbase = File.join(testroot, 'home', 'tpkg')
       FileUtils.mkdir_p(testbase)
       tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'))
-      
+
       Dir.mktmpdir('test_run_preinstall') do |workdir|
         FileUtils.mkdir(File.join(workdir, 'tpkg'))
-        
+
         # workdir/preinstall doesn't exist, nothing done
         assert_nothing_raised { tpkg.run_preinstall('mypkg.tpkg', workdir) }
-        
+
         # Now test when preinstall does exist
         outputfile = Tempfile.new('test_run_preinstall')
         File.open(File.join(workdir, 'tpkg', 'preinstall'), 'w') do |file|
@@ -667,12 +667,12 @@ class TpkgUnpackTests < Test::Unit::TestCase
         assert_match(/otherfile contents/, File.read(outputfile.path))
         # Verify that our pwd was restored
         assert_equal(pwd, Dir.pwd)
-        
+
         # Ensure that the user is warned of a non-executable script
         File.chmod(0644, File.join(workdir, 'tpkg', 'preinstall'))
         assert_raise(RuntimeError) { tpkg.run_preinstall('mypkg.tpkg', workdir) }
         # FIXME: need to capture stderr to confirm that a warning was displayed
-        
+
         # Verify that by default run_preinstall raises an exception if the script
         # did not run succesfully
         File.open(File.join(workdir, 'tpkg', 'preinstall'), 'w') do |file|
@@ -683,7 +683,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
         assert_raise(RuntimeError) { tpkg.run_preinstall('mypkg.tpkg', workdir) }
         # And verify that our pwd was restored
         assert_equal(pwd, Dir.pwd)
-        
+
         # Verify that run_preinstall only displays a warning if the script
         # did not run succesfully and the user specified the force option.
         tpkgforce = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :force => true)
@@ -694,19 +694,19 @@ class TpkgUnpackTests < Test::Unit::TestCase
       end
     end
   end
-  
+
   def test_run_postinstall
     Dir.mktmpdir('testroot') do |testroot|
       testbase = File.join(testroot, 'home', 'tpkg')
       FileUtils.mkdir_p(testbase)
       tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'))
-      
+
       Dir.mktmpdir('test_run_postinstall') do |workdir|
         FileUtils.mkdir(File.join(workdir, 'tpkg'))
-        
+
         # workdir/postinstall doesn't exist, nothing done
         assert_nothing_raised { tpkg.run_postinstall('mypkg.tpkg', workdir) }
-        
+
         # Now test when postinstall does exist
         outputfile = Tempfile.new('test_run_postinstall')
         File.open(File.join(workdir, 'tpkg', 'postinstall'), 'w') do |file|
@@ -728,12 +728,12 @@ class TpkgUnpackTests < Test::Unit::TestCase
         assert_equal(0, r)
         # Verify that our pwd was restored
         assert_equal(pwd, Dir.pwd)
-        
+
         # Ensure that the user is warned of a non-executable script
         File.chmod(0644, File.join(workdir, 'tpkg', 'postinstall'))
         tpkg.run_postinstall('mypkg.tpkg', workdir)
         # FIXME: need to capture stderr to confirm that a warning was displayed
-        
+
         # Verify that run_postinstall returns Tpkg::POSTINSTALL_ERR if the script
         # did not run succesfully
         File.open(File.join(workdir, 'tpkg', 'postinstall'), 'w') do |file|
@@ -748,19 +748,19 @@ class TpkgUnpackTests < Test::Unit::TestCase
       end
     end
   end
-  
+
   def test_run_externals_for_install
     Dir.mktmpdir('testroot') do |testroot|
       testbase = File.join(testroot, 'home', 'tpkg')
       FileUtils.mkdir_p(testbase)
       tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'))
       tpkg_force = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :force => true)
-      
+
       Dir.mktmpdir('run_externals_for_install') do |workdir|
         FileUtils.mkdir(File.join(workdir, 'tpkg'))
-        
+
         pwd = Dir.pwd
-        
+
         # No metadata[:externals], no problem
         FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(workdir, 'tpkg', 'tpkg.xml'))
         create_metadata_file(File.join(workdir, 'tpkg', 'tpkg.xml'), :change => { 'name' => 'run_externals_for_install'  })
@@ -773,7 +773,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
         metadata[:externals] = []
         assert_nothing_raised { tpkg.run_externals_for_install(metadata, workdir) }
         assert_equal(pwd, Dir.pwd)
-        
+
         # Make up a package metadata with a mix of externals with inline data, a
         # datafile, and a datascript
         output = {}
@@ -802,7 +802,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
         File.chmod(0755, File.join(workdir, 'tpkg', 'datascript'))
         output[scriptextname] = {}
         output[scriptextname][:data] = scriptdata
-        
+
         FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(workdir, 'tpkg', 'tpkg.xml'))
         create_metadata_file(File.join(workdir, 'tpkg', 'tpkg.xml'),
                              :change => { 'name' => 'run_externals_for_install'  },
@@ -811,10 +811,10 @@ class TpkgUnpackTests < Test::Unit::TestCase
                                              scriptextname => { 'datascript' => './datascript' } })
         metadata = Metadata.new(File.read(File.join(workdir, 'tpkg', 'tpkg.xml')), 'xml')
         metadata[:filename] = 'test_run_externals_for_install'
-        
+
         # We need a copy of these later
         original_externals = metadata[:externals].collect {|e| e.dup}
-        
+
         # Make external scripts which write the data they receive to temporary
         # files so that we can verify that run_externals_for_install called
         # run_external with the proper parameters.
@@ -830,7 +830,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
           File.chmod(0755, extscript)
           output[extname][:file] = exttmpfile
         end
-        
+
         # Make sure the hash keys we expect are in metadata, so that when we check
         # later that they are gone we know run_externals_for_install removed them.
         fileext = metadata[:externals].find {|e| e[:name] == fileextname}
@@ -839,14 +839,14 @@ class TpkgUnpackTests < Test::Unit::TestCase
         scriptext = metadata[:externals].find {|e| e[:name] == scriptextname}
         assert(scriptext.has_key?(:datascript))
         assert(!scriptext.has_key?(:data))
-        
+
         tpkg.run_externals_for_install(metadata, workdir)
-        
+
         assert_equal(pwd, Dir.pwd)
         output.each do |extname, extinfo|
           assert_equal(extinfo[:data], File.read(extinfo[:file].path))
         end
-        
+
         # Make sure run_externals_for_install performed the expected switcheroo on
         # these hash entries
         fileext = metadata[:externals].find {|e| e[:name] == fileextname}
@@ -855,12 +855,12 @@ class TpkgUnpackTests < Test::Unit::TestCase
         fileext = metadata[:externals].find {|e| e[:name] == scriptextname}
         assert(!scriptext.has_key?(:datascript))
         assert(scriptext.has_key?(:data))
-        
+
         # Cleanup for another run
         output.each do |extname, extinfo|
           File.delete(extinfo[:file].path)
         end
-        
+
         # externals_to_skip skipped
         tpkg.run_externals_for_install(metadata, workdir, [scriptext])
         assert_equal(pwd, Dir.pwd)
@@ -871,7 +871,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
             assert(!File.exist?(extinfo[:file].path))
           end
         end
-        
+
         # Error reading datafile raises exception
         FileUtils.mv(File.join(workdir, 'tpkg', 'datafile'), File.join(workdir, 'datafile'))
         # Previous runs of run_externals_for_install using metadata will have
@@ -885,7 +885,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
         assert_nothing_raised { tpkg_force.run_externals_for_install(metadata, workdir) }
         # Put datafile back
         FileUtils.mv(File.join(workdir, 'datafile'), File.join(workdir, 'tpkg', 'datafile'))
-        
+
         # Error running datascript raises exception
         FileUtils.mv(File.join(workdir, 'tpkg', 'datascript'), File.join(workdir, 'datascript'))
         # Same deal as last test, revert to unmodified copy
@@ -899,7 +899,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
         assert_nothing_raised { tpkg_force.run_externals_for_install(metadata, workdir) }
         # Put datascript back
         FileUtils.mv(File.join(workdir, 'datascript'), File.join(workdir, 'tpkg', 'datascript'))
-        
+
         # Check non-executable datascript permissions case too
         File.chmod(0644, File.join(workdir, 'tpkg', 'datascript'))
         metadata[:externals] = original_externals
@@ -912,7 +912,7 @@ class TpkgUnpackTests < Test::Unit::TestCase
         assert_nothing_raised { tpkg_force.run_externals_for_install(metadata, workdir) }
         # Restore permissions
         File.chmod(0755, File.join(workdir, 'tpkg', 'datascript'))
-        
+
         # Datascript that exits with error raises exception
         File.open(File.join(workdir, 'tpkg', 'datascript'), 'w') do |file|
           file.puts('#!/bin/sh')
@@ -938,36 +938,36 @@ class TpkgUnpackTests < Test::Unit::TestCase
       create_metadata_file(File.join(srcdir, 'tpkg.xml'), :change => { 'name' => 'save_pkg_metadata'  })
       metadata = Metadata.new(File.read(File.join(srcdir, 'tpkg.xml')), 'xml')
     end
-    
+
     Dir.mktmpdir('testroot') do |testroot|
       package_file = '/tmp/save_pkg_metadata-1.0-1.tpkg'
       tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'))
-      
+
       Dir.mktmpdir('workdir') do |workdir|
         FileUtils.cp_r(File.join(TESTPKGDIR, 'reloc'), workdir)
-        
-        # FIXME: add in some test data for these hashes 
+
+        # FIXME: add in some test data for these hashes
         # generate files_info
         files_info = {}
         # generate checksums_of_decrypted_files
         checksums_of_decrypted_files = {}
-        
+
         FileUtils.mkdir_p(File.join(workdir, 'tpkg'))
         File.open(File.join(File.join(workdir, 'tpkg', 'file_metadata.bin')), 'w') do |f|
           filemetadata = Tpkg::get_filemetadata_from_directory(workdir)
           data = filemetadata.to_hash.recursively{|h| h.stringify_keys }
           Marshal::dump(data, f)
         end
-        
+
         tpkg.save_package_metadata(package_file, workdir, metadata, files_info, checksums_of_decrypted_files)
-        
+
         # verify metadata and file_metadata are actually there
         assert(File.exists?(File.join(tpkg.instance_variable_get(:@metadata_directory), 'save_pkg_metadata-1.0-1', 'tpkg.yml')))
         assert(File.exists?(File.join(tpkg.instance_variable_get(:@metadata_directory), 'save_pkg_metadata-1.0-1', 'file_metadata.bin')))
       end
     end
   end
-  
+
   def teardown
     Facter.unstub(:[])
     FileUtils.rm_f(@pkgfile)

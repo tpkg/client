@@ -12,7 +12,7 @@ module Net
 
       # This class encapsulates all operations done by clients on a user's
       # private keys. In practice, the client should never need a reference
-      # to a private key; instead, they grab a list of "identities" (public 
+      # to a private key; instead, they grab a list of "identities" (public
       # keys) that are available from the KeyManager, and then use
       # the KeyManager to do various private key operations using those
       # identities.
@@ -135,7 +135,7 @@ module Net
           if info[:key].nil? && info[:from] == :file
             begin
               info[:key] = KeyFactory.load_private_key(info[:file], options[:passphrase])
-            rescue Exception => e 
+            rescue Exception => e
               raise KeyManagerError, "the given identity is known, but the private key could not be loaded: #{e.class} (#{e.message})"
             end
           end

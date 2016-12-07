@@ -6,16 +6,16 @@ require File.expand_path('tpkgtest', File.dirname(__FILE__))
 
 class TpkgCrontabTests < Test::Unit::TestCase
   include TpkgTests
-  
+
   def setup
     Tpkg::set_prompt(false)
-    
+
     # Pretend to be an OS with cron.d support
     fact = Facter::Util::Fact.new('operatingsystem')
     fact.stubs(:value).returns('RedHat')
     Facter.stubs(:[]).returns(fact)
   end
-  
+
   def test_crontabs
     metadata = nil
     Dir.mktmpdir('srcdir') do |srcdir|
@@ -38,7 +38,7 @@ class TpkgCrontabTests < Test::Unit::TestCase
             {'path'=>'etc/cron.d/crontab', 'crontab'=>{}}
         },
         tpkg.crontabs(metadata))
-      
+
       assert_equal({}, tpkg.crontabs({}))
       assert_equal({}, tpkg.crontabs({:files => {}}))
       assert_equal({}, tpkg.crontabs({:files => {:files => {}}}))
@@ -86,7 +86,7 @@ class TpkgCrontabTests < Test::Unit::TestCase
       tpkg.crontab_destination(
         '/opt/tpkg/etc/cron.d/crontab', {:crontab => {}}))
   end
-  
+
   def test_install_crontabs
     metadata = nil
     Dir.mktmpdir('srcdir') do |srcdir|
@@ -120,12 +120,12 @@ class TpkgCrontabTests < Test::Unit::TestCase
       tpkg = Tpkg.new(:file_system_root => testroot)
       crontab = "#{testroot}/opt/tpkg/etc/cron.d/crontab"
       destination = "#{testroot}/etc/cron.d/crontab"
-      
+
       # Directory for link doesn't exist, directory and link are created
       tpkg.install_crontab_link(metadata, crontab, destination)
       assert(File.symlink?(destination))
       assert_equal(crontab, File.readlink(destination))
-      
+
       # Link already exists, nothing is done
       sleep 2
       beforetime = File.lstat(destination).mtime
@@ -133,7 +133,7 @@ class TpkgCrontabTests < Test::Unit::TestCase
       assert(File.symlink?(destination))
       assert_equal(crontab, File.readlink(destination))
       assert_equal(beforetime, File.lstat(destination).mtime)
-      
+
       # Existing files or links up to 8 already exist, link created with appropriate suffix
       File.delete(destination)
       File.symlink('somethingelse', destination)
@@ -144,7 +144,7 @@ class TpkgCrontabTests < Test::Unit::TestCase
         assert(File.symlink?(destination + (i + 1).to_s))
         assert_equal(crontab, File.readlink(destination + (i + 1).to_s))
       end
-      
+
       # Existing files or links up to 9 already exist, exception raised
       File.delete(destination + '9')
       File.symlink('somethingelse', destination + '9')
@@ -271,14 +271,14 @@ class TpkgCrontabTests < Test::Unit::TestCase
       tpkg = Tpkg.new(:file_system_root => testroot)
       crontab = File.join(testroot, '/opt/tpkg/etc/cron.d/crontab')
       destination = File.join(testroot, '/etc/cron.d/crontab')
-      
+
       # Standard symlink using the base name is removed
       FileUtils.mkdir_p(File.dirname(destination))
       File.symlink(crontab, destination)
       tpkg.remove_crontab_link(metadata, crontab, destination)
       refute File.symlink?(destination)
       refute File.exist?(destination)
-      
+
       # Links with suffixes from 1..9 are removed
       1.upto(9) do |i|
         FileUtils.rm(Dir.glob(destination + '*'))
@@ -297,7 +297,7 @@ class TpkgCrontabTests < Test::Unit::TestCase
           assert_equal('somethingelse', File.readlink(destination + j.to_s))
         end
       end
-      
+
       # Links with suffixes of 0 or 10 are left alone
       File.symlink(crontab, destination + '0')
       File.symlink(crontab, destination + '10')

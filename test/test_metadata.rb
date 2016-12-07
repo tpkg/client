@@ -8,32 +8,32 @@ require 'pathname'
 
 class TpkgMetadataTests < Test::Unit::TestCase
   include TpkgTests
-  
+
   def setup
     Tpkg::set_prompt(false)
-    
+
     # temp dir that will automatically get deleted at end of test run, can be
     # used for storing packages
     @tempoutdir = Dir.mktmpdir('tempoutdir')
-    
+
     # Make up our regular test package
     @pkgfile = make_package
-    
+
     # Copy the package into a directory to test directory-related operations
     @pkgdir = Dir.mktmpdir('pkgdir')
     FileUtils.cp(@pkgfile, @pkgdir)
-    
+
     # Make a test repository
     @testbase = Dir.mktmpdir('testbase')
   end
-  
+
   def test_metadata_from_package
     metadata = Tpkg::metadata_from_package(@pkgfile)
     assert_equal('testpkg', metadata[:name], 'metadata_from_package name')
     assert_equal('1.0', metadata[:version], 'metadata_from_package version')
     assert_equal(File.basename(@pkgfile), metadata[:filename], 'metadata_from_package filename attribute')
   end
-  
+
   # FIXME: Seems a bit odd that this never directly calls
   # metadata_xml_to_hash. Some of this should be moved to
   # test_metadata_from_package and then this converted to test
@@ -62,26 +62,26 @@ class TpkgMetadataTests < Test::Unit::TestCase
       end
     end
     FileUtils.rm_f(pkgfile)
-    
+
     # FIXME
     # Confirm an exception is thrown if a required field is missing
     # Confirm no problem if an optional field is missing
-    
+
     # Check that the array fields are handled properly
     os = ['os1', 'os2', 'os3']
     pkgfile = make_package(:change => {'name' => 'ostest', 'operatingsystem' => os.join(',')})
     metadata = Tpkg::metadata_from_package(pkgfile)
     assert_equal(os, metadata[:operatingsystem])
     FileUtils.rm_f(pkgfile)
-    
+
     arch = ['arch1', 'arch2', 'arch3']
     pkgfile = make_package(:change => {'name' => 'archtest', 'architecture' => arch.join(',')})
     metadata = Tpkg::metadata_from_package(pkgfile)
     assert_equal(arch, metadata[:architecture])
     FileUtils.rm_f(pkgfile)
-    
+
     # FIXME: files
-    
+
     extname = 'testext'
     extdata = "This is a test of parsing an external\nwith multiple lines\nof data"
     pkgfile = make_package(:change => { 'name' => 'externalpkg' }, :externals => { extname => { 'data' => extdata } })
@@ -89,7 +89,7 @@ class TpkgMetadataTests < Test::Unit::TestCase
     assert_equal(extname, metadata[:externals].first[:name])
     assert_equal(extdata, metadata[:externals].first[:data])
     FileUtils.rm_f(pkgfile)
-    
+
     extname = 'testext'
     extdata = "<element>Test external</element>\n<other>with XML data</other>"
     pkgfile = make_package(:change => { 'name' => 'externalpkg' }, :externals => { extname => { 'data' => extdata } })
@@ -98,7 +98,7 @@ class TpkgMetadataTests < Test::Unit::TestCase
     assert_equal(extdata, metadata[:externals].first[:data])
     FileUtils.rm_f(pkgfile)
   end
-  
+
   def test_metadata_from_directory
     metadata = Tpkg::metadata_from_directory(@pkgdir)
     assert_equal(1, metadata.length, 'metadata_from_directory number of results')
@@ -106,7 +106,7 @@ class TpkgMetadataTests < Test::Unit::TestCase
     assert_equal('1.0', metadata.first[:version], 'metadata_from_directory version')
     assert_equal(File.basename(@pkgfile), metadata.first[:filename], 'metadata_from_directory filename attribute')
   end
-  
+
   def test_extract_metadata
     assert_nothing_raised('extract_metadata') { Tpkg::extract_metadata(@pkgdir) }
     # we don't generate metadata.xml anymore
@@ -126,16 +126,16 @@ class TpkgMetadataTests < Test::Unit::TestCase
     assert_equal(1, metadata['testpkg'].size, 'extract_metadata name and count')
     assert_equal(File.basename(@pkgfile), metadata['testpkg'].first[:filename], 'extract_metadata filename attribute')
   end
-  
+
   def test_prep_metadata
     # Add another package in the package directory to make the test a
     # little more realistic
     pkgfile2 = make_package(:change => {'name' => 'testpkg2', 'version' => '2.0'})
     FileUtils.mv(pkgfile2, @pkgdir)
     pkgfile2 = File.join(@pkgdir, File.basename(pkgfile2))
-    
+
     Tpkg::extract_metadata(@pkgdir)
-    
+
     # Source as filename
     Dir.mktmpdir('testbase') do |testbase|
       tpkg = Tpkg.new(:base => testbase, :sources => [@pkgfile])
@@ -149,7 +149,7 @@ class TpkgMetadataTests < Test::Unit::TestCase
       assert_equal(Tpkg::metadata_from_package(@pkgfile)[:name],
                    tpkg.instance_variable_get(:@metadata)['testpkg'].first[:name])
     end
-    
+
     # Source as directory
     Dir.mktmpdir('testbase') do |testbase|
       tpkg = Tpkg.new(:base => testbase, :sources => [@pkgdir])
@@ -158,7 +158,7 @@ class TpkgMetadataTests < Test::Unit::TestCase
       assert_equal(Tpkg::metadata_from_package(@pkgfile)[:name],
                    tpkg.instance_variable_get(:@metadata)['testpkg'].first[:name])
     end
-    
+
     # Source as relative directory
     Dir.mktmpdir('testbase') do |testbase|
       tpkg = Tpkg.new(:base => testbase,
@@ -168,20 +168,20 @@ class TpkgMetadataTests < Test::Unit::TestCase
       assert_equal(Tpkg::metadata_from_package(@pkgfile)[:name],
                    tpkg.instance_variable_get(:@metadata)['testpkg'].first[:name])
     end
-    
+
     # Source as URI
-    
+
     s = WEBrick::HTTPServer.new(:Port => 3500, :DocumentRoot => @pkgdir)
     # There may be an easier way to push WEBrick into the background, but
     # the WEBrick docs are mostly non-existent so I'm taking the quick and
     # dirty route.
     t = Thread.new { s.start }
-    
+
     source = 'http://localhost:3500/'
-    
+
     Dir.mktmpdir('testbase') do |testbase|
       tpkg = Tpkg.new(:base => testbase, :sources => [source])
-      
+
       assert_nothing_raised { tpkg.prep_metadata }
       assert_equal(1, tpkg.instance_variable_get(:@metadata)['testpkg'].length)
       assert_equal(Tpkg::metadata_from_package(@pkgfile)[:name], tpkg.instance_variable_get(:@metadata)['testpkg'].first[:name])
@@ -190,12 +190,12 @@ class TpkgMetadataTests < Test::Unit::TestCase
       pkgs = tpkg.instance_variable_get(:@metadata).collect {|m| m[1]}.flatten
       assert_equal(2, pkgs.length)
     end
-    
+
     # Test when the package directory isn't at the root of the web
     # server hierarchy
     Dir.mkdir(File.join(@pkgdir, 'testdir'))
     FileUtils.mv(File.join(@pkgdir, 'metadata.yml'), File.join(@pkgdir, 'testdir', 'metadata.yml'))
-    
+
     Dir.mktmpdir('testbase') do |testbase|
       # With a trailing / on the URL
       tpkg = Tpkg.new(:base => testbase, :sources => [source + 'testdir/'])
@@ -208,7 +208,7 @@ class TpkgMetadataTests < Test::Unit::TestCase
       end
       assert_equal(2, nonnativepkgs.length)
     end
-    
+
     Dir.mktmpdir('testbase') do |testbase|
       # Without a trailing / on the URL
       tpkg = Tpkg.new(:base => testbase, :sources => [source + 'testdir'])
@@ -221,10 +221,10 @@ class TpkgMetadataTests < Test::Unit::TestCase
       end
       assert_equal(2, nonnativepkgs.length)
     end
-    
+
     s.shutdown
     t.kill
-    
+
     # No exception thrown if source is a non-existent directory
     # FIXME: check stderr for warning
     Dir.mktmpdir('testbase') do |testbase|
@@ -240,7 +240,7 @@ class TpkgMetadataTests < Test::Unit::TestCase
       assert_equal(0, tpkg.instance_variable_get(:@metadata).length)
     end
   end
-  
+
   def test_load_available_packages
     # Add another package in the package directory to make the test a
     # little more realistic
@@ -249,17 +249,17 @@ class TpkgMetadataTests < Test::Unit::TestCase
     pkgfile2 = File.join(@pkgdir, File.basename(pkgfile2))
 
     Tpkg::extract_metadata(@pkgdir)
-    
+
     s = WEBrick::HTTPServer.new(:Port => 3500, :DocumentRoot => @pkgdir)
     # There may be an easier way to push WEBrick into the background, but
     # the WEBrick docs are mostly non-existent so I'm taking the quick and
     # dirty route.
     t = Thread.new { s.start }
-    
+
     Dir.mktmpdir('testbase') do |testbase|
       source = 'http://localhost:3500/'
       tpkg = Tpkg.new(:base => testbase, :sources => [source])
-      
+
       assert_nothing_raised { tpkg.load_available_packages('testpkg') }
       assert_equal(1, tpkg.instance_variable_get(:@available_packages)['testpkg'].length)
       expected = Tpkg::metadata_from_package(@pkgfile)
@@ -267,7 +267,7 @@ class TpkgMetadataTests < Test::Unit::TestCase
       assert_equal(expected.to_hash, actual.to_hash)
       pkgs = tpkg.instance_variable_get(:@available_packages).collect {|m| m[1]}.flatten
       assert_equal(1, pkgs.length)
-      
+
       assert_nothing_raised { tpkg.load_available_packages('testpkg2') }
       assert_equal(1, tpkg.instance_variable_get(:@available_packages)['testpkg2'].length)
       expected = Tpkg::metadata_from_package(pkgfile2)
@@ -275,16 +275,16 @@ class TpkgMetadataTests < Test::Unit::TestCase
       assert_equal(expected.to_hash, actual.to_hash)
       pkgs = tpkg.instance_variable_get(:@available_packages).collect {|m| m[1]}.flatten
       assert_equal(2, pkgs.length)
-      
+
       # Test with a package that isn't available
       assert_nothing_raised { tpkg.load_available_packages('otherpkg') }
       assert_equal(0, tpkg.instance_variable_get(:@available_packages)['otherpkg'].length)
     end
-    
+
     s.shutdown
     t.kill
   end
-  
+
   def test_pkg_for_native_package
     tpkg = Tpkg.new(:base => @testbase)
     name = 'testpkg'
@@ -292,7 +292,7 @@ class TpkgMetadataTests < Test::Unit::TestCase
     package_version = '5.6'
     source = :native_installed
     pkg = nil
-    
+
     # Test with everything specified
     assert_nothing_raised { pkg = Tpkg.pkg_for_native_package(name, version, package_version, source) }
     assert_equal(name, pkg[:metadata][:name])
@@ -301,7 +301,7 @@ class TpkgMetadataTests < Test::Unit::TestCase
     assert_equal(source, pkg[:source])
     # If source == :native_installed the :prefer flag should be set
     assert_equal(true, pkg[:prefer])
-    
+
     # Test with package_version not specified, it should be optional
     assert_nothing_raised { pkg = Tpkg.pkg_for_native_package(name, version, nil, source) }
     assert_equal(name, pkg[:metadata][:name])
@@ -309,7 +309,7 @@ class TpkgMetadataTests < Test::Unit::TestCase
     assert_equal(nil, pkg[:metadata][:package_version])
     assert_equal(source, pkg[:source])
     assert_equal(true, pkg[:prefer])
-    
+
     # Test with source == :native_available, :prefer flag should not be set
     assert_nothing_raised { pkg = Tpkg.pkg_for_native_package(name, version, package_version, :native_available) }
     assert_equal(name, pkg[:metadata][:name])
@@ -318,7 +318,7 @@ class TpkgMetadataTests < Test::Unit::TestCase
     assert_equal(:native_available, pkg[:source])
     assert_equal(nil, pkg[:prefer])
   end
-  
+
   def test_get_pkgs_metadata_from_yml_doc
     metadatayaml = <<YAML
 ---
@@ -337,7 +337,7 @@ version: 1
 maintainer: otheruser@example.com
 description: Package two
 YAML
-    
+
     metadata = Metadata.get_pkgs_metadata_from_yml_doc(metadatayaml)
     # Right overall data structure?
     assert_kind_of(Hash, metadata)
@@ -354,7 +354,7 @@ YAML
     pkgtwo = metadata['pkgtwo'].shift
     assert_kind_of(Metadata, pkgtwo)
     assert_equal('pkgtwo', pkgtwo[:name])
-    
+
     # Test the side-effect use case
     metadata = {}
     boguskey = 'Some bogus junk'
@@ -372,7 +372,7 @@ YAML
     assert_kind_of(Metadata, pkgtwo)
     assert_equal('pkgtwo', pkgtwo[:name])
   end
-  
+
   def test_instantiate_from_dir
     Dir.mktmpdir('pkgdir') do |pkgdir|
       yaml = <<YAML
@@ -388,7 +388,7 @@ YAML
       assert_kind_of(Metadata, metadata)
       assert_equal('pkgone', metadata[:name])
     end
-    
+
     Dir.mktmpdir('pkgdir') do |pkgdir|
       xml = <<XML
 <tpkg>
@@ -406,7 +406,7 @@ XML
       assert_equal('pkgone', metadata[:name])
     end
   end
-  
+
   def test_initialize
     yaml = <<YAML
 name: pkgone
@@ -414,20 +414,20 @@ version: 1
 maintainer: test@example.com
 description: Package one
 YAML
-    
+
     metadata = Metadata.new(yaml, 'yml')
     assert_equal(yaml, metadata.text)
     assert_equal('yml', metadata.format)
     assert_equal(nil, metadata.file)
     assert_equal(nil, metadata.source)
-    
+
     file = Tempfile.new('metadata').path
     metadata = Metadata.new(yaml, 'yml', file)
     assert_equal(yaml, metadata.text)
     assert_equal('yml', metadata.format)
     assert_equal(file, metadata.file)
     assert_equal(nil, metadata.source)
-    
+
     source = 'http://example.com/tpkg/'
     metadata = Metadata.new(yaml, 'yml', file, source)
     assert_equal(yaml, metadata.text)
@@ -435,7 +435,7 @@ YAML
     assert_equal(file, metadata.file)
     assert_equal(source, metadata.source)
   end
-  
+
   def test_square_brackets
     # This method is just a convenience proxy for to_hash, so only minimal
     # testing is called for here
@@ -448,7 +448,7 @@ dependencies:
 - name: dep1
 - name: dep2
 YAML
-    
+
     metadata = Metadata.new(yaml, 'yml')
     assert_equal('pkgone', metadata[:name])
     assert_equal(1, metadata[:version])
@@ -456,7 +456,7 @@ YAML
                   {'name'=>'dep2', 'type'=>:tpkg}],
                  metadata[:dependencies])
   end
-  
+
   def test_square_brackets_assign
     # This method is just a convenience proxy for to_hash, so only minimal
     # testing is called for here
@@ -466,7 +466,7 @@ version: 1
 maintainer: test@example.com
 description: Package one
 YAML
-    
+
     metadata = Metadata.new(yaml, 'yml')
     metadata[:name] = 'pkgtwo'
     assert_equal('pkgtwo', metadata[:name])
@@ -478,11 +478,11 @@ YAML
                   {'name'=>'dep2', 'type'=>:tpkg}],
                  metadata[:dependencies])
   end
-  
+
   def test_to_hash
     # FIXME
   end
-  
+
   def test_write
     Dir.mktmpdir('outputdir') do |outputdir|
       yaml = <<YAML
@@ -507,7 +507,7 @@ YAML
       assert(filelines.include?('description: Package one'))
       assert_equal(5, filelines.length)
     end
-    
+
     Dir.mktmpdir('outputdir') do |outputdir|
       xml = <<XML
 <tpkg>
@@ -538,7 +538,7 @@ XML
       assert_equal(6, filelines.length)
     end
   end
-  
+
   def test_add_tpkg_version
     # yaml, no version, from file
     yaml = <<YAML
@@ -553,14 +553,14 @@ YAML
       end
       metadata = Metadata.instantiate_from_dir(pkgdir)
       metadata.add_tpkg_version(Tpkg::VERSION)
-      
+
       # Added to in-memory data
       assert_equal(Tpkg::VERSION, metadata[:tpkg_version])
       # File updated
       new_metadata = Metadata.instantiate_from_dir(pkgdir)
       assert_equal(Tpkg::VERSION, new_metadata[:tpkg_version])
     end
-    
+
     # yaml, correct version, from file
     yaml_with_correct_version = <<YAML
 name: pkgone
@@ -575,14 +575,14 @@ YAML
       end
       metadata = Metadata.instantiate_from_dir(pkgdir)
       metadata.add_tpkg_version(Tpkg::VERSION)
-      
+
       # In-memory data still correct
       assert_equal(Tpkg::VERSION, metadata[:tpkg_version])
       # File still correct
       new_metadata = Metadata.instantiate_from_dir(pkgdir)
       assert_equal(Tpkg::VERSION, new_metadata[:tpkg_version])
     end
-    
+
     # yaml, incorrect version, from file
     yaml_with_incorrect_version = <<YAML
 name: pkgone
@@ -597,7 +597,7 @@ YAML
       end
       metadata = Metadata.instantiate_from_dir(pkgdir)
       metadata.add_tpkg_version(Tpkg::VERSION)
-      
+
       # Version mismatch results in warning
       # FIXME, how to check for warning?
       # In-memory data remains incorrect
@@ -606,13 +606,13 @@ YAML
       new_metadata = Metadata.instantiate_from_dir(pkgdir)
       assert_equal(0, new_metadata[:tpkg_version])
     end
-    
+
     # yaml, no version, from string
     metadata = Metadata.new(yaml, 'yml')
     metadata.add_tpkg_version(Tpkg::VERSION)
     # Added to in-memory data
     assert_equal(Tpkg::VERSION, metadata[:tpkg_version])
-    
+
     # xml, no version, from file
     xml = <<XML
 <tpkg>
@@ -628,7 +628,7 @@ XML
       end
       metadata = Metadata.instantiate_from_dir(pkgdir)
       metadata.add_tpkg_version(Tpkg::VERSION)
-      
+
       # Added to in-memory data
       assert_equal(Tpkg::VERSION, metadata[:tpkg_version])
       # File updated
@@ -636,7 +636,7 @@ XML
       assert_equal(Tpkg::VERSION, new_metadata[:tpkg_version])
       # FIXME: verify still complies with DTD?
     end
-    
+
     # xml, correct version, from file
     xml_with_correct_version = <<XML
 <tpkg>
@@ -653,7 +653,7 @@ XML
       end
       metadata = Metadata.instantiate_from_dir(pkgdir)
       metadata.add_tpkg_version(Tpkg::VERSION)
-      
+
       # In-memory data still correct
       assert_equal(Tpkg::VERSION, metadata[:tpkg_version])
       # File still correct
@@ -661,7 +661,7 @@ XML
       assert_equal(Tpkg::VERSION, new_metadata[:tpkg_version])
       # FIXME: verify still complies with DTD?
     end
-    
+
     # xml, incorrect version, from file
     xml_with_incorrect_version = <<XML
 <tpkg>
@@ -678,7 +678,7 @@ XML
       end
       metadata = Metadata.instantiate_from_dir(pkgdir)
       metadata.add_tpkg_version(Tpkg::VERSION)
-      
+
       # Version mismatch results in warning
       # FIXME, how to check for warning?
       # In-memory data remains incorrect
@@ -687,30 +687,30 @@ XML
       new_metadata = Metadata.instantiate_from_dir(pkgdir)
       assert_equal('0', new_metadata[:tpkg_version])
     end
-    
+
     # xml, no version, from string
     metadata = Metadata.new(xml, 'xml')
     metadata.add_tpkg_version(Tpkg::VERSION)
     # Added to in-memory data
     assert_equal(Tpkg::VERSION, metadata[:tpkg_version])
   end
-  
+
   def test_generate_package_filename
     # FIXME
   end
-  
+
   def test_validate
     # FIXME
   end
-  
+
   def test_verify_yaml
     # FIXME
   end
-  
+
   def test_verify_required_fields
     # FIXME
   end
-  
+
   def test_get_native_deps
     # Metadata with no dependencies
     yaml = <<YAML
@@ -761,7 +761,7 @@ YAML
                       {'name'=>'nativedep2', 'native'=>true, 'type'=>:native}],
                      metadata.get_native_deps)
   end
-  
+
   def test_init_scripts
     # FIXME
   end
@@ -795,7 +795,7 @@ YAML
     FileUtils.rm_f(pkg)
     FileUtils.rm_f(pkg2)
   end
-  
+
   def teardown
     FileUtils.rm_f(@pkgfile)
     FileUtils.rm_rf(@pkgdir)

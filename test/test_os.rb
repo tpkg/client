@@ -9,11 +9,11 @@ end
 
 class TpkgOSTests < Test::Unit::TestCase
   include TpkgTests
-  
+
   def setup
     @os = Tpkg::OS.new
   end
-  
+
   def test_register_implementation
     Tpkg::OS.register_implementation(Tpkg::OS::TestImplementation)
     assert_includes Tpkg::OS.class_variable_get(:@@implementations), Tpkg::OS::TestImplementation
@@ -36,7 +36,7 @@ class TpkgOSTests < Test::Unit::TestCase
       assert Facter.collection.loader.instance_variable_get(:@loaded_all)
     end
   end
-  
+
   def test_init_links
     # assert_raise(NotImplementedError) { @os.init_links('/path/to/init/script', {:init => {}}) }
     assert_equal [], @os.init_links('/path/to/init/script', {:init => {}})
@@ -68,20 +68,20 @@ class TpkgOSTests < Test::Unit::TestCase
     verfact.stubs(:value).returns('1.2.3')
     Facter.expects(:[]).with('operatingsystemrelease').returns(verfact).at_least_once
     assert_equal '1.2.3', @os.os_version
-    
+
     # Muck with the returned variable and ensure that doesn't stick.  I.e.
     # ensure that the method called dup on the string before returning it.
     ver = @os.os_version
     goodver = ver.dup
     ver << 'junk'
     assert_equal(goodver, @os.os_version)
-    
+
   end
   def test_native_pkg_to_install_string
     assert_equal 'pkg-1.0-1', @os.native_pkg_to_install_string({:metadata => {:name => 'pkg', :version => '1.0', :package_version => '1'}})
     assert_equal 'pkg-1.0', @os.native_pkg_to_install_string({:metadata => {:name => 'pkg', :version => '1.0'}})
   end
-  
+
   def test_os
     osfact = Facter::Util::Fact.new('operatingsystem')
     osfact.stubs(:value).returns('TestOS')
@@ -90,7 +90,7 @@ class TpkgOSTests < Test::Unit::TestCase
     verfact.stubs(:value).returns('1.2.3')
     Facter.expects(:[]).with('operatingsystemrelease').returns(verfact).at_least_once
     assert_equal 'TestOS-1.2.3', @os.os
-    
+
     # Muck with the returned variable and ensure that doesn't stick.  I.e.
     # ensure that the method called dup on the string before returning it.
     os = @os.os
@@ -103,7 +103,7 @@ class TpkgOSTests < Test::Unit::TestCase
     osfact.stubs(:value).returns('TestOS')
     Facter.expects(:[]).with('operatingsystem').returns(osfact).at_least_once
     assert_equal 'TestOS', @os.os_name
-    
+
     # Muck with the returned variable and ensure that doesn't stick.  I.e.
     # ensure that the method called dup on the string before returning it.
     name = @os.os_name
@@ -116,7 +116,7 @@ class TpkgOSTests < Test::Unit::TestCase
     hwfact.stubs(:value).returns('i286')
     Facter.expects(:[]).with('hardwaremodel').returns(hwfact).at_least_once
     assert_equal 'i286', @os.arch
-    
+
     # Muck with the returned variable and ensure that doesn't stick.  I.e.
     # ensure that the method called dup on the string before returning it.
     arch = @os.arch
@@ -145,7 +145,7 @@ class TpkgOSTests < Test::Unit::TestCase
   def test_sudo_default
     assert @os.sudo_default?
   end
-  
+
   def test_sys_v_init_links
     installed_path = '/path/to/init/script'
     tpkgfile = {
@@ -158,7 +158,7 @@ class TpkgOSTests < Test::Unit::TestCase
        '/etc/rc.d/rc2.d/S99script',
        '/etc/rc.d/rc3.d/S99script'],
       @os.sys_v_init_links(installed_path, tpkgfile, default_levels, init_directory))
-    
+
     tpkgfile = {
       :init => {
         :start => '98'
@@ -169,7 +169,7 @@ class TpkgOSTests < Test::Unit::TestCase
        '/etc/rc.d/rc2.d/S98script',
        '/etc/rc.d/rc3.d/S98script'],
       @os.sys_v_init_links(installed_path, tpkgfile, default_levels, init_directory))
-    
+
     tpkgfile = {
       :init => {
         :levels => ['1', '2']
@@ -179,7 +179,7 @@ class TpkgOSTests < Test::Unit::TestCase
       ['/etc/rc.d/rc1.d/S99script',
        '/etc/rc.d/rc2.d/S99script'],
       @os.sys_v_init_links(installed_path, tpkgfile, default_levels, init_directory))
-    
+
     tpkgfile = {
       :init => {
         :levels => '13'

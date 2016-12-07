@@ -6,11 +6,11 @@ require File.expand_path('tpkgtest', File.dirname(__FILE__))
 
 class TpkgTarTests < Test::Unit::TestCase
   include TpkgTests
-  
+
   def setup
     Tpkg.set_prompt(false)
   end
-  
+
   def test_find_tar
     # Verify that find_tar finds GNU tar or bsdtar
     good_tar = false
@@ -22,8 +22,8 @@ class TpkgTarTests < Test::Unit::TestCase
         end
       end
     end
-    assert(good_tar, 'find_tar returns GNU tar or bsdtar')    
-    
+    assert(good_tar, 'find_tar returns GNU tar or bsdtar')
+
     # Muck with ENV['PATH'] and verify that find_tar throws an exception
     oldpath = ENV['PATH']
     begin
@@ -33,13 +33,13 @@ class TpkgTarTests < Test::Unit::TestCase
     ensure
       ENV['PATH'] = oldpath
     end
-    
+
     # Muck with the returned variable and ensure that doesn't stick
     tar = Tpkg.find_tar
     goodtar = tar.dup
     tar << 'junk'
     assert_equal(goodtar, Tpkg.find_tar)
-    
+
     # Verify that the returned path is wrapped in quotes if it contains spaces
     testdirtmp = Tempfile.new('tpkgtest')
     testdir = testdirtmp.path
@@ -78,7 +78,7 @@ class TpkgTarTests < Test::Unit::TestCase
     end
     Tpkg.clear_cached_tar
   end
-  
+
   def test_clear_cached_tar
     tar = Tpkg.find_tar
     Tpkg.clear_cached_tar

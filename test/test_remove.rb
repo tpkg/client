@@ -9,11 +9,11 @@ class TpkgRemoveTests < Test::Unit::TestCase
 
   def setup
     Tpkg::set_prompt(false)
-    
+
     # temp dir that will automatically get deleted at end of test run, can be
     # used for storing packages
     @tempoutdir = Dir.mktmpdir('tempoutdir')
-    
+
     # Pretend to be an OS with init script support
     fact = Facter::Util::Fact.new('operatingsystem')
     fact.stubs(:value).returns('RedHat')
@@ -31,11 +31,11 @@ class TpkgRemoveTests < Test::Unit::TestCase
     Dir.mktmpdir('testbase') do |testbase|
       tpkg = Tpkg.new(:base => testbase, :sources => pkgfiles)
       assert_nothing_raised { tpkg.install(pkgfiles, PASSPHRASE) }
-      
+
       # a, b, c and d are installed
       metadata = tpkg.metadata_for_installed_packages
       assert_equal(4, metadata.length)
-      
+
       # removing a with :remove_all_dep option should remove b, c and d as well
       assert_nothing_raised { tpkg.remove(['a'], {:remove_all_dep => true})}
       metadata = tpkg.metadata_for_installed_packages
@@ -56,11 +56,11 @@ class TpkgRemoveTests < Test::Unit::TestCase
     Dir.mktmpdir('testbase') do |testbase|
       tpkg = Tpkg.new(:base => testbase, :sources => pkgfiles)
       assert_nothing_raised { tpkg.install(pkgfiles, PASSPHRASE) }
-      
+
       # a, b, c, d and e are installed
       metadata = tpkg.metadata_for_installed_packages
       assert_equal(5, metadata.length)
-      
+
       # removing d with :remove_all_prereq option should remove d and b only and not c and a because
       # e still depends on c
       assert_nothing_raised { tpkg.remove(['d'], {:remove_all_prereq => true})}
@@ -68,7 +68,7 @@ class TpkgRemoveTests < Test::Unit::TestCase
       assert_equal(3, metadata.length)
     end
   end
-  
+
   def test_remove
     pkgfiles = []
     # Make up a couple of packages with different files in them so that
@@ -86,25 +86,25 @@ class TpkgRemoveTests < Test::Unit::TestCase
         pkgfiles << make_package(:output_directory => @tempoutdir, :change => {'name' => pkgname}, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture'], :files => { "directory/#{pkgname}.conf" => { 'config' => true}})
       end
     end
-    
+
     Dir.mktmpdir('testroot') do |testroot|
       testbase = File.join(testroot, 'home', 'tpkg')
       FileUtils.mkdir_p(testbase)
       tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => pkgfiles)
-      
+
       tpkg.install(['a', 'b'], PASSPHRASE)
-      
+
       assert_nothing_raised { tpkg.remove(['a']) }
-      
+
       assert(!File.exist?(File.join(testbase, 'directory', 'a')))
       assert(File.exist?(File.join(testbase, 'directory', 'b')))
-      
+
       assert_nothing_raised { tpkg.remove(['b']) }
-      
+
       assert(!File.exist?(File.join(testbase, 'directory', 'b')))
       assert(!File.exist?(File.join(testbase, 'directory')))
       assert(File.exist?(File.join(testbase)))
-      
+
       # Test that we can use package filename for remove
       tpkg.install(['a', 'b'], PASSPHRASE)
       filenames = pkgfiles.collect{ |pkgfile| File.basename(pkgfile)}
@@ -113,14 +113,14 @@ class TpkgRemoveTests < Test::Unit::TestCase
       assert(!File.exist?(File.join(testbase, 'directory', 'b')))
       assert(!File.exist?(File.join(testbase, 'directory')))
       assert(File.exist?(File.join(testbase)))
-      
+
       # Remove a file manually.  tpkg.remove should warn that the file
       # is missing but not abort.
       tpkg.install(['a'], PASSPHRASE)
       File.delete(File.join(testbase, 'directory', 'a'))
       puts "Missing file warning expected here:"
       assert_nothing_raised { tpkg.remove(['a']) }
-      
+
       # Insert another file into the directory.  tpkg.remove should warn
       # that the directory isn't empty but not abort.
       tpkg.install(['a'], PASSPHRASE)
@@ -128,13 +128,13 @@ class TpkgRemoveTests < Test::Unit::TestCase
         file.puts 'junk'
       end
       assert_nothing_raised { tpkg.remove(['a']) }
-      
+
       # Test removing all packages by passing no arguments to remove
       tpkg.install(['a', 'b'], PASSPHRASE)
       assert_nothing_raised { tpkg.remove }
       assert(!File.exist?(File.join(testbase, 'directory', 'a')))
       assert(!File.exist?(File.join(testbase, 'directory', 'b')))
-      
+
       # Test removing config files
       # If config file has been modified, then tpkg should not remove it
       tpkg.install(['a', 'b'], PASSPHRASE)
@@ -145,26 +145,26 @@ class TpkgRemoveTests < Test::Unit::TestCase
       assert(File.exist?(File.join(testbase, 'directory', 'a.conf')))
       assert(!File.exist?(File.join(testbase, 'directory', 'b.conf')))
     end
-    
+
     # Clean up
     pkgfiles.each { |pkgfile| FileUtils.rm_f(pkgfile) }
-    
+
     # Test that preremove/postremove are run at the right points
     #   Make up a package with scripts that create files so we can check timestamps
     # Also, test tpkg should chdir to package unpack directory before calling
     # pre/post/install/remove scripts
     scriptfiles = {}
     pkgfile = nil
-    
+
     Dir.mktmpdir('srcdir') do |srcdir|
       # Include the stock test package contents
       system("#{Tpkg::find_tar} -C #{TESTPKGDIR} --exclude .svn -cf - . | #{Tpkg::find_tar} -C #{srcdir} -xf -")
-      
+
       # Add some dummy file for testing relative path
       File.open(File.join(srcdir, "dummyfile"), 'w') do |file|
         file.puts("hello world")
       end
-      
+
       # Then add scripts
       ['preremove', 'postremove'].each do |script|
         File.open(File.join(srcdir, script), 'w') do |scriptfile|
@@ -188,7 +188,7 @@ class TpkgRemoveTests < Test::Unit::TestCase
       # Change name of package so that the file doesn't conflict with @pkgfile
       pkgfile = make_package(:output_directory => @tempoutdir, :source_directory => srcdir, :change => {'name' => 'scriptpkg'}, :remove => ['operatingsystem', 'architecture'])
     end
-    
+
     # Install the script package
     Dir.mktmpdir('testroot') do |testroot|
       tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => [pkgfile])
@@ -197,7 +197,7 @@ class TpkgRemoveTests < Test::Unit::TestCase
       # FIXME: Need a way to test that the package remove occurred between the two scripts
       assert(File.stat(scriptfiles['preremove'].path).mtime < File.stat(scriptfiles['postremove'].path).mtime)
     end
-    
+
     # Test init script handling
     pkg = nil
     pkg2 = nil
@@ -234,7 +234,7 @@ class TpkgRemoveTests < Test::Unit::TestCase
         assert(!File.exist?(link + '1') && !File.symlink?(link + '1'))
       end
     end
-    
+
     # Test external handling
     extname = 'testext'
     extdata = "This is a test of an external hook\nwith multiple lines\nof data"
@@ -289,7 +289,7 @@ EOF
         assert_equal(2, Dir.entries(externaltestdir).length)
       end
     end
-    
+
     # Test handling of external with datafile
     # The datafile is only read at install, not at remove, so this really
     # doesn't test a unique code path.  Rather it just serves to verify that
@@ -418,7 +418,7 @@ EOF
       end
     end
   end
-  
+
   def test_remove_init_scripts
     metadata = nil
     Dir.mktmpdir('srcdir') do |srcdir|
@@ -426,17 +426,17 @@ EOF
       create_metadata_file(File.join(srcdir, 'tpkg.xml'), :change => { 'name' => 'initpkg'  }, :files => { 'etc/init.d/initscript' => { 'init' => {} } })
       metadata = Metadata.new(File.read(File.join(srcdir, 'tpkg.xml')), 'xml')
     end
-    
+
     Dir.mktmpdir('testroot') do |testroot|
       tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'))
-      
+
       link = nil
       init_script = nil
       tpkg.init_links(metadata).each do |l, is|
         link = l
         init_script = is
       end
-      
+
       # init_links returns an empty list on platforms where tpkg doesn't have
       # init script support
       if link
@@ -445,7 +445,7 @@ EOF
         File.symlink(init_script, link)
         tpkg.remove_init_scripts(metadata)
         assert(!File.exist?(link) && !File.symlink?(link))
-        
+
         # Links with suffixes from 1..9 are removed
         1.upto(9) do |i|
           FileUtils.rm(Dir.glob(link + '*'))
@@ -462,7 +462,7 @@ EOF
             assert_equal('somethingelse', File.readlink(link + j.to_s))
           end
         end
-        
+
         # Links with suffixes of 0 or 10 are left alone
         File.symlink(init_script, link + '0')
         File.symlink(init_script, link + '10')
@@ -471,7 +471,7 @@ EOF
         assert_equal(init_script, File.readlink(link + '0'))
         assert(File.symlink?(link + '10'))
         assert_equal(init_script, File.readlink(link + '10'))
-        
+
         # Running as non-root, permissions issues prevent link removal, warning
         FileUtils.rm(Dir.glob(link + '*'))
         File.symlink(init_script, link)
@@ -484,12 +484,12 @@ EOF
       end
     end
   end
-  
+
   # Test that the remove method calls remove_crontabs as appropriate
   def test_remove_remove_crontabs
     # FIXME
   end
-  
+
   def test_skip_remove_stop
     # Make a test package with an init script
     pkg = nil
@@ -509,7 +509,7 @@ EOF
       File.chmod(0755, initscript)
       pkg = make_package(:output_directory => @tempoutdir, :change => { 'name' => 'initpkg' }, :source_directory => srcdir, :files => { 'myinit' => { 'init' => {} } }, :remove => ['operatingsystem', 'architecture'])
     end
-    
+
     # Removing the package without skip_remove_stop should run the init script
     # with a "stop" argument on package removal
     Dir.mktmpdir('testroot') do |testroot|
@@ -518,10 +518,10 @@ EOF
       tpkg.remove(['initpkg'])
       assert_equal("test_skip_remove_stop\n", File.read(tmpfile.path))
     end
-    
+
     # Clear out the temp file to reset
     File.open(tmpfile.path, 'w') {}
-    
+
     # Removing the package with skip_remove_stop should not run the init
     # script on package removal
     Dir.mktmpdir('testroot') do |testroot|
@@ -531,7 +531,7 @@ EOF
       assert_equal("", File.read(tmpfile.path))
     end
   end
-  
+
   def teardown
     FileUtils.rm_rf(@tempoutdir)
   end

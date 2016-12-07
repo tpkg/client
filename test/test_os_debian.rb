@@ -6,14 +6,14 @@ require File.expand_path('tpkgtest', File.dirname(__FILE__))
 
 class TpkgOSDebianTests < Test::Unit::TestCase
   include TpkgTests
-  
+
   def setup
     @debian = Tpkg::OS::Debian.new(
       :dpkgquerycmd => File.join(TESTCMDDIR, 'debian/dpkg-query'),
       :aptcachecmd => File.join(TESTCMDDIR, 'debian/apt-cache'),
       )
   end
-  
+
   def test_supported
     fact = Facter::Util::Fact.new('operatingsystem')
     Facter.expects(:[]).with('operatingsystem').returns(fact).at_least_once
@@ -88,7 +88,7 @@ class TpkgOSDebianTests < Test::Unit::TestCase
     assert_equal 'testing', Tpkg::OS::Debian.new.os_version
     fact.stubs(:value).returns('testing/unstable')
     assert_equal 'testing', Tpkg::OS::Debian.new.os_version
-    
+
     # Test fallback to lsbdistrelease
     fact = Facter::Util::Fact.new('lsbdistrelease')
     fact.stubs(:value).returns('6.0.7')

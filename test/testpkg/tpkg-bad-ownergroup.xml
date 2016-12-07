@@ -14,7 +14,7 @@
       <posix>
         <owner>baduser</owner>
         <group>badgroup</group>
-        <perms>0444</perms>      
+        <perms>0444</perms>
       </posix>
     </file_defaults>
     <file>

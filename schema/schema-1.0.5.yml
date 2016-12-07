@@ -1,5 +1,5 @@
 type: map
-mapping: 
+mapping:
   "schema_file": { type: text }
   "name": { type: str, required: yes }
   "version": { type: text, required: yes }
@@ -9,9 +9,9 @@ mapping:
   "architecture": { type: seq, sequence: [ {type: str} ] }
   "description": { type: str }
   "bugreporting": { type: str }
-  "dependencies": 
+  "dependencies":
     type: seq
-    sequence: 
+    sequence:
       - type: map
         mapping:
           "name": { type: str, required: yes }
@@ -29,8 +29,8 @@ mapping:
           "name": { type: str, required: yes }
           "minimum_version": { type: text }
           "maximum_version": { type: text }
-          "minimum_package_version": { type: text } 
-          "maximum_package_version": { type: text } 
+          "minimum_package_version": { type: text }
+          "maximum_package_version": { type: text }
           "native": { type: bool }
           "type": { type: any, pattern: /(native|tpkg)$/ }
   "externals":
@@ -78,7 +78,7 @@ mapping:
               "crontab":
                 type: map
                 mapping: { "user": { type: str } }
-              "posix":  
+              "posix":
                 type: map
                 mapping: { "owner": { type: text },
                            "group": { type: text },

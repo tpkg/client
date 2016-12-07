@@ -8,7 +8,7 @@
 # Requires curl in order to work
 
 require 'ping'
-require 'tempfile'  
+require 'tempfile'
 require 'optparse'
 require 'etc'
 require 'uri'
@@ -68,7 +68,7 @@ opts.parse(ARGV)
 
 if cookie_file
   if !File.exists?(cookie_file)
-    puts "Cookie file doesn't exist" 
+    puts "Cookie file doesn't exist"
     exit
   end
 else

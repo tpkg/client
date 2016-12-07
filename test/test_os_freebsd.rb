@@ -6,7 +6,7 @@ require File.expand_path('tpkgtest', File.dirname(__FILE__))
 
 class TpkgOSFreeBSDTests < Test::Unit::TestCase
   include TpkgTests
-  
+
   def setup
     @freebsd = Tpkg::OS::FreeBSD.new(
       :pkginfocmd => File.join(TESTCMDDIR, 'freebsd/pkg_info'),
@@ -20,7 +20,7 @@ class TpkgOSFreeBSDTests < Test::Unit::TestCase
     fact.stubs(:value).returns('9.1-RELEASE')
     Facter.expects(:[]).with('operatingsystemrelease').returns(fact).at_least_once
   end
-  
+
   def test_supported
     fact = Facter::Util::Fact.new('operatingsystem')
     Facter.expects(:[]).with('operatingsystem').returns(fact).at_least_once
@@ -42,7 +42,7 @@ class TpkgOSFreeBSDTests < Test::Unit::TestCase
       assert_equal debugval, freebsd.instance_variable_get(:@debug)
     end
   end
-  
+
   def test_packagesite
     setup_mock_os
     assert_equal 'ftp://ftp.freebsd.org/pub/FreeBSD/ports/i386/packages-9-stable/All/', @freebsd.packagesite

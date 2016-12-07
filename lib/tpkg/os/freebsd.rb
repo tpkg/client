@@ -9,7 +9,7 @@ class Tpkg::OS::FreeBSD < Tpkg::OS
     Facter['operatingsystem'].value == 'FreeBSD'
   end
   register_implementation(self)
-  
+
   def initialize(options={})
     @pkginfocmd = options[:pkginfocmd] || options[:testcmd] || 'pkg_info'
     @pkgaddcmd = options[:pkgaddcmd] || options[:testcmd] || 'pkg_add'
@@ -21,14 +21,14 @@ class Tpkg::OS::FreeBSD < Tpkg::OS
       'ftp://ftp.freebsd.org/pub/FreeBSD/ports/<%= arch %>/packages-<%= os_version %>-stable/All/'
     super
   end
-  
+
   def packagesite
     url = ERB.new(@packagesite).result(binding)
     # pkg_add expects the URL to end with a /
     url << '/' if (url[-1] != '/')
     url
   end
-  
+
   def init_links(installed_path, tpkgfile)
     links = []
     init_directory = '/usr/local/etc/rc.d'
@@ -102,7 +102,7 @@ class Tpkg::OS::FreeBSD < Tpkg::OS
     system(deletecmd)
     system('sh', '-c', addcmd)
   end
-  
+
   def os_version
     if !@os_version
       # Extract 7 from 7.1-RELEASE, for example

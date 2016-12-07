@@ -7,7 +7,7 @@ class Tpkg::OS::Windows < Tpkg::OS
     Facter['operatingsystem'].value == 'windows'
   end
   register_implementation(self)
-  
+
   def os_version
     if !@os_version
       # Extract 6.1 from 6.1.7601, for example
@@ -18,7 +18,7 @@ class Tpkg::OS::Windows < Tpkg::OS
     end
     super
   end
-  
+
   def sudo_default?
     # Neither of the common Windows environments for running Ruby have sudo
     return false

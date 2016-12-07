@@ -17,9 +17,9 @@ require 'mocha/setup'
 Tpkg::set_debug(true) if ENV['debug']
 
 require 'stringio'
- 
+
 module Kernel
- 
+
   def capture_stdout
     out = StringIO.new
     $stdout = out
@@ -28,7 +28,7 @@ module Kernel
   ensure
     $stdout = STDOUT
   end
- 
+
 end
 
 # Ruby 1.8.7 and newer have a Dir.mktmpdir
@@ -63,7 +63,7 @@ unless Dir.respond_to?(:mktmpdir)
         n += 1
         retry
       end
-      
+
       if block_given?
         begin
           yield path
@@ -123,7 +123,7 @@ module TpkgTests
     if options[:externals]
       externals = options[:externals]
     end
-    
+
     # FIXME:  We currently assume the specified filename exists and is a valid
     # template file that we make changes to.  We should create the metadata
     # file from scratch. That would eliminate the need for :remove, which
@@ -139,7 +139,7 @@ module TpkgTests
           line = ''
         end
       end
-      
+
       # Insert dependencies right before the files section
       if line =~ /^\s*<files>/ && !dependencies.empty?
         tpkgdst.puts('  <dependencies>')
@@ -177,7 +177,7 @@ module TpkgTests
         end
         tpkgdst.puts('  </conflicts>')
       end
-      
+
       # Insert externals right before the files section
       if line =~ /^\s*<files>/ && !externals.empty?
         tpkgdst.puts('  <externals>')
@@ -195,7 +195,7 @@ module TpkgTests
         end
         tpkgdst.puts('  </externals>')
       end
-      
+
       # Insert file_defaults settings at the end of the files section
       if line =~ /^\s*<\/files>/ && !file_defaults.empty?
         tpkgdst.puts('    <file_defaults>')
@@ -210,7 +210,7 @@ module TpkgTests
         end
         tpkgdst.puts('    </file_defaults>')
       end
-      
+
       # Insert additional file entries at the end of the files section
       if line =~ /^\s*<\/files>/ && !files.empty?
         files.each do |path, opts|
@@ -255,13 +255,13 @@ module TpkgTests
           tpkgdst.puts('    </file>')
         end
       end
-      
+
       tpkgdst.write(line)
     end
     tpkgdst.close
     File.rename(tpkgdst.path, filename)
   end
-  
+
   # Make up our regular test package, substituting any fields and adding
   # dependencies as requested by the caller
   def make_package(options={})
@@ -277,7 +277,7 @@ module TpkgTests
     if options[:passphrase]
       passphrase = options[:passphrase]
     end
-    
+
     pkgfile = nil
     Dir.mktmpdir('pkgdir') do |pkgdir|
       # Copy package contents into working directory
@@ -285,16 +285,16 @@ module TpkgTests
       create_metadata_file(File.join(pkgdir, 'tpkg.xml'), options)
       pkgfile = Tpkg.make_package(pkgdir, passphrase, options)
     end
-    
+
     # move the pkgfile to designated directory (if user specifies it)
     if output_directory
       FileUtils.mkdir_p(output_directory)
       FileUtils.move(pkgfile, output_directory)
       pkgfile = File.join(output_directory, File.basename(pkgfile))
     end
-    
+
     pkgfile
   end
-  
+
 end
 

@@ -26,7 +26,7 @@ end
 require 'tpkg/thread_pool'
 
 class Deployer
-  
+
   def initialize(options = nil)
     @sudo_pw = nil
     @pw_prompts = {}
@@ -45,15 +45,15 @@ class Deployer
       @ssh_key = options["ssh-key"]
     end
   end
-  
+
   def prompt_username
     ask("Username: ")
   end
-  
+
   def prompt_password
     ask("SSH Password (leave blank if using ssh key): ", true)
   end
-  
+
   def ask(str,mask=false)
     begin
       system 'stty -echo;' if mask
@@ -64,7 +64,7 @@ class Deployer
     end
     return input
   end
-  
+
   def get_sudo_pw
     @mutex.synchronize {
       if @sudo_pw.nil?
@@ -74,7 +74,7 @@ class Deployer
       end
     }
   end
-  
+
   # Prompt user for input and cache it. If in the future, we see
   # the same prompt again, we can reuse the existing inputs. This saves
   # the users from having to type in a bunch of inputs (such as password)
@@ -86,17 +86,17 @@ class Deployer
       return @pw_prompts[prompt]
     }
   end
-  
+
   # Return a block that can be used for executing a cmd on the remote server
   def ssh_execute(server, username, password, key, cmd)
     return lambda {
       exit_status = 0
       result = []
-      
+
       params = {}
       params[:password] = password if password
       params[:keys] = [key] if key
-      
+
       begin
         Net::SSH.start(server, username, params) do |ssh|
           puts "Connecting to #{server}"
@@ -104,11 +104,11 @@ class Deployer
             # now we request a "pty" (i.e. interactive) session so we can send data
             # back and forth if needed. it WILL NOT WORK without this, and it has to
             # be done before any call to exec.
-            
+
             channel.request_pty do |ch_pty, success|
               raise "Could not obtain pty (i.e. an interactive ssh session)" if !success
             end
-            
+
             channel.exec(cmd) do |ch_exec, success|
               puts "Executing #{cmd} on #{server}"
               # 'success' isn't related to bash exit codes or anything, but more
@@ -116,7 +116,7 @@ class Deployer
               # not sure why it would fail at such a basic level, but it seems smart
               # to do something about it.
               abort "could not execute command" unless success
-              
+
               # on_data is a hook that fires when the loop that this block is fired
               # in (see below) returns data. This is what we've been doing all this
               # for; now we can check to see if it's a password prompt, and
@@ -133,11 +133,11 @@ class Deployer
                   result << data unless data.nil? or data.empty?
                 end
               end
-              
+
               channel.on_extended_data do |ch_onextdata, type, data|
                 print "SSH command returned on stderr: #{data}"
               end
-              
+
               channel.on_request "exit-status" do |ch_onreq, data|
                 exit_status = data.read_long
               end
@@ -160,14 +160,14 @@ class Deployer
         puts e.backtrace
         puts "Can't connect to server"
       end
-      
+
       return exit_status
     }
   end
-  
+
   # deploy_params is an array that holds the list of paramters that is used when invoking tpkg on to the remote
   # servers where we want to deploy to.
-  # 
+  #
   # servers is an array, a filename or a callback that list the remote servers where we want to deploy to
   def deploy(deploy_params, servers)
     params = deploy_params.join(" ")
@@ -180,15 +180,15 @@ class Deployer
       cmd = "tpkg #{params} -n"
     end
     user = @user
-    
+
     if @user.nil?  && !@use_ssh_key
       @user = prompt_username
     end
-    
+
     if @password.nil? && !@use_ssh_key
       @password = prompt_password
     end
-    
+
     tp = ThreadPool.new(@max_worker)
     statuses = {}
     deploy_to = []
@@ -205,7 +205,7 @@ class Deployer
     else
       deploy_to = servers
     end
-    
+
     deploy_to.each do | server |
       tp.process do
         status = ssh_execute(server, @user, @password, @ssh_key, cmd).call
@@ -215,7 +215,7 @@ class Deployer
     tp.shutdown
     puts "Exit statuses: "
     puts statuses.inspect
-    
+
     return statuses
   end
 end

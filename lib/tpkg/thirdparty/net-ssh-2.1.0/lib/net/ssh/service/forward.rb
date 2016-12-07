@@ -73,7 +73,7 @@ module Net; module SSH; module Service
         end
 
         prepare_client(client, channel, :local)
-  
+
         channel.on_open_failed do |ch, code, description|
           channel.error { "could not establish direct channel: #{description} (#{code})" }
           channel[:socket].close
@@ -193,7 +193,7 @@ module Net; module SSH; module Service
     end
 
     private
-      
+
       # Perform setup operations that are common to all forwarded channels.
       # +client+ is a socket, +channel+ is the channel that was just created,
       # and +type+ is an arbitrary string describing the type of the channel.
@@ -205,11 +205,11 @@ module Net; module SSH; module Service
         session.listen_to(client)
         channel[:socket] = client
 
-        channel.on_data do |ch, data|  
+        channel.on_data do |ch, data|
           debug { "data:#{data.length} on #{type} forwarded channel" }
           ch[:socket].enqueue(data)
         end
-        
+
         # Handles server close on the sending side by Miklós Fazekas
         channel.on_eof do |ch|
           debug { "eof #{type} on #{type} forwarded channel" }
@@ -228,7 +228,7 @@ module Net; module SSH; module Service
             debug { "enotconn in on_eof => shallowing exception:#{e}" }
           end
         end
-        
+
         channel.on_close do |ch|
           debug { "closing #{type} forwarded channel" }
           ch[:socket].close if !client.closed?

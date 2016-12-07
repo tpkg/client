@@ -6,7 +6,7 @@ require File.expand_path('tpkgtest', File.dirname(__FILE__))
 
 class TpkgConflictTests < Test::Unit::TestCase
   include TpkgTests
-  
+
   def setup
     Tpkg::set_prompt(false)
   end
@@ -15,13 +15,13 @@ class TpkgConflictTests < Test::Unit::TestCase
     Dir.mktmpdir('srcdir') do |srcdir|
       pkgfiles = []
       FileUtils.cp(File.join(TESTPKGDIR, 'tpkg-nofiles.xml'), File.join(srcdir, 'tpkg.xml'))
-      
+
       pkgfiles <<  make_package(:change => { 'name' => 'pkgA', 'version' => '1.0' }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture'], :conflicts => {'pkgB' => {}})
       pkgfiles <<  make_package(:change => { 'name' => 'pkgB', 'version' => '1.0' }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture'])
       pkgfiles <<  make_package(:change => { 'name' => 'pkgC', 'version' => '1.0' }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture'])
       pkgfiles <<  make_package(:change => { 'name' => 'pkgC', 'version' => '2.0' }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture'], :conflicts => {'pkgD' => {}})
       pkgfiles <<  make_package(:change => { 'name' => 'pkgD', 'version' => '1.0' }, :source_directory => srcdir, :remove => ['operatingsystem', 'architecture'])
-      
+
       # Should not be able to install both pkgA and B since A conflicts with B
       Dir.mktmpdir('testroot') do |testroot|
         tpkg = Tpkg.new(:file_system_root => testroot, :base => File.join('home', 'tpkg'), :sources => pkgfiles)
@@ -37,5 +37,5 @@ class TpkgConflictTests < Test::Unit::TestCase
       end
     end
   end
-  
+
 end
