@@ -4159,7 +4159,7 @@ class Tpkg
   # log changes of pkgs that were installed/removed
   def log_changes(options={})
     msg = ""
-    user = Etc.getlogin || Etc.getpwuid(Process.uid).name
+    user = Etc.getpwuid.name
     newly_installed = removed = []
     newly_installed = options[:newly_installed] if options[:newly_installed]
     removed = options[:removed] if options[:removed]
@@ -4178,7 +4178,7 @@ class Tpkg
 
   def send_update_to_server(options={})
     request = {"client"=>os.fqdn}
-    request[:user] = Etc.getlogin || Etc.getpwuid(Process.uid).name
+    request[:user] = Etc.getpwuid.name
     request[:tpkg_home] = ENV['TPKG_HOME']
 
     if options[:currently_installed]

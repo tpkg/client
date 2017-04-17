@@ -21,7 +21,7 @@ tpkg_upload_url = "http://localhost:3000/uploads/create"
 proxy_server = "proxy.local:8080"
 ##########################################################################
 
-username = Etc.getlogin
+username = Etc.getpwuid.name
 password = nil
 files_to_upload = nil
 proxy = ""
