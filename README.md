@@ -13,7 +13,7 @@ across hundreds or thousands of systems.
 
 ## Documentation
 
-http://tpkg.github.com/
+https://tpkg.github.io/
 
 ## Help
 
