@@ -34,7 +34,7 @@ class Deployer
     @max_worker = 4
     @abort_on_failure = false
     @use_ssh_key = false
-    @user = Etc.getlogin
+    @user = Etc.getpwuid.name
     @password = nil
     unless options.nil?
       @user = options["deploy-as"] unless options["deploy-as"].nil?
